@@ -18,7 +18,7 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 index bf07b76c..cb41d9a7 100644
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,6 +29,11 @@
+@@ -29,6 +29,13 @@
        <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
  
 +        <li class="nav-item">
@@ -33,23 +33,88 @@ index bf07b76c..cb41d9a7 100644
            {{-- determine if we should pop a treeview --}}
 diff --git a/src/resources/views/fittings.blade.php b/src/resources/views/fittings.blade.php
 new file mode 100644
-index 00000000..a4a0c62d
+index 00000000..c1a1b2d3
 --- /dev/null
 +++ b/src/resources/views/fittings.blade.php
-@@ -0,0 +1,14 @@
+@@ -0,0 +1,93 @@
 +@extends('web::layouts.grids.12')
 +
 +@section('title', 'Fittings')
 +@section('page_header', 'Fittings')
-+@section('page_description', 'Ship fittings')
++@section('page_description', 'Fittings, home systems, and deployment systems')
 +
 +@section('full')
 +  <div class="card">
-+    <div class="card-header">
-+      <h3 class="card-title">Fittings</h3>
++    <div class="card-header p-0">
++      <ul class="nav nav-tabs" role="tablist">
++        <li class="nav-item">
++          <a class="nav-link active" id="fittings-tab-link" data-toggle="tab" href="#fittings-tab" role="tab" aria-controls="fittings-tab" aria-selected="true">Fittings</a>
++        </li>
++        <li class="nav-item">
++          <a class="nav-link" id="home-system-tab-link" data-toggle="tab" href="#home-system-tab" role="tab" aria-controls="home-system-tab" aria-selected="false">Home System</a>
++        </li>
++        <li class="nav-item">
++          <a class="nav-link" id="deployment-system-tab-link" data-toggle="tab" href="#deployment-system-tab" role="tab" aria-controls="deployment-system-tab" aria-selected="false">Deployment System</a>
++        </li>
++      </ul>
 +    </div>
 +    <div class="card-body">
-+      <p>The Fittings section is ready. Fitting pages and functionality can be added here next.</p>
++      <div class="tab-content">
++        <div class="tab-pane fade show active" id="fittings-tab" role="tabpanel" aria-labelledby="fittings-tab-link">
++          <h3>Fittings</h3>
++          <p>This tab is ready for the fitting pages and functionality.</p>
++        </div>
++        <div class="tab-pane fade" id="home-system-tab" role="tabpanel" aria-labelledby="home-system-tab-link">
++          <h3>Home System Shopping Lists</h3>
++          @include('web::partials.fittings-shopping-lists', ['prefix' => 'home'])
++        </div>
++        <div class="tab-pane fade" id="deployment-system-tab" role="tabpanel" aria-labelledby="deployment-system-tab-link">
++          <h3>Deployment System Shopping Lists</h3>
++          @include('web::partials.fittings-shopping-lists', ['prefix' => 'deployment'])
++        </div>
++      </div>
 +    </div>
 +  </div>
 +@endsection
+diff --git a/src/resources/views/partials/fittings-shopping-lists.blade.php b/src/resources/views/partials/fittings-shopping-lists.blade.php
+new file mode 100644
+index 00000000..d4b81c0a
+--- /dev/null
++++ b/src/resources/views/partials/fittings-shopping-lists.blade.php
+@@ -0,0 +1,48 @@
++<ul class="nav nav-tabs mt-3" role="tablist">
++  <li class="nav-item">
++    <a class="nav-link active" id="{{ $prefix }}-hulls-link" data-toggle="tab" href="#{{ $prefix }}-hulls" role="tab" aria-controls="{{ $prefix }}-hulls" aria-selected="true">Hulls</a>
++  </li>
++  <li class="nav-item">
++    <a class="nav-link" id="{{ $prefix }}-modules-link" data-toggle="tab" href="#{{ $prefix }}-modules" role="tab" aria-controls="{{ $prefix }}-modules" aria-selected="false">Modules</a>
++  </li>
++  <li class="nav-item">
++    <a class="nav-link" id="{{ $prefix }}-rigs-link" data-toggle="tab" href="#{{ $prefix }}-rigs" role="tab" aria-controls="{{ $prefix }}-rigs" aria-selected="false">Rigs</a>
++  </li>
++  <li class="nav-item">
++    <a class="nav-link" id="{{ $prefix }}-consumables-link" data-toggle="tab" href="#{{ $prefix }}-consumables" role="tab" aria-controls="{{ $prefix }}-consumables" aria-selected="false">Consumables</a>
++  </li>
++</ul>
++<div class="tab-content pt-3">
++  @foreach (['hulls' => 'Hulls', 'modules' => 'Modules', 'rigs' => 'Rigs', 'consumables' => 'Consumables'] as $key => $label)
++    <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $prefix }}-{{ $key }}" role="tabpanel" aria-labelledby="{{ $prefix }}-{{ $key }}-link">
++      <div class="table-responsive">
++        <table class="table table-striped table-sm">
++          <thead>
++            <tr>
++              <th>Item</th>
++              <th class="text-right">Quantity</th>
++              <th>Notes</th>
++            </tr>
++          </thead>
++          <tbody>
++            <tr>
++              <td colspan="3" class="text-muted">No {{ strtolower($label) }} added to this shopping list yet.</td>
++            </tr>
++          </tbody>
++        </table>
++      </div>
++    </div>
++  @endforeach
++</div>
