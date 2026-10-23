@@ -1,0 +1,27 @@
+[submodule "upstream/seat"]
+	path = upstream/seat
+	url = https://github.com/eveseat/seat.git
+[submodule "upstream/seat-docker"]
+	path = upstream/seat-docker
+	url = https://github.com/eveseat/seat-docker.git
+[submodule "upstream/packages/api"]
+	path = upstream/packages/api
+	url = https://github.com/eveseat/api.git
+[submodule "upstream/packages/console"]
+	path = upstream/packages/console
+	url = https://github.com/eveseat/console.git
+[submodule "upstream/packages/eseye"]
+	path = upstream/packages/eseye
+	url = https://github.com/eveseat/eseye.git
+[submodule "upstream/packages/eveapi"]
+	path = upstream/packages/eveapi
+	url = https://github.com/eveseat/eveapi.git
+[submodule "upstream/packages/notifications"]
+	path = upstream/packages/notifications
+	url = https://github.com/eveseat/notifications.git
+[submodule "upstream/packages/services"]
+	path = upstream/packages/services
+	url = https://github.com/eveseat/services.git
+[submodule "upstream/packages/web"]
+	path = upstream/packages/web
+	url = https://github.com/eveseat/web.git
