@@ -18,7 +18,7 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 index bf07b76c..cb41d9a7 100644
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,6 +29,13 @@
+@@ -29,5 +29,12 @@
        <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
  
 +        <li class="nav-item">
@@ -36,7 +36,7 @@ new file mode 100644
 index 00000000..c1a1b2d3
 --- /dev/null
 +++ b/src/resources/views/fittings.blade.php
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,39 @@
 +@extends('web::layouts.grids.12')
 +
 +@section('title', 'Fittings')
@@ -81,7 +81,7 @@ new file mode 100644
 index 00000000..d4b81c0a
 --- /dev/null
 +++ b/src/resources/views/partials/fittings-shopping-lists.blade.php
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,36 @@
 +<ul class="nav nav-tabs mt-3" role="tablist">
 +  <li class="nav-item">
 +    <a class="nav-link active" id="{{ $prefix }}-hulls-link" data-toggle="tab" href="#{{ $prefix }}-hulls" role="tab" aria-controls="{{ $prefix }}-hulls" aria-selected="true">Hulls</a>
