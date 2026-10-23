@@ -1,17 +1,20 @@
 # SeAT source and deployment
 
-This public repository records the SeAT source revisions used for the Triglavian Consortium deployment and provides a repeatable way to restore them. Upstream SeAT source remains authored and maintained by the EVE SeAT project; `sources.lock.json` pins the exact commits used here.
+This public repository tracks the SeAT source revisions used for the Triglavian Consortium deployment. `sources.lock.json` records the exact upstream commits, and `upstream/` contains Git submodules pinned to those same commits. The source remains authored and maintained by the EVE SeAT project.
 
-## Restore the source set
-
-On a Linux host with Git installed, run:
+## Clone the complete source set
 
 ```sh
-git clone https://github.com/bfkerfien/rigauth.git
+git clone --recurse-submodules https://github.com/bfkerfien/rigauth.git
+```
+
+This checks out SeAT, SeAT Docker, and the seven official package repositories under `upstream/`. To restore the same revisions into a deployment layout under `/opt/seat-source`, run:
+
+```sh
 cd rigauth
 sudo bash ./restore-seat-source.sh /opt/seat-source
 ```
 
-The script checks out the pinned SeAT, SeAT Docker, and seven official package repositories under `/opt/seat-source`, then writes `seat-docker/packages/override.json` for the Docker development mount. It exits without changing anything if the destination already exists.
+The restore script exits without changing anything if its destination already exists. The package autoload override is saved at `seat-docker/packages/override.json`.
 
 Do not commit a server `.env` file or generated credentials here. Keep deployment secrets on each server.
