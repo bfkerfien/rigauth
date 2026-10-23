@@ -2,10 +2,7 @@ diff --git a/src/resources/views/includes/header.blade.php b/src/resources/views
 index 60f2661a..81d4621f 100644
 --- a/src/resources/views/includes/header.blade.php
 +++ b/src/resources/views/includes/header.blade.php
-@@ -77,15 +77,28 @@
-           </a>
-           <div class="dropdown-divider"></div>
-         @endif
+@@ -80,7 +79,0 @@
 -        <form action="{{ route('seatcore::auth.logout') }}" method="post">
 -          {{ csrf_field() }}
 -          <button type="submit" class="btn btn-link dropdown-item">
@@ -13,9 +10,7 @@ index 60f2661a..81d4621f 100644
 -            {{ trans('web::seat.sign_out') }}
 -          </button>
 -        </form>
-       </div>
-     </li>
- 
+@@ -89,0 +83,20 @@
 +    @if(auth()->user()->name != 'admin')
 +    <li class="nav-item">
 +      <a href="{{ route('seatcore::character.view.sheet', ['character' => auth()->user()->main_character]) }}"
@@ -36,17 +31,11 @@ index 60f2661a..81d4621f 100644
 +      </form>
 +    </li>
 +
-   </ul>
- </nav>
- 
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 index bf07b76c..fb8af2c5 100644
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -9,20 +9,6 @@
-   <!-- sidebar: style can be found in sidebar.less -->
-   <div class="sidebar">
- 
+@@ -12,14 +11,0 @@
 -    <!-- Sidebar user panel -->
 -    @if($user->name != 'admin')
 -    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
@@ -60,7 +49,4 @@ index bf07b76c..fb8af2c5 100644
 -      </div>
 -    </div>
 -    @endif
--
-     <!-- Sidebar Menu -->
-     <nav class="mt-2">
-       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
++
