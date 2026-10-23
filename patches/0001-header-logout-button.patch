@@ -1,8 +1,8 @@
 diff --git a/src/resources/views/includes/header.blade.php b/src/resources/views/includes/header.blade.php
-index 60f2661a..cc488e88 100644
+index 60f2661a..81d4621f 100644
 --- a/src/resources/views/includes/header.blade.php
 +++ b/src/resources/views/includes/header.blade.php
-@@ -77,16 +77,19 @@
+@@ -77,16 +77,29 @@
            </a>
            <div class="dropdown-divider"></div>
          @endif
@@ -16,6 +16,16 @@ index 60f2661a..cc488e88 100644
        </div>
      </li>
  
++    @if(auth()->user()->name != 'admin')
++    <li class="nav-item">
++      <a href="{{ route('seatcore::character.view.sheet', ['character' => auth()->user()->main_character]) }}"
++         class="nav-link d-flex align-items-center" title="{{ auth()->user()->name }}">
++        {!! img('characters', 'portrait', auth()->user()->main_character_id, 32, ['class' => 'img-circle eve-icon small-icon', 'alt' => auth()->user()->name], false) !!}
++        <span class="ml-2">{{ auth()->user()->name }}</span>
++      </a>
++    </li>
++    @endif
++
 +    <li class="nav-item">
 +      <form action="{{ route('seatcore::auth.logout') }}" method="post" class="d-inline">
 +        {{ csrf_field() }}
@@ -28,3 +38,26 @@ index 60f2661a..cc488e88 100644
 +
    </ul>
  </nav>
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+index bf07b76c..fb8af2c5 100644
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -9,20 +9,6 @@
+   <!-- sidebar: style can be found in sidebar.less -->
+   <div class="sidebar">
+ 
+-    <!-- Sidebar user panel -->
+-    @if($user->name != 'admin')
+-    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+-      <div class="image">
+-        {!! img('characters', 'portrait', $user->main_character_id, 64, ['class' => 'img-circle elevation-2', 'alt' => 'User Image'], false) !!}
+-      </div>
+-      <div class="info">
+-        <a href="{{ route('seatcore::character.view.sheet', ['character' => $user->main_character]) }}" class="d-block">
+-          {{ $user->name }}
+-        </a>
+-      </div>
+-    </div>
+-    @endif
+-
+     <!-- Sidebar Menu -->
