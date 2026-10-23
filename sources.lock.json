@@ -1,0 +1,13 @@
+{
+  "seat": { "repository": "https://github.com/eveseat/seat.git", "commit": "34090c12800304a8cb38e1f2d7d1b9be2715b303" },
+  "seat-docker": { "repository": "https://github.com/eveseat/seat-docker.git", "commit": "ea0922b83e7c8c31fd3959a6c2abe811328fb0cc" },
+  "packages": {
+    "api": { "repository": "https://github.com/eveseat/api.git", "commit": "fe523ffed5e298ea913242998a2b2274ff8a65e5" },
+    "console": { "repository": "https://github.com/eveseat/console.git", "commit": "e36ad7fe3f4ffd05a73ee6bcb4db5ac01cbe3bda" },
+    "eseye": { "repository": "https://github.com/eveseat/eseye.git", "commit": "26547934661eb1a14f19138c705ff1dc93be5338" },
+    "eveapi": { "repository": "https://github.com/eveseat/eveapi.git", "commit": "5725cf77ac80352f27130485857c8f5a35ac3cb9" },
+    "notifications": { "repository": "https://github.com/eveseat/notifications.git", "commit": "4e8c02b50506ec18d5af0697081707294262793c" },
+    "services": { "repository": "https://github.com/eveseat/services.git", "commit": "b2db97fd75f03c68cf587dd05da5beba2718f360" },
+    "web": { "repository": "https://github.com/eveseat/web.git", "commit": "cd11287006bddbf00c48cf13fd1fa704b0ea25d6" }
+  }
+}
