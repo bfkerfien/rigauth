@@ -15,6 +15,6 @@ cd rigauth
 sudo bash ./restore-seat-source.sh /opt/seat-source
 ```
 
-The restore script exits without changing anything if its destination already exists. The package autoload override is saved at `seat-docker/packages/override.json`.
+The restore script exits without changing anything if its destination already exists. It applies the tracked customizations in `patches/`, including the top-right logout button, and saves the package autoload override at `seat-docker/packages/override.json`.
 
 Do not commit a server `.env` file or generated credentials here. Keep deployment secrets on each server.
