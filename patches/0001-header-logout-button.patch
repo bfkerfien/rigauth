@@ -35,7 +35,7 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 index bf07b76c..fb8af2c5 100644
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -12,14 +11,0 @@
+@@ -12,13 +11,0 @@
 -    <!-- Sidebar user panel -->
 -    @if($user->name != 'admin')
 -    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
