@@ -1,0 +1,55 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+index 0a3f7a90..a1f07b12 100644
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -48,6 +48,11 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+         // just include it
+         include __DIR__ . '/Routes/Home.php';
+ 
++        // Triglavian Consortium Fittings placeholder page.
++        Route::get('/fittings', function () {
++            return view('web::fittings');
++        })->name('seatcore::fittings.index');
++
+         // Support Routes
+         Route::group([
+             'namespace' => 'Support',
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+index bf07b76c..cb41d9a7 100644
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -29,6 +29,11 @@
+       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+ 
++        <li class="nav-item">
++          <a href="{{ route('seatcore::fittings.index') }}" class="nav-link {{ Request::segment(1) === 'fittings' ? 'active' : null }}">
++            <i class="nav-icon fas fa-tools"></i>
++            <p>Fittings</p>
++          </a>
++        </li>
++
+         @foreach($menu as $entry)
+ 
+           {{-- determine if we should pop a treeview --}}
+diff --git a/src/resources/views/fittings.blade.php b/src/resources/views/fittings.blade.php
+new file mode 100644
+index 00000000..a4a0c62d
+--- /dev/null
++++ b/src/resources/views/fittings.blade.php
+@@ -0,0 +1,14 @@
++@extends('web::layouts.grids.12')
++
++@section('title', 'Fittings')
++@section('page_header', 'Fittings')
++@section('page_description', 'Ship fittings')
++
++@section('full')
++  <div class="card">
++    <div class="card-header">
++      <h3 class="card-title">Fittings</h3>
++    </div>
++    <div class="card-body">
++      <p>The Fittings section is ready. Fitting pages and functionality can be added here next.</p>
++    </div>
++  </div>
++@endsection
