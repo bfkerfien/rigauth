@@ -38,6 +38,7 @@ index 60f2661a..81d4621f 100644
 +
    </ul>
  </nav>
+ 
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 index bf07b76c..fb8af2c5 100644
 --- a/src/resources/views/includes/sidebar.blade.php
@@ -61,3 +62,5 @@ index bf07b76c..fb8af2c5 100644
 -    @endif
 -
      <!-- Sidebar Menu -->
+     <nav class="mt-2">
+       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
