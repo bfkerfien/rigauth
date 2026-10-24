@@ -181,11 +181,14 @@ async function syncCorporation(db, owner, token) {
   if (missing.length) throw new Error('Selected character lacks corporation scopes: ' + missing.join(', '));
   const corpId = Number(owner.eve_id);
   const division = Math.min(7, Math.max(1, Number(process.env.FIN_CORP_WALLET_DIVISION || 1)));
-  const [balance, journal, assets] = await Promise.all([
-    esi('/corporations/' + corpId + '/wallets/' + division + '/', token),
+  const [wallets, journal, assets] = await Promise.all([
+    esi('/corporations/' + corpId + '/wallets/', token),
     pages('/corporations/' + corpId + '/wallets/' + division + '/journal/', token),
     pages('/corporations/' + corpId + '/assets/', token)
   ]);
+  const wallet = Array.isArray(wallets) ? wallets.find(w => Number(w.division) === division) : null;
+  if (!wallet) throw new Error('Corporation wallet division ' + division + ' was not returned by ESI');
+  const balance = Number(wallet.balance);
   await saveWallet(db, owner.id, balance);
   await saveJournal(db, owner.id, journal);
   await saveAssets(db, owner.id, assets);
