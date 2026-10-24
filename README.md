@@ -30,3 +30,5 @@ Do not commit a server `.env` file or generated credentials here. Keep deploymen
 ## Potchven Finances section
 
 The `finances/seat-integration` branch adds a native SeAT dashboard at `/potchven-finances`, restricted to SeAT accounts linked to EVE character Turaneau. Finance data is imported into SeAT's database using the `fin_` table prefix. See `docs/FINANCES-SEAT-INTEGRATION.md` for deployment and the guarded one-time import. Live ESI synchronization still needs to be ported from the standalone application; the dashboard currently reads imported data and supports manual site recording.
+
+The branch also includes an environment-driven EVE ESI sync worker in `finance-sync/`. It reads refresh tokens for three characters and a corporation-authorized character from the private finance app `.env`, refreshes tokens without routine interactive SSO, and imports wallet journals and asset snapshots into `fin_*` tables. See `docs/FINANCES-ENV-SYNC.md`; actual credentials must remain on the server and never be committed.
