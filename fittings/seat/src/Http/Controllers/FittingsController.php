@@ -328,8 +328,13 @@ class FittingsController
 
             foreach ($categories as $category) {
                 $shortages = [];
+                $remainingOwned = $owned;
                 foreach ($requirementsByCategory[$category] ?? [] as $requirement) {
-                    $have = (int) ($owned[$requirement['type_id']] ?? 0);
+                    $have = (int) ($remainingOwned[$requirement['type_id']] ?? 0);
+                    if ($category === 'hull_rig') {
+                        $have = min($have, (int) $requirement['needed']);
+                        $remainingOwned[$requirement['type_id']] = max(0, (int) ($remainingOwned[$requirement['type_id']] ?? 0) - $have);
+                    }
                     $missing = max(0, $requirement['needed'] - $have);
                     if ($missing > 0) {
                         $shortages[] = (object) [
