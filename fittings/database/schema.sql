@@ -100,6 +100,11 @@ CREATE TABLE IF NOT EXISTS ship_fit_categories (
  CONSTRAINT fk_ship_fit_categories_category FOREIGN KEY (category_id) REFERENCES fit_categories(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS doctrines (
+ name VARCHAR(120) NOT NULL PRIMARY KEY,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS ship_fit_doctrines (
  fit_id BIGINT UNSIGNED NOT NULL,
  doctrine VARCHAR(120) NOT NULL,
