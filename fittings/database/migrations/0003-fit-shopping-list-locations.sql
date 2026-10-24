@@ -1,0 +1,1 @@
+-- Add station fields to shopping lists that were created before location integration.\nALTER TABLE fit_shopping_lists\n  ADD COLUMN station_id BIGINT UNSIGNED NULL AFTER owner_user_id,\n  ADD COLUMN station_name VARCHAR(255) NULL AFTER station_id;\n
