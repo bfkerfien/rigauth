@@ -23,7 +23,7 @@
         <summary class="card-header" style="cursor:pointer"><strong>{{ $doctrine->name }}</strong> <span class="badge badge-secondary">{{ $doctrineDoctrineFits->count() }} fits</span></summary>
         <div class="card-body table-responsive">
           <table class="table table-striped table-sm mb-0">
-            <thead><tr><th>Fit</th><th>Ship</th><th>Qualified pilots</th><th>EVE</th></tr></thead>
+            <thead><tr><th>Fit</th><th>Ship</th><th>Qualified pilots</th><th class="text-center" aria-label="Clipboard"><i class="far fa-clipboard" title="Clipboard"></i></th></tr></thead>
             <tbody>
               @forelse($doctrineDoctrineFits as $fit)
                 @php($fitStatus = $fitSkillStatus[$fit->id] ?? ['eligible' => [], 'checked_pilots' => 0, 'unsynced_pilots' => $pilots->count()])
@@ -50,8 +50,7 @@
                   </td>
                   <td>
                     <textarea id="fitting-eft-{{ $fit->id }}" class="d-none" readonly>{{ $fit->clipboard_text }}</textarea>
-                    <button type="button" class="btn btn-link btn-sm p-0" onclick="copyFittingForEve('fitting-eft-{{ $fit->id }}', this)">Copy for EVE</button>
-                    <span class="small text-success d-none">Copied</span>
+                    <button type="button" class="btn btn-link btn-sm p-0" title="Copy fitting to clipboard" aria-label="Copy fitting to clipboard" onclick="copyFittingForEve('fitting-eft-{{ $fit->id }}', this)"><i class="far fa-clipboard" aria-hidden="true"></i></button>
                   </td>
                 </tr>
               @empty
@@ -95,8 +94,12 @@
 </div>
 <script>
 function copyFittingForEve(id, button) {
-  var text = document.getElementById(id).value, copied = button.nextElementSibling;
-  function showCopied() { copied.classList.remove('d-none'); window.setTimeout(function () { copied.classList.add('d-none'); }, 1800); }
+  var text = document.getElementById(id).value;
+  function showCopied() {
+    var icon = button.querySelector('i');
+    icon.className = 'fas fa-check';
+    window.setTimeout(function () { icon.className = 'far fa-clipboard'; }, 1800);
+  }
   if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(showCopied); return; }
   var field = document.getElementById(id); field.classList.remove('d-none'); field.select(); document.execCommand('copy'); field.classList.add('d-none'); showCopied();
 }
