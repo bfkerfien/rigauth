@@ -1,7 +1,7 @@
 diff --git a/config/database.php b/config/database.php
 --- a/config/database.php
 +++ b/config/database.php
-@@ -66,6 +66,19 @@
+@@ -66,1 +66,14 @@
 -        'pgsql' => [
 +        'triglavian_market' => [
 +            'driver' => 'mysql',
