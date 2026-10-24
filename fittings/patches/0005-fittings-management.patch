@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,11 @@
+@@ -54,4 +54,12 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
