@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -61,6 +61,9 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+@@ -61,5 +61,6 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
 -        // Signed SSO bridge for the Triglavian Market app.
 -        include __DIR__ . '/Routes/TriglavianSso.php';
 -
@@ -14,7 +14,7 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -40,6 +40,15 @@
+@@ -40,4 +40,12 @@
          </li>
          @endcan
  
