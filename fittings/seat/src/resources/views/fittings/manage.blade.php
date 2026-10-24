@@ -2,7 +2,7 @@
 
 @section('title', 'Manage Fittings')
 @section('page_header', 'Manage Fittings')
-@section('page_description', 'Maintain one fitting and assign it to any number of categories')
+@section('page_description', 'Manage fittings and separate home/deployment fit lists')
 
 @section('full')
 <div class="row">
