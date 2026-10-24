@@ -19,7 +19,7 @@ class FittingsController
     {
         abort_unless(auth()->check(), 401);
         // Keep writes restricted until a specific SeAT permission is wired in.
-        abort_unless(auth()->user()->hasSuperUserPermission(), 403);
+        abort_unless(auth()->user()->can('global.superuser'), 403);
     }
 
     public function index(Request $request): View
