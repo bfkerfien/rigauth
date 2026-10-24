@@ -82,20 +82,55 @@
     <div class="card">
       <div class="card-header"><strong>Home &amp; Deployment Stations</strong></div>
       <div class="card-body">
-        <p class="text-muted">Set the EVE station and solar system used as the default location for each shopping list. Enter the station and system IDs from EVE or SeAT.</p>
+        <p class="text-muted">Choose each location from its own alliance station list. Station and solar system details are filled from SeAT’s EVE data.</p>
         <form method="POST" action="{{ route('seatcore::fittings.locations.store') }}">
           @csrf
           @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $key => $label)
             @php($location = $locations[$key] ?? null)
-            <h5>{{ $label }} Location</h5>
-            <div class="form-group"><label>{{ $label }} station name</label><input name="{{ $key }}_station_name" class="form-control" maxlength="255" value="{{ old($key.'_station_name', $location->station_name ?? '') }}"></div>
-            <div class="form-group"><label>{{ $label }} station ID</label><input name="{{ $key }}_station_id" type="number" min="1" class="form-control" value="{{ old($key.'_station_id', $location->station_id ?? '') }}"></div>
-            <div class="form-group"><label>{{ $label }} system name</label><input name="{{ $key }}_system_name" class="form-control" maxlength="100" value="{{ old($key.'_system_name', $location->system_name ?? '') }}"></div>
-            <div class="form-group"><label>{{ $label }} system ID</label><input name="{{ $key }}_system_id" type="number" min="1" class="form-control" value="{{ old($key.'_system_id', $location->system_id ?? '') }}"></div>
+            <div class="form-group">
+              <label for="{{ $key }}-station">{{ $label }} station</label>
+              <select id="{{ $key }}-station" name="{{ $key }}_station_id" class="form-control">
+                <option value="">Not set</option>
+                @foreach(($stations[$key] ?? collect()) as $station)
+                  <option value="{{ $station->station_id }}" {{ (string)old($key.'_station_id', $location->station_id ?? '') === (string)$station->station_id ? 'selected' : '' }}>
+                    {{ $station->station_name }} — {{ $station->system_name }} ({{ $station->station_id }})
+                  </option>
+                @endforeach
+              </select>
+            </div>
             @if($key === 'home') <hr> @endif
           @endforeach
           <button class="btn btn-primary" type="submit">Save Locations</button>
         </form>
+        <hr>
+        <h5>Alliance Station Options</h5>
+        <p class="text-muted">Jita stations are preloaded in both lists. Add a station ID to Home or Deployment to make it available in that dropdown.</p>
+        <form method="POST" action="{{ route('seatcore::fittings.stations.store') }}" class="form-inline mb-3">
+          @csrf
+          <label for="station-list-type" class="mr-2">Add to</label>
+          <select id="station-list-type" name="location_type" class="form-control mr-2" required>
+            <option value="home">Home list</option>
+            <option value="deployment">Deployment list</option>
+          </select>
+          <label for="station-id" class="sr-only">Station ID</label>
+          <input id="station-id" name="station_id" type="number" min="1" class="form-control mr-2" placeholder="Station ID" required>
+          <button class="btn btn-secondary" type="submit">Add Station</button>
+        </form>
+        @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $listType => $listLabel)
+          <h6>{{ $listLabel }} station options</h6>
+          @forelse(($stations[$listType] ?? collect()) as $station)
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1">
+              <span>{{ $station->station_name }} — {{ $station->system_name }} <small class="text-muted">({{ $station->station_id }})</small></span>
+              <form method="POST" action="{{ route('seatcore::fittings.stations.destroy', ['locationType' => $listType, 'stationId' => $station->station_id]) }}">
+                @csrf
+                @method('DELETE')
+                <button class="btn btn-outline-danger btn-sm" type="submit">Remove</button>
+              </form>
+            </div>
+          @empty
+            <p class="small text-muted">No stations in this list.</p>
+          @endforelse
+        @endforeach
       </div>
     </div>
     @include('web::fittings.fit-tabs')
