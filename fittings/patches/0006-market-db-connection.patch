@@ -1,0 +1,21 @@
+diff --git a/config/database.php b/config/database.php
+--- a/config/database.php
++++ b/config/database.php
+@@ -66,6 +66,19 @@
+-        'pgsql' => [
++        'triglavian_market' => [
++            'driver' => 'mysql',
++            'host' => env('TRIGLAVIAN_MARKET_DB_HOST', env('DB_HOST', '127.0.0.1')),
++            'port' => env('TRIGLAVIAN_MARKET_DB_PORT', '3306'),
++            'database' => env('TRIGLAVIAN_MARKET_DB_DATABASE', 'triglavian_market'),
++            'username' => env('TRIGLAVIAN_MARKET_DB_USERNAME', 'triglavian_market'),
++            'password' => env('TRIGLAVIAN_MARKET_DB_PASSWORD', ''),
++            'charset' => 'utf8mb4',
++            'collation' => 'utf8mb4_unicode_ci',
++            'prefix' => '',
++            'prefix_indexes' => true,
++            'strict' => true,
++            'engine' => null,
++        ],
++
++        'pgsql' => [
