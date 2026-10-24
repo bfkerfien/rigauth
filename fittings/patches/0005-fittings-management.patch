@@ -9,10 +9,10 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +        // Native SeAT fitting management is administrator-only.
 +        Route::group(['prefix' => 'fittings', 'middleware' => ['can:global.superuser']], function () {
 +            Route::get('/', 'FittingsController@index')->name('seatcore::fittings.manage');
-            Route::get('/doctrines', 'FittingsController@doctrines')->name('seatcore::fittings.doctrines');
-            Route::post('/doctrines', 'FittingsController@storeDoctrine')->name('seatcore::fittings.doctrines.store');
-            Route::get('/doctrines/{doctrine}', 'FittingsController@showDoctrine')->name('seatcore::fittings.doctrines.show');
-            Route::post('/doctrines/{doctrine}/fits', 'FittingsController@syncDoctrineFits')->name('seatcore::fittings.doctrines.fits.update');
++            Route::get('/doctrines', 'FittingsController@doctrines')->name('seatcore::fittings.doctrines');
++            Route::post('/doctrines', 'FittingsController@storeDoctrine')->name('seatcore::fittings.doctrines.store');
++            Route::get('/doctrines/{doctrine}', 'FittingsController@showDoctrine')->name('seatcore::fittings.doctrines.show');
++            Route::post('/doctrines/{doctrine}/fits', 'FittingsController@syncDoctrineFits')->name('seatcore::fittings.doctrines.fits.update');
 +            Route::post('/import', 'FittingsController@importXml')->name('seatcore::fittings.import');
 +            Route::post('/', 'FittingsController@store')->name('seatcore::fittings.store');
 +            Route::put('/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
