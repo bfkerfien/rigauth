@@ -295,6 +295,47 @@ class FittingsController
     }
 
 
+    private function hasTables($db, array $tables): bool
+    {
+        $schema = $db->getSchemaBuilder();
+        foreach ($tables as $table) {
+            if (!$schema->hasTable($table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function syncJitaStations($db): void
+    {
+        if (!$this->hasTables($db, ['fit_alliance_stations', 'staStations', 'mapSolarSystems'])) {
+            return;
+        }
+
+        $stations = $db->table('staStations as s')
+            ->join('mapSolarSystems as m', 'm.solarSystemID', '=', 's.solarSystemID')
+            ->where('m.solarSystemName', 'Jita')
+            ->get([
+                's.stationID as station_id',
+                's.stationName as station_name',
+                's.solarSystemID as system_id',
+                'm.solarSystemName as system_name',
+            ]);
+
+        foreach (['home', 'deployment'] as $locationType) {
+            foreach ($stations as $station) {
+                $db->table('fit_alliance_stations')->insertOrIgnore([
+                    'location_type' => $locationType,
+                    'station_id' => $station->station_id,
+                    'station_name' => $station->station_name,
+                    'system_id' => $station->system_id,
+                    'system_name' => $station->system_name,
+                ]);
+            }
+        }
+    }
+
     private function homeKeepstarQuery($db)
     {
         return $db->table('corporation_structures as cs')
@@ -308,19 +349,23 @@ class FittingsController
 
     private function stationOptions($db): array
     {
+        if (!$this->hasTables($db, ['fit_alliance_stations'])) {
+            return ['home' => collect(), 'deployment' => collect()];
+        }
+
+        $this->syncJitaStations($db);
         $stations = $db->table('fit_alliance_stations')
             ->orderBy('location_type')
             ->orderBy('station_name')
             ->get()
             ->groupBy('location_type');
 
-        $home = ($stations->get('home') ?? collect())
-            ->merge($this->homeKeepstarQuery($db)->get())
-            ->unique('station_id')
-            ->sortBy('station_name')
-            ->values();
+        $home = $stations->get('home') ?? collect();
+        if ($this->hasTables($db, ['corporation_structures', 'invTypes', 'mapSolarSystems', 'universe_structures'])) {
+            $home = $home->merge($this->homeKeepstarQuery($db)->get());
+        }
 
-        $stations->put('home', $home);
+        $stations->put('home', $home->unique('station_id')->sortBy('station_name')->values());
         return $stations->all();
     }
 
@@ -338,11 +383,14 @@ class FittingsController
             $stationId = $data[$locationType . '_station_id'] ?? null;
             $station = null;
             if ($stationId) {
-                $station = $db->table('fit_alliance_stations')
-                    ->where('location_type', $locationType)
-                    ->where('station_id', $stationId)
-                    ->first();
-                if (!$station && $locationType === 'home') {
+                if ($this->hasTables($db, ['fit_alliance_stations'])) {
+                    $station = $db->table('fit_alliance_stations')
+                        ->where('location_type', $locationType)
+                        ->where('station_id', $stationId)
+                        ->first();
+                }
+                if (!$station && $locationType === 'home' &&
+                    $this->hasTables($db, ['corporation_structures', 'invTypes', 'mapSolarSystems', 'universe_structures'])) {
                     $station = $this->homeKeepstarQuery($db)
                         ->where('cs.structure_id', $stationId)
                         ->first();
