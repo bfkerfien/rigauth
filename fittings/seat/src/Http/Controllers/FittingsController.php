@@ -58,6 +58,7 @@ class FittingsController
             'selectedCategory' => $selectedCategory,
             'categoryMap' => $categoryMap,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
+            'shoppingLists' => $db->table('fit_shopping_lists')->orderBy('list_type')->orderBy('list_name')->get(),
         ]);
     }
 
@@ -155,6 +156,37 @@ class FittingsController
         }
 
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Home and deployment stations saved.');
+    }
+
+
+    public function storeShoppingList(Request $request): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'list_name' => ['required', 'string', 'max:160'],
+            'list_type' => ['required', 'in:home,deployment'],
+            'notes' => ['nullable', 'string', 'max:10000'],
+        ]);
+
+        $db = $this->market();
+        $location = $db->table('fit_location_settings')
+            ->where('location_type', $data['list_type'])
+            ->first();
+
+        $db->table('fit_shopping_lists')->insert([
+            'list_name' => trim($data['list_name']),
+            'list_type' => $data['list_type'],
+            'owner_user_id' => auth()->id(),
+            'station_id' => $location->station_id ?? null,
+            'station_name' => $location->station_name ?? null,
+            'system_id' => $location->system_id ?? null,
+            'system_name' => $location->system_name ?? null,
+            'notes' => $data['notes'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Shopping list created using the saved ' . $data['list_type'] . ' location.');
     }
 
     public function storeCategory(Request $request): RedirectResponse
