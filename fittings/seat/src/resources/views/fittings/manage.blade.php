@@ -119,6 +119,26 @@
               System: {{ $list->system_name ?: 'Not set' }}{{ $list->system_id ? ' (ID '.$list->system_id.')' : '' }}
             </div>
             @if($list->notes)<p class="mb-0 mt-2">{{ $list->notes }}</p>@endif
+            <div class="mt-3">
+              <strong>Items</strong>
+              @forelse(($shoppingListItems[$list->id] ?? collect()) as $item)
+                <div class="small py-1">{{ $item->quantity }} × {{ $item->type_name }} <span class="badge badge-light">{{ ucfirst($item->category) }}</span>@if($item->notes) — {{ $item->notes }}@endif</div>
+              @empty
+                <div class="small text-muted">No items added.</div>
+              @endforelse
+              <details class="mt-2">
+                <summary class="text-primary" style="cursor:pointer">Add item</summary>
+                <form method="POST" action="{{ route('seatcore::fittings.shopping-list-items.store', ['listId' => $list->id]) }}" class="mt-2">
+                  @csrf
+                  <div class="form-group"><label>Item name</label><input name="type_name" class="form-control form-control-sm" maxlength="255" required></div>
+                  <div class="form-group"><label>EVE type ID (optional)</label><input name="type_id" type="number" min="1" class="form-control form-control-sm"></div>
+                  <div class="form-group"><label>Category</label><select name="category" class="form-control form-control-sm"><option value="hull">Hull</option><option value="module">Module</option><option value="rig">Rig</option><option value="consumable">Consumable</option><option value="other">Other</option></select></div>
+                  <div class="form-group"><label>Quantity</label><input name="quantity" type="number" min="1" max="1000000" value="1" class="form-control form-control-sm" required></div>
+                  <div class="form-group"><label>Notes</label><input name="notes" class="form-control form-control-sm" maxlength="500"></div>
+                  <button class="btn btn-secondary btn-sm" type="submit">Add Item</button>
+                </form>
+              </details>
+            </div>
           </div>
         @empty
           <p class="text-muted">No shopping lists created yet.</p>
