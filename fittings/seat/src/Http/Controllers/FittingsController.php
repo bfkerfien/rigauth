@@ -91,6 +91,7 @@ class FittingsController
         $pilots = auth()->user()->characters->unique('character_id')->values();
         $fitSkillStatus = $this->pilotFitEligibility($db, $doctrineFits, $pilots);
         $locations = $db->table('fit_location_settings')->get()->keyBy('location_type');
+        $fitInventoryStatus = $this->pilotFitInventoryStatus($db, $doctrineFits, $pilots, $locations);
         $inventoryShortages = $this->missingInventoryShortages($db, $doctrineFits, $pilots, $locations);
 
         $shoppingLists = $db->table('fit_shopping_lists')
@@ -110,6 +111,7 @@ class FittingsController
             'doctrineFits' => $doctrineFits,
             'pilots' => $pilots,
             'fitSkillStatus' => $fitSkillStatus,
+            'fitInventoryStatus' => $fitInventoryStatus,
             'shoppingLists' => $shoppingLists,
             'shoppingListItems' => $shoppingListItems,
             'locations' => $locations,
@@ -347,6 +349,155 @@ class FittingsController
         }
 
         return $result;
+    }
+
+    /**
+     * Calculate whether all components for each doctrine fit are present in the
+     * configured home or deployment system. Assets are combined across linked pilots.
+     */
+    private function pilotFitInventoryStatus($db, $doctrineFits, $pilots, $locations): array
+    {
+        $statuses = [];
+        $fitsById = [];
+        foreach ($doctrineFits as $doctrineFitList) {
+            $scope = $doctrineFitList->first()->location_scope ?? 'both';
+            foreach ($doctrineFitList as $fit) {
+                $fitId = (int) $fit->id;
+                $fitsById[$fitId] = $fit;
+                foreach (['home', 'deployment'] as $locationType) {
+                    $statuses[$fitId][$locationType] = [
+                        'applicable' => in_array($scope, [$locationType, 'both'], true),
+                        'available' => false,
+                        'ready' => false,
+                    ];
+                }
+            }
+        }
+
+        if (!$fitsById) {
+            return $statuses;
+        }
+
+        $schema = $db->getSchemaBuilder();
+        if (!$schema->hasTable('fit_items') || !$schema->hasTable('character_assets')) {
+            return $statuses;
+        }
+
+        $fitIds = array_keys($fitsById);
+        $itemsByFit = $db->table('fit_items')
+            ->whereIn('fit_id', $fitIds)
+            ->get(['fit_id', 'type_id', 'quantity_per_ship', 'is_hull'])
+            ->groupBy('fit_id');
+        $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $assets = $pilotIds
+            ? $db->table('character_assets')->whereIn('character_id', $pilotIds)
+                ->get(['character_id', 'item_id', 'type_id', 'quantity', 'location_id', 'location_type'])
+            : collect();
+
+        foreach (['home', 'deployment'] as $locationType) {
+            $fitIdsForLocation = array_keys(array_filter(
+                $statuses,
+                fn ($fitStatus) => $fitStatus[$locationType]['applicable']
+            ));
+            if (!$fitIdsForLocation) {
+                continue;
+            }
+
+            $setting = $locations->get($locationType);
+            $systemId = (int) ($setting->system_id ?? 0);
+            if ($systemId < 1) {
+                continue;
+            }
+
+            $rootLocations = [$systemId => true];
+            $stationId = (int) ($setting->station_id ?? 0);
+            if ($stationId > 0) {
+                $rootLocations[$stationId] = true;
+            }
+            if ($schema->hasTable('staStations')) {
+                foreach ($db->table('staStations')->where('solarSystemID', $systemId)->pluck('stationID') as $id) {
+                    $rootLocations[(int) $id] = true;
+                }
+            }
+            if ($schema->hasTable('universe_structures')) {
+                foreach ($db->table('universe_structures')->where('solar_system_id', $systemId)->pluck('structure_id') as $id) {
+                    $rootLocations[(int) $id] = true;
+                }
+            }
+            if ($schema->hasTable('corporation_structures')) {
+                foreach ($db->table('corporation_structures')->where('system_id', $systemId)->pluck('structure_id') as $id) {
+                    $rootLocations[(int) $id] = true;
+                }
+            }
+
+            $owned = [];
+            foreach ($pilotIds as $pilotId) {
+                $pilotAssets = $assets->where('character_id', $pilotId);
+                $parentByItem = [];
+                foreach ($pilotAssets as $asset) {
+                    $parentByItem[(int) $asset->item_id] = (int) $asset->location_id;
+                }
+                foreach ($pilotAssets as $asset) {
+                    $locationId = (int) $asset->location_id;
+                    $isInSystem = false;
+                    if (($asset->location_type ?? '') === 'solar_system' && $locationId === $systemId) {
+                        $isInSystem = true;
+                    } else {
+                        $seen = [];
+                        for ($depth = 0; $depth < 25 && $locationId > 0; $depth++) {
+                            if (isset($rootLocations[$locationId])) {
+                                $isInSystem = true;
+                                break;
+                            }
+                            if (isset($seen[$locationId]) || !isset($parentByItem[$locationId])) {
+                                break;
+                            }
+                            $seen[$locationId] = true;
+                            $locationId = $parentByItem[$locationId];
+                        }
+                    }
+
+                    if ($isInSystem) {
+                        $typeId = (int) $asset->type_id;
+                        $owned[$typeId] = ($owned[$typeId] ?? 0) + max(1, (int) $asset->quantity);
+                    }
+                }
+            }
+
+            foreach ($fitIdsForLocation as $fitId) {
+                $fit = $fitsById[$fitId];
+                $requirements = [];
+                $hasHull = false;
+                foreach ($itemsByFit->get($fitId, collect()) as $item) {
+                    $typeId = (int) $item->type_id;
+                    $requirements[$typeId] = ($requirements[$typeId] ?? 0) + max(1, (int) $item->quantity_per_ship);
+                    if ((bool) $item->is_hull) {
+                        $hasHull = true;
+                    }
+                }
+
+                $shipTypeId = (int) $fit->ship_type_id;
+                if (!$hasHull && $shipTypeId > 0) {
+                    $requirements[$shipTypeId] = max(1, $requirements[$shipTypeId] ?? 0);
+                }
+
+                $ready = (bool) $requirements;
+                foreach ($requirements as $typeId => $quantity) {
+                    if (($owned[$typeId] ?? 0) < $quantity) {
+                        $ready = false;
+                        break;
+                    }
+                }
+
+                $statuses[$fitId][$locationType] = [
+                    'applicable' => true,
+                    'available' => true,
+                    'ready' => $ready,
+                ];
+            }
+        }
+
+        return $statuses;
     }
 
     private function eftClipboardText(object $fit): string
