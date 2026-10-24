@@ -33,4 +33,8 @@ No database connection patch is required: the SeAT controller uses Laravel's exi
 ## Existing installations
 
 If the original fittings tables are already installed, run the additive migration `fittings/database/migrations/0002-fit-location-settings.sql` against the same SeAT database. It only creates the new `fit_location_settings` table if missing; it does not alter or delete existing data.
-\n\nIf the original shopping-list table already exists, also run `fittings/database/migrations/0003-fit-shopping-list-locations.sql` to add station columns without dropping existing lists. New lists inherit the configured home or deployment station and system; existing lists retain their saved location snapshot.\n
+
+
+If the fitting tables were installed **before** station fields were added, run `fittings/database/migrations/0003-fit-shopping-list-locations.sql` against the same SeAT database. This adds the station columns to existing shopping lists. Do not run this migration after applying the current full schema, because that schema already includes those columns.
+
+New lists inherit the configured home or deployment station and system. When an administrator changes a default location, existing lists of that type are synchronized to the new station and system. Each list can contain categorized items with quantities and notes.
