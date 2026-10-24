@@ -57,6 +57,7 @@ class FittingsController
             'categories' => $categories,
             'selectedCategory' => $selectedCategory,
             'categoryMap' => $categoryMap,
+            'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
         ]);
     }
 
@@ -121,6 +122,39 @@ class FittingsController
         $this->requireAdmin();
         $this->market()->table('fit_fits')->where('id', $fitId)->delete();
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Fitting deleted.');
+    }
+
+
+    public function storeLocations(Request $request): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'home_station_id' => ['nullable', 'integer', 'min:1'],
+            'home_station_name' => ['nullable', 'string', 'max:255'],
+            'home_system_id' => ['nullable', 'integer', 'min:1'],
+            'home_system_name' => ['nullable', 'string', 'max:100'],
+            'deployment_station_id' => ['nullable', 'integer', 'min:1'],
+            'deployment_station_name' => ['nullable', 'string', 'max:255'],
+            'deployment_system_id' => ['nullable', 'integer', 'min:1'],
+            'deployment_system_name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $db = $this->market();
+        foreach (['home', 'deployment'] as $locationType) {
+            $db->table('fit_location_settings')->updateOrInsert(
+                ['location_type' => $locationType],
+                [
+                    'station_id' => $data[$locationType . '_station_id'] ?? null,
+                    'station_name' => trim($data[$locationType . '_station_name'] ?? '') ?: null,
+                    'system_id' => $data[$locationType . '_system_id'] ?? null,
+                    'system_name' => trim($data[$locationType . '_system_name'] ?? '') ?: null,
+                    'updated_by' => auth()->id(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Home and deployment stations saved.');
     }
 
     public function storeCategory(Request $request): RedirectResponse
