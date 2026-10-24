@@ -196,6 +196,91 @@ async function syncCorporation(db, owner, token) {
   await syncState(db, owner.id, 'corporation_assets', null);
   return { corporation: owner.display_name, walletDivision: division, journalEntries: journal.length, assets: assets.length };
 }
+async function reconcileSitePayouts(db, corporationOwnerId) {
+  const [characters] = await db.execute(
+    "SELECT display_name FROM fin_owners WHERE owner_type = 'character' AND is_active = 1"
+  );
+  const names = characters.map(c => String(c.display_name));
+  if (names.length !== 3) throw new Error('Payout reconciliation requires exactly three active finance characters');
+
+  const [entries] = await db.execute(`
+    SELECT e.id, e.occurred_at, e.amount_isk, e.description
+    FROM fin_wallet_entries e
+    WHERE e.owner_id = ?
+      AND e.reference_type = 'corporate_reward_payout'
+      AND e.amount_isk = 9000000
+    ORDER BY e.occurred_at ASC, e.id ASC
+  `, [corporationOwnerId]);
+
+  const payouts = entries.map(e => {
+    const description = String(e.description || '');
+    const character = names.find(name => description.includes(name));
+    return character ? { ...e, character, timestamp: new Date(e.occurred_at).getTime() } : null;
+  }).filter(Boolean);
+
+  const groups = [];
+  for (const payout of payouts) {
+    let group = groups[groups.length - 1];
+    const duplicateCharacter = group && group.some(p => p.character === payout.character);
+    const tooFarApart = group && (payout.timestamp - group[0].timestamp > 120000);
+    if (!group || duplicateCharacter || tooFarApart) {
+      group = [];
+      groups.push(group);
+    }
+    group.push(payout);
+  }
+
+  // Rebuild only ESI-derived site records so late-arriving payouts repair incomplete groups
+  // on the next sync. Manual records and all wallet history are preserved.
+  await db.beginTransaction();
+  try {
+    await db.execute(`DELETE p FROM fin_site_payouts p
+      JOIN fin_site_events s ON s.id = p.site_event_id WHERE s.source = 'esi'`);
+    await db.execute(`DELETE o FROM fin_srp_obligations o
+      JOIN fin_site_events s ON s.id = o.site_event_id WHERE s.source = 'esi'`);
+    await db.execute("DELETE FROM fin_site_events WHERE source = 'esi'");
+
+    let successfulSites = 0;
+    let incompleteGroups = 0;
+    for (const group of groups) {
+      const distinctCharacters = new Set(group.map(p => p.character));
+      const successful = group.length === 3 && distinctCharacters.size === 3;
+      const total = group.reduce((sum, p) => sum + Number(p.amount_isk), 0);
+      const occurredAt = group[0].occurred_at;
+      const note = successful
+        ? 'Automatically matched three 9,000,000 ISK corporate reward payouts.'
+        : 'Partial corporate reward: ' + group.length + ' of 3 payouts matched; transfer ' +
+          Math.max(0, 27000000 - total).toFixed(2) + ' ISK to the SRP fund.';
+      const [inserted] = await db.execute(`
+        INSERT INTO fin_site_events
+          (occurred_at, status, payout_count, total_payout_isk, revenue_credit_isk, source, review_note)
+        VALUES (?, ?, ?, ?, ?, 'esi', ?)
+      `, [occurredAt, successful ? 'successful' : 'needs_review', group.length, total,
+        successful ? 45000000 : 0, note]);
+      for (const payout of group) {
+        await db.execute(`
+          INSERT INTO fin_site_payouts(site_event_id, wallet_entry_id, payout_amount_isk)
+          VALUES (?, ?, ?)
+        `, [inserted.insertId, payout.id, payout.amount_isk]);
+      }
+      if (successful) {
+        successfulSites++;
+      } else {
+        incompleteGroups++;
+        await db.execute(`
+          INSERT INTO fin_srp_obligations(site_event_id, amount_isk, status, note)
+          VALUES (?, ?, 'pending_transfer', ?)
+        `, [inserted.insertId, Math.max(0, 27000000 - total), note]);
+      }
+    }
+    await db.commit();
+    return { matchedPayouts: payouts.length, successfulSites, incompleteGroups };
+  } catch (error) {
+    await db.rollback();
+    throw error;
+  }
+}
+
 async function main() {
   const db = await mysql.createConnection({
     host: required('FIN_DB_HOST'),
@@ -230,6 +315,8 @@ async function main() {
     if (!corpAuth) throw new Error('None of the three characters has both corporation wallet and asset scopes');
     const corpResult = await syncCorporation(db, corporation, corpAuth.token);
     console.log(JSON.stringify({ ok: true, ...corpResult }));
+    const reconciliation = await reconcileSitePayouts(db, corporation.id);
+    console.log(JSON.stringify({ ok: true, payoutReconciliation: reconciliation }));
     console.log(JSON.stringify({ ok: true, syncedCharacters: owners.length, corporation: corporation.display_name }));
   } finally {
     await db.end();
