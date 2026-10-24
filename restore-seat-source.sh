@@ -58,6 +58,8 @@ OVERRIDE
 
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0001-header-logout-button.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0002-fittings-section.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
+cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
 cp "$(dirname "$0")/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
 echo "Restored SeAT sources with Triglavian UI patches to $DEST"
