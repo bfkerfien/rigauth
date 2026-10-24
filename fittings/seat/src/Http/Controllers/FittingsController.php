@@ -12,7 +12,7 @@ class FittingsController
 {
     private function market()
     {
-        return DB::connection('triglavian_market');
+        return DB::connection();
     }
 
     private function requireAdmin(): void
@@ -28,12 +28,12 @@ class FittingsController
         $categories = $db->table('fit_categories')->orderBy('sort_order')->orderBy('category_name')->get();
         $selectedCategory = $request->integer('category') ?: null;
 
-        $query = $db->table('ship_fits as f')
+        $query = $db->table('fit_fits as f')
             ->select('f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text', 'f.visibility', 'f.updated_at')
             ->orderBy('f.fit_name');
 
         if ($selectedCategory) {
-            $query->join('ship_fit_categories as fc', 'fc.fit_id', '=', 'f.id')
+            $query->join('fit_category_assignments as fc', 'fc.fit_id', '=', 'f.id')
                 ->where('fc.category_id', $selectedCategory);
         }
 
@@ -42,7 +42,7 @@ class FittingsController
         $fitIds = $fits->getCollection()->pluck('id')->all();
         $categoryMap = [];
         if ($fitIds) {
-            foreach ($db->table('ship_fit_categories as fc')
+            foreach ($db->table('fit_category_assignments as fc')
                 ->join('fit_categories as c', 'c.id', '=', 'fc.category_id')
                 ->whereIn('fc.fit_id', $fitIds)
                 ->orderBy('c.category_name')
@@ -73,7 +73,7 @@ class FittingsController
         ]);
 
         $db = $this->market();
-        $fitId = $db->table('ship_fits')->insertGetId([
+        $fitId = $db->table('fit_fits')->insertGetId([
             'fit_name' => $data['fit_name'],
             'ship_name' => $data['ship_name'],
             'ship_type_id' => $data['ship_type_id'],
@@ -102,8 +102,8 @@ class FittingsController
         ]);
 
         $db = $this->market();
-        abort_unless($db->table('ship_fits')->where('id', $fitId)->exists(), 404);
-        $db->table('ship_fits')->where('id', $fitId)->update([
+        abort_unless($db->table('fit_fits')->where('id', $fitId)->exists(), 404);
+        $db->table('fit_fits')->where('id', $fitId)->update([
             'fit_name' => $data['fit_name'],
             'ship_name' => $data['ship_name'],
             'ship_type_id' => $data['ship_type_id'],
@@ -118,7 +118,7 @@ class FittingsController
     public function destroy(int $fitId): RedirectResponse
     {
         $this->requireAdmin();
-        $this->market()->table('ship_fits')->where('id', $fitId)->delete();
+        $this->market()->table('fit_fits')->where('id', $fitId)->delete();
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Fitting deleted.');
     }
 
@@ -146,9 +146,9 @@ class FittingsController
         $db = $this->market();
         $validIds = $db->table('fit_categories')->whereIn('id', array_map('intval', $categoryIds))->pluck('id')->all();
         $db->transaction(function () use ($db, $fitId, $validIds) {
-            $db->table('ship_fit_categories')->where('fit_id', $fitId)->delete();
+            $db->table('fit_category_assignments')->where('fit_id', $fitId)->delete();
             if ($validIds) {
-                $db->table('ship_fit_categories')->insert(array_map(fn ($id) => [
+                $db->table('fit_category_assignments')->insert(array_map(fn ($id) => [
                     'fit_id' => $fitId,
                     'category_id' => $id,
                     'assigned_at' => now(),
