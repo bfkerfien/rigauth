@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-require('dotenv').config({path:process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), '.env')});
 const fs = require('node:fs');
 const path = require('node:path');
+require('dotenv').config({path:process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), '.env')});
 const mysql = require('mysql2/promise');
 
 const SSO = (process.env.EVE_SSO_URL || 'https://login.eveonline.com').replace(/\/$/, '');
