@@ -194,6 +194,10 @@ class FittingsController
                     ->first(['id']);
 
                 if ($existing) {
+                    $db->table('fit_doctrine_assignments')->insertOrIgnore([
+                        'fit_id' => $existing->id,
+                        'doctrine' => $doctrine,
+                    ]);
                     $duplicates++;
                     continue;
                 }
