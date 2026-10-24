@@ -2,7 +2,7 @@ diff --git a/src/resources/views/includes/header.blade.php b/src/resources/views
 index 60f2661a..81d4621f 100644
 --- a/src/resources/views/includes/header.blade.php
 +++ b/src/resources/views/includes/header.blade.php
-@@ -77,16 +77,29 @@
+@@ -77,16 +77,37 @@
            </a>
            <div class="dropdown-divider"></div>
          @endif
@@ -16,6 +16,15 @@ index 60f2661a..81d4621f 100644
        </div>
      </li>
  
++    {{-- Temporary admin shortcut for Turaneau; server-side permissions still apply. --}}
++    @if(strtolower(auth()->user()->name ?? '') === 'turaneau')
++    <li class="nav-item">
++      <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link" title="Admin">
++        <i class="fas fa-cogs"></i> Admin
++      </a>
++    </li>
++    @endif
++
 +    @if(auth()->user()->name != 'admin')
 +    <li class="nav-item">
 +      <a href="{{ route('seatcore::character.view.sheet', ['character' => auth()->user()->main_character]) }}"
