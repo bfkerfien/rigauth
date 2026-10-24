@@ -22,6 +22,7 @@
       </div>
       <div class="card-body table-responsive">
         @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
+        @if($errors->any()) <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div> @endif
         <table class="table table-striped table-sm">
           <thead><tr><th>Fit</th><th>Ship</th><th>Categories</th><th>Visibility</th><th>Updated</th></tr></thead>
           <tbody>
@@ -78,6 +79,25 @@
   </div>
   <div class="col-lg-4">
     @if(auth()->check() && auth()->user()->can('global.superuser'))
+    <div class="card">
+      <div class="card-header"><strong>Home &amp; Deployment Stations</strong></div>
+      <div class="card-body">
+        <p class="text-muted">Set the EVE station and solar system used as the default location for each shopping list. Enter the station and system IDs from EVE or SeAT.</p>
+        <form method="POST" action="{{ route('seatcore::fittings.locations.store') }}">
+          @csrf
+          @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $key => $label)
+            @php($location = $locations[$key] ?? null)
+            <h5>{{ $label }} Location</h5>
+            <div class="form-group"><label>{{ $label }} station name</label><input name="{{ $key }}_station_name" class="form-control" maxlength="255" value="{{ old($key.'_station_name', $location->station_name ?? '') }}"></div>
+            <div class="form-group"><label>{{ $label }} station ID</label><input name="{{ $key }}_station_id" type="number" min="1" class="form-control" value="{{ old($key.'_station_id', $location->station_id ?? '') }}"></div>
+            <div class="form-group"><label>{{ $label }} system name</label><input name="{{ $key }}_system_name" class="form-control" maxlength="100" value="{{ old($key.'_system_name', $location->system_name ?? '') }}"></div>
+            <div class="form-group"><label>{{ $label }} system ID</label><input name="{{ $key }}_system_id" type="number" min="1" class="form-control" value="{{ old($key.'_system_id', $location->system_id ?? '') }}"></div>
+            @if($key === 'home') <hr> @endif
+          @endforeach
+          <button class="btn btn-primary" type="submit">Save Locations</button>
+        </form>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header"><strong>Add Fitting</strong></div>
       <div class="card-body">
