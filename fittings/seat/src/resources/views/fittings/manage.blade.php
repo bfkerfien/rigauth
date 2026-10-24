@@ -37,7 +37,35 @@
                 @endforelse
               </td>
               <td>{{ $fit->visibility }}</td>
-              <td>{{ $fit->updated_at }}</td>
+              <td>{{ $fit->updated_at }}
+                @if(auth()->check() && auth()->user()->can('global.superuser'))
+                  <details class="mt-2">
+                    <summary class="text-primary" style="cursor:pointer">Edit</summary>
+                    <form method="POST" action="{{ route('seatcore::fittings.update', ['fitId' => $fit->id]) }}" class="mt-2">
+                      @csrf
+                      @method('PUT')
+                      <div class="form-group"><label>Fit name</label><input name="fit_name" class="form-control" maxlength="160" value="{{ $fit->fit_name }}" required></div>
+                      <div class="form-group"><label>Ship name</label><input name="ship_name" class="form-control" maxlength="255" value="{{ $fit->ship_name }}" required></div>
+                      <div class="form-group"><label>EVE ship type ID</label><input name="ship_type_id" type="number" min="1" class="form-control" value="{{ $fit->ship_type_id }}" required></div>
+                      <div class="form-group"><label>EFT fitting text</label><textarea name="fit_text" rows="5" class="form-control">{{ $fit->fit_text ?? '' }}</textarea></div>
+                      <div class="form-group"><label>Categories (select multiple)</label>
+                        <select name="categories[]" class="form-control" multiple size="5">
+                          @foreach($categories as $category)
+                            <option value="{{ $category->id }}" {{ collect($categoryMap[$fit->id] ?? [])->contains(fn($assigned) => (int)$assigned->id === (int)$category->id) ? 'selected' : '' }}>{{ $category->category_name }}</option>
+                          @endforeach
+                        </select>
+                      </div>
+                      <div class="form-group"><label>Visibility</label><select name="visibility" class="form-control"><option value="alliance" {{ $fit->visibility === 'alliance' ? 'selected' : '' }}>Alliance</option><option value="admins" {{ $fit->visibility === 'admins' ? 'selected' : '' }}>Admins only</option></select></div>
+                      <button class="btn btn-primary btn-sm" type="submit">Save changes</button>
+                    </form>
+                    <form method="POST" action="{{ route('seatcore::fittings.destroy', ['fitId' => $fit->id]) }}" class="mt-2" onsubmit="return confirm('Delete this fitting?')">
+                      @csrf
+                      @method('DELETE')
+                      <button class="btn btn-danger btn-sm" type="submit">Delete fitting</button>
+                    </form>
+                  </details>
+                @endif
+              </td>
             </tr>
           @empty
             <tr><td colspan="5" class="text-muted">No fittings have been added yet.</td></tr>
