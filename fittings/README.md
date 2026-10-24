@@ -1,38 +1,30 @@
-# Fittings
+# Fittings & Market Intelligence
 
-Native market and fitting tools for the Triglavian Consortium's SeAT installation.
+Native fitting management and market intelligence for the Triglavian Consortium's SeAT installation at https://auth.triglavianconsortium.com.
 
-This project is maintained entirely in `rigauth/fittings/`. It replaces the legacy standalone market service and is designed to appear inside the existing SeAT UI at `https://auth.triglavianconsortium.com`.
+## Fitting management
 
-## Architecture goals
+The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Writes are restricted to SeAT users with the `global.superuser` permission.
 
-- Native SeAT navigation and authenticated session; no separate market hostname.
-- Use the existing SeAT MariaDB server, with a dedicated `eve_market` schema and least-privilege database account.
-- Keep all first-party project code, integration glue, migrations, tests, deployment instructions, and configuration templates under this directory.
-- Keep credentials and server-specific `.env` files out of Git.
-- Use EVE SSO/ESI only for character authorization and ESI data access that actually require it; do not redirect users through the legacy Reactions configuration.
-- Preserve any existing market data until an explicit migration and validation plan is approved.
-- Do not remove or disable the currently running legacy service until the replacement is tested in SeAT.
+**A fitting can belong to multiple categories.** The database uses `ship_fits` as the canonical fit record, `fit_categories` as the category catalogue, and `ship_fit_categories` as a many-to-many join. For example, one Scimitar fitting can appear under Logistics, Shield Doctrine, and Fleet Support without duplicating the fit. Doctrine tags are modeled separately.
 
-## Planned layout
+The old standalone project is the reference for the fitting workflow: its fitting collection, doctrine assignment, and item list are documented in the legacy collector source. The new page is native to SeAT rather than embedding the old standalone website.
 
-- `seat/`: SeAT route/controller/view integration and installation tooling.
-- `app/`: market and fitting application logic.
-- `database/migrations/`: schema migrations for the dedicated market schema.
-- `esi/`: EVE SSO and ESI clients, scopes, and callback handling.
-- `config/`: safe configuration defaults and validation.
-- `tests/`: automated tests.
-- `docs/`: architecture, setup, deployment, and migration notes.
+## Data architecture
 
-## Deployment principles
+- Reuse the existing SeAT MariaDB server, with a dedicated `triglavian_market` schema.
+- Do not use or overwrite SeAT's `seat` schema.
+- Leave legacy `eve_market` and its collector untouched until an explicit migration is planned and verified.
+- Keep credentials, tokens, and real `.env` files out of Git.
 
-1. Inspect the exact SeAT source revision pinned by this repository before implementing framework integration.
-2. Build and validate the new interface and data layer without changing the running service.
-3. Configure the application to use the existing SeAT MariaDB container/network; do not add another database server.
-4. Use SeAT's authenticated session for web access where possible. Keep any required EVE SSO callback on the configured SeAT host/path and document it explicitly.
-5. Test database connectivity, authorization boundaries, migrations, and the complete sign-in flow before cutover.
-6. Keep rollback available until the replacement has been verified.
+See `database/schema.sql`, `docs/FRESH_DATABASE.md`, and `.env.example`.
 
-## Secrets
+## Source integration
 
-Never commit `.env`, client secrets, signing keys, database passwords, session secrets, or access tokens. Use `.env.example` for variable names and safe example values only.
+- `seat/src/Http/Controllers/FittingsController.php`: native Laravel controller.
+- `seat/src/resources/views/fittings/manage.blade.php`: fitting library and category UI.
+- `patches/0005-fittings-management.patch`: routes.
+- `patches/0006-market-db-connection.patch`: dedicated Laravel database connection.
+- `restore-seat-source.sh`: reconstructs the pinned SeAT source tree and applies integration patches.
+
+Repository changes are not a live deployment. Do not switch production traffic or stop the legacy collector until the database connection, permissions, fitting save/edit flow, and market collector have been tested.
