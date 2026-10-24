@@ -142,17 +142,28 @@ class FittingsController
 
         $db = $this->market();
         foreach (['home', 'deployment'] as $locationType) {
+            $locationValues = [
+                'station_id' => $data[$locationType . '_station_id'] ?? null,
+                'station_name' => trim($data[$locationType . '_station_name'] ?? '') ?: null,
+                'system_id' => $data[$locationType . '_system_id'] ?? null,
+                'system_name' => trim($data[$locationType . '_system_name'] ?? '') ?: null,
+                'updated_by' => auth()->id(),
+                'updated_at' => now(),
+            ];
+
             $db->table('fit_location_settings')->updateOrInsert(
                 ['location_type' => $locationType],
-                [
-                    'station_id' => $data[$locationType . '_station_id'] ?? null,
-                    'station_name' => trim($data[$locationType . '_station_name'] ?? '') ?: null,
-                    'system_id' => $data[$locationType . '_system_id'] ?? null,
-                    'system_name' => trim($data[$locationType . '_system_name'] ?? '') ?: null,
-                    'updated_by' => auth()->id(),
-                    'updated_at' => now(),
-                ]
+                $locationValues
             );
+
+            // Keep all lists of this type synchronized with the administrator's current default location.
+            $db->table('fit_shopping_lists')->where('list_type', $locationType)->update([
+                'station_id' => $locationValues['station_id'],
+                'station_name' => $locationValues['station_name'],
+                'system_id' => $locationValues['system_id'],
+                'system_name' => $locationValues['system_name'],
+                'updated_at' => now(),
+            ]);
         }
 
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Home and deployment stations saved.');
