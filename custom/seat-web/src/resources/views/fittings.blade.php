@@ -40,7 +40,11 @@
                     @forelse($fitStatus['eligible'] as $pilot)
                       <span class="d-inline-block mr-1" title="{{ $pilot['name'] }}">{!! img('characters', 'portrait', $pilot['character_id'], 32, ['class' => 'img-circle', 'alt' => $pilot['name'], 'title' => $pilot['name']], false) !!}</span>
                     @empty
-                      <span class="text-muted">None</span>
+                      @if($fitStatus['checked_pilots'] === 0)
+                        <span class="text-muted">Waiting for skill sync</span>
+                      @else
+                        <span class="text-danger">No synced pilot meets the requirements</span>
+                      @endif
                     @endforelse
                     @if($fitStatus['unsynced_pilots'] > 0)<div class="small text-muted">{{ $fitStatus['unsynced_pilots'] }} pilot(s) have no synced skill data.</div>@endif
                   </td>
