@@ -10,6 +10,7 @@ PATCH="$REPO/patches/0006-market-section.patch"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-market-backup-$STAMP"
 SUCCESS=0
+ROLLBACK_ENABLED=0
 FILES=(
   "src/Http/routes.php"
   "src/resources/views/includes/sidebar.blade.php"
@@ -21,7 +22,7 @@ FILES=(
 
 rollback() {
   rc=$?
-  if [[ "$SUCCESS" -eq 0 ]]; then
+  if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: Deployment did not complete. Restoring backed-up files..."
     for rel in "${FILES[@]}"; do
@@ -97,6 +98,7 @@ for rel in "${FILES[@]}"; do
   fi
 done
 echo "Backed up deployment files to $BACKUP"
+ROLLBACK_ENABLED=1
 
 # Apply the route/sidebar patch once. If it is already present, leave it in place.
 if sudo git -C "$WEB" apply --reverse --check "$PATCH" >/dev/null 2>&1; then
