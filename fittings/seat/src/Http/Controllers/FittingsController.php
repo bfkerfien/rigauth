@@ -62,6 +62,91 @@ class FittingsController
         ]);
     }
 
+    public function pilotIndex(): View
+    {
+        abort_unless(auth()->check(), 401);
+        $db = $this->market();
+        $fits = $db->table('fit_fits')
+            ->where('visibility', 'alliance')
+            ->orderBy('ship_name')
+            ->orderBy('fit_name')
+            ->get(['id', 'fit_name', 'ship_name', 'ship_type_id', 'fit_text']);
+
+        $shoppingLists = $db->table('fit_shopping_lists')
+            ->where('owner_user_id', auth()->id())
+            ->orderBy('list_type')
+            ->orderBy('list_name')
+            ->get();
+        $listIds = $shoppingLists->pluck('id')->all();
+        $shoppingListItems = $listIds
+            ? $db->table('fit_shopping_list_items')->whereIn('shopping_list_id', $listIds)
+                ->orderBy('category')->orderBy('sort_order')->get()->groupBy('shopping_list_id')
+            : collect();
+
+        return view('web::fittings', [
+            'fits' => $fits,
+            'shoppingLists' => $shoppingLists,
+            'shoppingListItems' => $shoppingListItems,
+            'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
+        ]);
+    }
+
+    public function storePilotShoppingList(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate([
+            'list_name' => ['required', 'string', 'max:160'],
+            'list_type' => ['required', 'in:home,deployment'],
+            'notes' => ['nullable', 'string', 'max:10000'],
+        ]);
+
+        $db = $this->market();
+        $location = $db->table('fit_location_settings')->where('location_type', $data['list_type'])->first();
+        $db->table('fit_shopping_lists')->insert([
+            'list_name' => trim($data['list_name']),
+            'list_type' => $data['list_type'],
+            'owner_user_id' => auth()->id(),
+            'station_id' => $location->station_id ?? null,
+            'station_name' => $location->station_name ?? null,
+            'system_id' => $location->system_id ?? null,
+            'system_name' => $location->system_name ?? null,
+            'notes' => $data['notes'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('seatcore::fittings.index')->with('success', 'Shopping list created.');
+    }
+
+    public function storePilotShoppingListItem(Request $request, int $listId): RedirectResponse
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate([
+            'type_name' => ['required', 'string', 'max:255'],
+            'type_id' => ['nullable', 'integer', 'min:1'],
+            'category' => ['required', 'in:hull,module,rig,consumable,other'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $db = $this->market();
+        abort_unless($db->table('fit_shopping_lists')
+            ->where('id', $listId)
+            ->where('owner_user_id', auth()->id())
+            ->exists(), 404);
+        $db->table('fit_shopping_list_items')->insert([
+            'shopping_list_id' => $listId,
+            'type_id' => $data['type_id'] ?? null,
+            'type_name' => trim($data['type_name']),
+            'category' => $data['category'],
+            'quantity' => $data['quantity'],
+            'notes' => $data['notes'] ?? null,
+            'sort_order' => 0,
+        ]);
+
+        return redirect()->route('seatcore::fittings.index')->with('success', 'Item added to your shopping list.');
+    }
+
     public function importXml(Request $request): RedirectResponse
     {
         $this->requireAdmin();
