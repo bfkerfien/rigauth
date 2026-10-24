@@ -72,6 +72,15 @@ class FittingsController
             ->orderBy('fit_name')
             ->get(['id', 'fit_name', 'ship_name', 'ship_type_id', 'fit_text']);
 
+        $doctrines = $db->table('fit_doctrines')->orderBy('name')->get();
+        $doctrineFits = $db->table('fit_doctrine_assignments as da')
+            ->join('fit_fits as f', 'f.id', '=', 'da.fit_id')
+            ->where('f.visibility', 'alliance')
+            ->orderBy('f.ship_name')
+            ->orderBy('f.fit_name')
+            ->get(['da.doctrine', 'f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text'])
+            ->groupBy('doctrine');
+
         $shoppingLists = $db->table('fit_shopping_lists')
             ->where('owner_user_id', auth()->id())
             ->orderBy('list_type')
@@ -85,6 +94,8 @@ class FittingsController
 
         return view('web::fittings', [
             'fits' => $fits,
+            'doctrines' => $doctrines,
+            'doctrineFits' => $doctrineFits,
             'shoppingLists' => $shoppingLists,
             'shoppingListItems' => $shoppingListItems,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
@@ -368,13 +379,12 @@ class FittingsController
 
     private function homeKeepstarQuery($db)
     {
-        return $db->table('corporation_structures as cs')
-            ->join('invTypes as t', 't.typeID', '=', 'cs.type_id')
-            ->join('solar_systems as m', 'm.system_id', '=', 'cs.system_id')
-            ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'cs.structure_id')
+        return $db->table('universe_structures as us')
+            ->join('invTypes as t', 't.typeID', '=', 'us.type_id')
+            ->join('solar_systems as m', 'm.system_id', '=', 'us.solar_system_id')
             ->where('m.name', '4-HWWF')
             ->where('t.typeName', 'Keepstar')
-            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.name as system_name, 1 as is_keepstar");
+            ->selectRaw("us.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', us.structure_id)) as station_name, us.solar_system_id as system_id, m.name as system_name, 1 as is_keepstar");
     }
 
     private function stationOptions($db): array
@@ -415,7 +425,7 @@ class FittingsController
                     ->first();
                 if (!$station && $locationType === 'home') {
                     $station = $this->homeKeepstarQuery($db)
-                        ->where('cs.structure_id', $stationId)
+                        ->where('us.structure_id', $stationId)
                         ->first();
                 }
 
