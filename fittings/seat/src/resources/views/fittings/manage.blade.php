@@ -147,6 +147,31 @@
       </div>
     </div>
     <div class="card">
+      <div class="card-header"><strong>Import EVE Fittings XML</strong></div>
+      <div class="card-body">
+        <p class="text-muted">Upload one EVE XML export to import every ship fitting in the file into a doctrine. Fits already in the library with the same name and ship are skipped.</p>
+        <form method="POST" action="{{ route('seatcore::fittings.import') }}" enctype="multipart/form-data">
+          @csrf
+          <div class="form-group">
+            <label for="fittings-xml">EVE fittings XML file</label>
+            <input id="fittings-xml" name="xml_file" type="file" class="form-control-file" accept=".xml,text/xml,application/xml" required>
+          </div>
+          <div class="form-group">
+            <label for="fittings-doctrine">Doctrine</label>
+            <input id="fittings-doctrine" name="doctrine" class="form-control" maxlength="120" value="{{ old('doctrine') }}" placeholder="e.g. Heavy Armor" required>
+          </div>
+          <div class="form-group">
+            <label for="fittings-visibility">Visibility</label>
+            <select id="fittings-visibility" name="visibility" class="form-control">
+              <option value="alliance">Alliance</option>
+              <option value="admins">Admins only</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Import All Fits</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-header"><strong>Add Fitting</strong></div>
       <div class="card-body">
         <form method="POST" action="{{ route('seatcore::fittings.store') }}">
