@@ -21,6 +21,7 @@
   @endforeach
 </div>
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+@if(session('info'))<div class="alert alert-info">{{ session('info') }}</div>@endif
 @if(!$owners->count())
   <div class="alert alert-warning">Finance tables have not been imported yet. Import the standalone finance database into SeAT using the fin_ prefix, then reload this page.</div>
 @endif
@@ -30,12 +31,7 @@
 <tr><td>{{ $owner->display_name }}</td><td>{{ ucfirst($owner->owner_type) }}</td><td>{{ $owner->eve_id }}</td><td>{{ ($owner->is_active ?? true) ? 'Yes' : 'No' }}</td></tr>
 @empty<tr><td colspan="4" class="text-muted">No finance owners imported.</td></tr>@endforelse
 </tbody></table></div></div>
-<div class="card"><div class="card-header"><h3 class="card-title">Record a successful site</h3></div><div class="card-body">
-<p>Records three payouts and applies the existing 45,000,000 ISK site revenue credit.</p>
-<form method="POST" action="{{ route('seatcore::potchven-finances.sites.store') }}">@csrf
-<div class="form-group"><label for="occurred_at">Completion time (optional)</label><input class="form-control" id="occurred_at" name="occurred_at" type="datetime-local"></div>
-<div class="form-group"><label for="review_note">Notes</label><input class="form-control" id="review_note" name="review_note" maxlength="1000"></div>
-<button class="btn btn-primary" type="submit">Record successful site</button></form></div></div>
+<div class="alert alert-info">Site outcomes are matched automatically from corporation reward payouts. Three 9,000,000 ISK payouts—one to each tracked character—record a successful site and credit 45,000,000 ISK revenue. Incomplete payout groups are flagged for review and the unpaid portion of the expected 27,000,000 ISK is listed as an SRP transfer obligation. Run the finance sync to refresh these results.</div>
 <div class="card"><div class="card-header"><h3 class="card-title">Recent wallet entries</h3></div><div class="card-body table-responsive">
 <table class="table table-striped table-sm"><thead><tr><th>Date</th><th>Owner</th><th>Reference</th><th>Description</th><th>Amount (ISK)</th><th>Operating expense</th></tr></thead><tbody>
 @forelse($entries as $entry)
