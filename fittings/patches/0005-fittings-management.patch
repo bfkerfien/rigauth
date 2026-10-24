@@ -13,7 +13,7 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            Route::put('/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
 +            Route::delete('/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
 +            Route::post('/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
-            Route::post('/locations', 'FittingsController@storeLocations')->name('seatcore::fittings.locations.store');
++            Route::post('/locations', 'FittingsController@storeLocations')->name('seatcore::fittings.locations.store');
 +            Route::post('/shopping-lists', 'FittingsController@storeShoppingList')->name('seatcore::fittings.shopping-lists.store');
 +            Route::post('/shopping-lists/{listId}/items', 'FittingsController@storeShoppingListItem')->whereNumber('listId')->name('seatcore::fittings.shopping-list-items.store');
 +        });
