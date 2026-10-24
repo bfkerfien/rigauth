@@ -39,6 +39,18 @@
                     @endif
                   </td>
                   <td>{{ $fit->ship_name }}</td>
+                  <td>
+                    @forelse($fitStatus['eligible'] as $pilot)
+                      <span class="d-inline-block mr-1" title="{{ $pilot['name'] }}">{!! img('characters', 'portrait', $pilot['character_id'], 32, ['class' => 'img-circle', 'alt' => $pilot['name'], 'title' => $pilot['name']], false) !!}</span>
+                    @empty
+                      @if($fitStatus['checked_pilots'] === 0)
+                        <span class="text-muted">Waiting for skill sync</span>
+                      @else
+                        <span class="text-danger">No synced pilot meets the requirements</span>
+                      @endif
+                    @endforelse
+                    @if($fitStatus['unsynced_pilots'] > 0)<div class="small text-muted">{{ $fitStatus['unsynced_pilots'] }} pilot(s) have no synced skill data.</div>@endif
+                  </td>
                   <td class="text-center">
                     @if(!$homeInventory['applicable'])
                       <span class="fa-stack text-muted" title="This doctrine is not assigned to the home system" aria-label="Not a home doctrine">
@@ -60,18 +72,6 @@
                     @else
                       <i class="fas fa-caravan {{ $deploymentInventory['ready'] ? 'text-success' : 'text-danger' }}" title="{{ $deploymentInventory['ready'] ? 'All required items are in the deployment system' : 'Missing required items in the deployment system' }}" aria-label="{{ $deploymentInventory['ready'] ? 'Deployment inventory ready' : 'Deployment inventory missing' }}"></i>
                     @endif
-                  </td>
-                  <td>
-                    @forelse($fitStatus['eligible'] as $pilot)
-                      <span class="d-inline-block mr-1" title="{{ $pilot['name'] }}">{!! img('characters', 'portrait', $pilot['character_id'], 32, ['class' => 'img-circle', 'alt' => $pilot['name'], 'title' => $pilot['name']], false) !!}</span>
-                    @empty
-                      @if($fitStatus['checked_pilots'] === 0)
-                        <span class="text-muted">Waiting for skill sync</span>
-                      @else
-                        <span class="text-danger">No synced pilot meets the requirements</span>
-                      @endif
-                    @endforelse
-                    @if($fitStatus['unsynced_pilots'] > 0)<div class="small text-muted">{{ $fitStatus['unsynced_pilots'] }} pilot(s) have no synced skill data.</div>@endif
                   </td>
                   <td>
                     <textarea id="fitting-eft-{{ $fit->id }}" class="d-none" readonly>{{ $fit->clipboard_text }}</textarea>
