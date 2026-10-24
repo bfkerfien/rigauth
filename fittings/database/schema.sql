@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS fit_category_assignments (
 
 CREATE TABLE IF NOT EXISTS fit_doctrines (
  name VARCHAR(120) NOT NULL PRIMARY KEY,
+ location_scope ENUM('home','deployment','both') NOT NULL DEFAULT 'both',
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
