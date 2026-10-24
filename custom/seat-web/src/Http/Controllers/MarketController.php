@@ -11,7 +11,7 @@ class MarketController extends Controller
     private function authorizeMarket(): void
     {
         $user = auth()->user();
-        $marketeer = $user && method_exists($user, 'roles') && $user->roles()->where('name', 'Marketeers')->exists();
+        $marketeer = $user && method_exists($user, 'roles') && $user->roles()->where('title', 'Marketeers')->exists();
         abort_unless($user && ($user->can('global.superuser') || $marketeer), 403);
     }
 

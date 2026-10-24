@@ -20,7 +20,7 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
  
 +        @php
 +          $marketUser = auth()->user();
-+          $marketRoleAccess = $marketUser && method_exists($marketUser, 'roles') && $marketUser->roles()->where('name', 'Marketeers')->exists();
++          $marketRoleAccess = $marketUser && method_exists($marketUser, 'roles') && $marketUser->roles()->where('title', 'Marketeers')->exists();
 +        @endphp
 +        @if($marketUser && ($marketUser->can('global.superuser') || $marketRoleAccess))
 +        <li class="nav-item"><a href="{{ route('seatcore::market.index') }}" class="nav-link {{ Request::segment(1)==='market'?'active':null }}"><i class="nav-icon fas fa-chart-line"></i><p>Market</p></a></li>
