@@ -13,22 +13,8 @@ class MarketController extends Controller
         $user = auth()->user();
         $marketeer = $user && method_exists($user, 'roles')
             && $user->roles()->where('title', 'Marketeers')->exists();
-        $temporaryGrantUntil = (int) session('market_temp_access_until', 0);
-        $temporaryGrant = $temporaryGrantUntil >= now()->timestamp;
 
-        abort_unless($user && ($user->can('global.superuser') || $marketeer || $temporaryGrant), 403);
-    }
-
-    /**
-     * Redeem a signed, expiring URL to grant this authenticated browser session
-     * temporary Market access for troubleshooting.
-     */
-    public function temporaryAccess(Request $request): \Illuminate\Http\RedirectResponse
-    {
-        abort_unless($request->hasValidSignature(), 403);
-        session(['market_temp_access_until' => now()->addMinutes(15)->timestamp]);
-
-        return redirect()->route('seatcore::market.index');
+        abort_unless($user && ($user->can('global.superuser') || $marketeer), 403);
     }
 
     public function index(Request $request): View
