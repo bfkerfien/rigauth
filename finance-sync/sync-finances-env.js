@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-require('dotenv').config();
+require('dotenv').config({path:process.env.DOTENV_CONFIG_PATH || '/opt/potchven-finances/.env'});
 const fs = require('node:fs');
 const path = require('node:path');
 const mysql = require('mysql2/promise');
@@ -31,7 +31,7 @@ async function bodyJson(r, label) {
   if (!r.ok) throw new Error(label + ' returned HTTP ' + r.status + ': ' + body.slice(0, 300));
   try { return body ? JSON.parse(body) : null; } catch { throw new Error(label + ' returned invalid JSON'); }
 }
-async function accessToken(owner, state) {
+function persistState(state) {\n  const temp = STATE_FILE + '.tmp';\n  fs.mkdirSync(path.dirname(STATE_FILE), {recursive:true});\n  fs.writeFileSync(temp,JSON.stringify(state,null,2) + '\\n',{mode:0o600});\n  fs.renameSync(temp,STATE_FILE);\n  try { fs.chmodSync(STATE_FILE,0o600); } catch {}\n}\nasync function accessToken(owner, state) {
   const refresh = (state[owner.key] && state[owner.key].refresh) || owner.refresh;
   const basic = Buffer.from(req('EVE_CLIENT_ID') + ':' + req('EVE_CLIENT_SECRET')).toString('base64');
   const r = await fetch(SSO + '/v2/oauth/token', {
