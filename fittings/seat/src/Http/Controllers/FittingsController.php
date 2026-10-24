@@ -722,12 +722,14 @@ class FittingsController
 
     private function homeKeepstarQuery($db)
     {
-        return $db->table('universe_structures as us')
-            ->join('invTypes as t', 't.typeID', '=', 'us.type_id')
-            ->join('solar_systems as m', 'm.system_id', '=', 'us.solar_system_id')
+        // Keepstars are generally not public ESI structures. SeAT's corporation
+        // structure cache contains structures returned by corporation ESI scopes.
+        return $db->table('corporation_structures as cs')
+            ->join('invTypes as t', 't.typeID', '=', 'cs.type_id')
+            ->join('solar_systems as m', 'm.system_id', '=', 'cs.system_id')
             ->where('m.name', '4-HWWF')
             ->where('t.typeName', 'Keepstar')
-            ->selectRaw("us.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', us.structure_id)) as station_name, us.solar_system_id as system_id, m.name as system_name, 1 as is_keepstar");
+            ->selectRaw("cs.structure_id as station_id, CONCAT('Keepstar ', cs.structure_id) as station_name, cs.system_id as system_id, m.name as system_name, 1 as is_keepstar");
     }
 
     private function stationOptions($db): array
@@ -768,7 +770,7 @@ class FittingsController
                     ->first();
                 if (!$station && $locationType === 'home') {
                     $station = $this->homeKeepstarQuery($db)
-                        ->where('us.structure_id', $stationId)
+                        ->where('cs.structure_id', $stationId)
                         ->first();
                 }
 
