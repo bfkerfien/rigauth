@@ -232,7 +232,7 @@ class FittingsController
                         ? 'hull_rig'
                         : ((bool) $item->is_consumable ? 'consumables' : 'modules');
                     $typeId = (int) $item->type_id;
-                    $key = $category . ':' . $typeId;
+                    $key = $category === 'hull_rig' ? $category . ':' . $fitId . ':' . $typeId : $category . ':' . $typeId;
                     $quantity = (int) $item->quantity_per_ship;
                     if (!isset($requirementsByCategory[$category][$key])) {
                         $requirementsByCategory[$category][$key] = [
@@ -240,8 +240,10 @@ class FittingsController
                             'type_name' => $item->type_name,
                             'needed' => $quantity,
                             'fit_names' => [],
+                            'group_key' => $category === 'hull_rig' ? $fitId : null,
+                            'group_name' => $category === 'hull_rig' ? ($requirements[$fitId]['fit_name'] ?? 'Fit') : null,
                         ];
-                    } else {
+                    } elseif ($category !== 'hull_rig') {
                         $requirementsByCategory[$category][$key]['needed'] = max(
                             $requirementsByCategory[$category][$key]['needed'],
                             $quantity
@@ -258,7 +260,7 @@ class FittingsController
                 foreach ($requirements as $fitId => $fit) {
                     if (!isset($hasHull[$fitId]) && $fit['ship_type_id'] > 0) {
                         $type = $db->table('invTypes')->where('typeID', $fit['ship_type_id'])->first(['typeName']);
-                        $key = 'hull_rig:' . $fit['ship_type_id'];
+                        $key = 'hull_rig:' . $fitId . ':' . $fit['ship_type_id'];
                         if (!isset($requirementsByCategory['hull_rig'][$key]) ||
                             1 > $requirementsByCategory['hull_rig'][$key]['needed']) {
                             $requirementsByCategory['hull_rig'][$key] = [
@@ -266,9 +268,9 @@ class FittingsController
                                 'type_name' => $type->typeName ?? $fit['fit_name'],
                                 'needed' => 1,
                                 'fit_names' => [$fitId => $fit['fit_name']],
+                                'group_key' => $fitId,
+                                'group_name' => $fit['fit_name'],
                             ];
-                        } elseif (1 === $requirementsByCategory['hull_rig'][$key]['needed']) {
-                            $requirementsByCategory['hull_rig'][$key]['fit_names'][$fitId] = $fit['fit_name'];
                         }
                     }
                 }
@@ -337,10 +339,14 @@ class FittingsController
                             'have' => $have,
                             'missing' => $missing,
                             'fit_names' => array_values(array_filter(array_unique($requirement['fit_names']))),
+                            'group_key' => $requirement['group_key'] ?? null,
+                            'group_name' => $requirement['group_name'] ?? null,
                         ];
                     }
                 }
-                usort($shortages, fn ($a, $b) => strcasecmp($a->type_name, $b->type_name));
+                usort($shortages, fn ($a, $b) => $category === 'hull_rig'
+                    ? (strcasecmp((string) ($a->group_name ?? ''), (string) ($b->group_name ?? '')) ?: strcasecmp($a->type_name, $b->type_name))
+                    : strcasecmp($a->type_name, $b->type_name));
                 $result[$locationType]['categories'][$category] = collect($shortages);
             }
 
