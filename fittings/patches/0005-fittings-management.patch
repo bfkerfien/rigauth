@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,10 @@
+@@ -54,4 +54,11 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
@@ -15,4 +15,5 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            Route::post('/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
             Route::post('/locations', 'FittingsController@storeLocations')->name('seatcore::fittings.locations.store');
 +            Route::post('/shopping-lists', 'FittingsController@storeShoppingList')->name('seatcore::fittings.shopping-lists.store');
++            Route::post('/shopping-lists/{listId}/items', 'FittingsController@storeShoppingListItem')->whereNumber('listId')->name('seatcore::fittings.shopping-list-items.store');
 +        });
