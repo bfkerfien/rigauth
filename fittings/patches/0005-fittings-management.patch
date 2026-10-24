@@ -12,8 +12,8 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +        })->name('seatcore::fittings.index');
 +
 +        // Native SeAT fitting management is administrator-only.
-+        Route::group(['prefix' => 'fittings', 'middleware' => ['can:global.superuser']], function () {
-+            Route::get('/manage', 'FittingsController@index')->name('seatcore::fittings.manage');
++        Route::group(['prefix' => 'fittings/manage', 'middleware' => ['can:global.superuser']], function () {
++            Route::get('/', 'FittingsController@index')->name('seatcore::fittings.manage');
 +            Route::get('/doctrines', 'FittingsController@doctrines')->name('seatcore::fittings.doctrines');
 +            Route::post('/doctrines', 'FittingsController@storeDoctrine')->name('seatcore::fittings.doctrines.store');
 +            Route::get('/doctrines/{doctrine}', 'FittingsController@showDoctrine')->name('seatcore::fittings.doctrines.show');
