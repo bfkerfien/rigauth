@@ -20,6 +20,12 @@ fi
 
 docker network connect "$SEAT_NETWORK" "$APP_CONTAINER" >/dev/null 2>&1 || true
 
+# Always refresh the in-container worker from the deployed host copy.
+WORKER_SOURCE="/opt/potchven-finances/src/sync-finances-seat-db.js"
+[[ -f "$WORKER_SOURCE" ]] || { echo "ERROR: deployed sync worker missing at $WORKER_SOURCE"; exit 1; }
+docker cp "$WORKER_SOURCE" "$APP_CONTAINER:/app/src/sync-finances-seat-db.js" >/dev/null
+echo "Updated worker inside $APP_CONTAINER."
+
 exec docker exec -i \
   -e FIN_DB_HOST="$SEAT_DB_CONTAINER" \
   -e FIN_DB_PORT=3306 \
