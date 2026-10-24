@@ -37,4 +37,6 @@ If the original fittings tables are already installed, run the additive migratio
 
 If the fitting tables were installed **before** station fields were added, run `fittings/database/migrations/0003-fit-shopping-list-locations.sql` against the same SeAT database. This adds the station columns to existing shopping lists. Do not run this migration after applying the current full schema, because that schema already includes those columns.
 
+For the alliance station dropdowns, run `fittings/database/migrations/0004-fit-alliance-stations.sql` once after the base fittings tables exist. It creates separate Home and Deployment station lists and seeds all NPC stations in Jita into both. Administrators can add other stations by ID to either list; the app resolves station and solar system names from SeAT’s EVE data.
+
 New lists inherit the configured home or deployment station and system. When an administrator changes a default location, existing lists of that type are synchronized to the new station and system. Each list can contain categorized items with quantities and notes.
