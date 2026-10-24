@@ -58,6 +58,7 @@ class FittingsController
             'selectedCategory' => $selectedCategory,
             'categoryMap' => $categoryMap,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
+            'stations' => $db->table('fit_alliance_stations')->orderBy('location_type')->orderBy('station_name')->get()->groupBy('location_type'),
             'shoppingLists' => $db->table('fit_shopping_lists')->orderBy('list_type')->orderBy('list_name')->get(),
             'shoppingListItems' => $db->table('fit_shopping_list_items')->orderBy('shopping_list_id')->orderBy('category')->orderBy('sort_order')->get()->groupBy('shopping_list_id'),
         ]);
@@ -299,44 +300,120 @@ class FittingsController
         $this->requireAdmin();
         $data = $request->validate([
             'home_station_id' => ['nullable', 'integer', 'min:1'],
-            'home_station_name' => ['nullable', 'string', 'max:255'],
-            'home_system_id' => ['nullable', 'integer', 'min:1'],
-            'home_system_name' => ['nullable', 'string', 'max:100'],
             'deployment_station_id' => ['nullable', 'integer', 'min:1'],
-            'deployment_station_name' => ['nullable', 'string', 'max:255'],
-            'deployment_system_id' => ['nullable', 'integer', 'min:1'],
-            'deployment_system_name' => ['nullable', 'string', 'max:100'],
         ]);
 
         $db = $this->market();
+        $locations = [];
         foreach (['home', 'deployment'] as $locationType) {
-            $locationValues = [
-                'station_id' => $data[$locationType . '_station_id'] ?? null,
-                'station_name' => trim($data[$locationType . '_station_name'] ?? '') ?: null,
-                'system_id' => $data[$locationType . '_system_id'] ?? null,
-                'system_name' => trim($data[$locationType . '_system_name'] ?? '') ?: null,
+            $stationId = $data[$locationType . '_station_id'] ?? null;
+            $station = null;
+            if ($stationId) {
+                $station = $db->table('fit_alliance_stations')
+                    ->where('location_type', $locationType)
+                    ->where('station_id', $stationId)
+                    ->first();
+                if (!$station) {
+                    return back()->withErrors([$locationType . '_station_id' => 'Choose a station from the ' . $locationType . ' station list.'])->withInput();
+                }
+            }
+
+            $locations[$locationType] = [
+                'station_id' => $station->station_id ?? null,
+                'station_name' => $station->station_name ?? null,
+                'system_id' => $station->system_id ?? null,
+                'system_name' => $station->system_name ?? null,
                 'updated_by' => auth()->id(),
                 'updated_at' => now(),
             ];
-
-            $db->table('fit_location_settings')->updateOrInsert(
-                ['location_type' => $locationType],
-                $locationValues
-            );
-
-            // Keep all lists of this type synchronized with the administrator's current default location.
-            $db->table('fit_shopping_lists')->where('list_type', $locationType)->update([
-                'station_id' => $locationValues['station_id'],
-                'station_name' => $locationValues['station_name'],
-                'system_id' => $locationValues['system_id'],
-                'system_name' => $locationValues['system_name'],
-                'updated_at' => now(),
-            ]);
         }
+
+        $db->transaction(function () use ($db, $locations) {
+            foreach ($locations as $locationType => $locationValues) {
+                $db->table('fit_location_settings')->updateOrInsert(
+                    ['location_type' => $locationType],
+                    $locationValues
+                );
+
+                // Keep each shopping list aligned with its selected home or deployment station.
+                $db->table('fit_shopping_lists')->where('list_type', $locationType)->update([
+                    'station_id' => $locationValues['station_id'],
+                    'station_name' => $locationValues['station_name'],
+                    'system_id' => $locationValues['system_id'],
+                    'system_name' => $locationValues['system_name'],
+                    'updated_at' => now(),
+                ]);
+            }
+        });
 
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Home and deployment stations saved.');
     }
 
+    public function storeAllianceStation(Request $request): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'location_type' => ['required', 'in:home,deployment'],
+            'station_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $db = $this->market();
+        $station = $db->table('staStations as s')
+            ->join('mapSolarSystems as m', 'm.solarSystemID', '=', 's.solarSystemID')
+            ->where('s.stationID', $data['station_id'])
+            ->first([
+                's.stationID as station_id',
+                's.stationName as station_name',
+                's.solarSystemID as system_id',
+                'm.solarSystemName as system_name',
+            ]);
+
+        if (!$station) {
+            return back()->withErrors(['station_id' => 'That station ID was not found in EVE’s station data.'])->withInput();
+        }
+
+        $db->table('fit_alliance_stations')->updateOrInsert(
+            [
+                'location_type' => $data['location_type'],
+                'station_id' => $station->station_id,
+            ],
+            [
+                'station_name' => $station->station_name,
+                'system_id' => $station->system_id,
+                'system_name' => $station->system_name,
+                'added_by' => auth()->id(),
+            ]
+        );
+
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Station added to the ' . $data['location_type'] . ' list.');
+    }
+
+    public function destroyAllianceStation(string $locationType, int $stationId): RedirectResponse
+    {
+        $this->requireAdmin();
+        abort_unless(in_array($locationType, ['home', 'deployment'], true), 404);
+
+        $db = $this->market();
+        $usedAsDefault = $db->table('fit_location_settings')
+            ->where('location_type', $locationType)
+            ->where('station_id', $stationId)
+            ->exists();
+        $usedByList = $db->table('fit_shopping_lists')
+            ->where('list_type', $locationType)
+            ->where('station_id', $stationId)
+            ->exists();
+
+        if ($usedAsDefault || $usedByList) {
+            return back()->withErrors(['station_id' => 'This station is selected as a saved location and cannot be removed yet.']);
+        }
+
+        $db->table('fit_alliance_stations')
+            ->where('location_type', $locationType)
+            ->where('station_id', $stationId)
+            ->delete();
+
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Station removed from the ' . $locationType . ' list.');
+    }
 
     public function storeShoppingList(Request $request): RedirectResponse
     {
