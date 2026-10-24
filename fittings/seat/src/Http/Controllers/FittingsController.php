@@ -59,6 +59,7 @@ class FittingsController
             'categoryMap' => $categoryMap,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
             'shoppingLists' => $db->table('fit_shopping_lists')->orderBy('list_type')->orderBy('list_name')->get(),
+            'shoppingListItems' => $db->table('fit_shopping_list_items')->orderBy('shopping_list_id')->orderBy('category')->orderBy('sort_order')->get()->groupBy('shopping_list_id'),
         ]);
     }
 
@@ -198,6 +199,33 @@ class FittingsController
         ]);
 
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Shopping list created using the saved ' . $data['list_type'] . ' location.');
+    }
+
+
+    public function storeShoppingListItem(Request $request, int $listId): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'type_name' => ['required', 'string', 'max:255'],
+            'type_id' => ['nullable', 'integer', 'min:1'],
+            'category' => ['required', 'in:hull,module,rig,consumable,other'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $db = $this->market();
+        abort_unless($db->table('fit_shopping_lists')->where('id', $listId)->exists(), 404);
+        $db->table('fit_shopping_list_items')->insert([
+            'shopping_list_id' => $listId,
+            'type_id' => $data['type_id'] ?? null,
+            'type_name' => trim($data['type_name']),
+            'category' => $data['category'],
+            'quantity' => $data['quantity'],
+            'notes' => $data['notes'] ?? null,
+            'sort_order' => 0,
+        ]);
+
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Item added to shopping list.');
     }
 
     public function storeCategory(Request $request): RedirectResponse
