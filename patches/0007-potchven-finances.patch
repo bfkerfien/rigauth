@@ -1,0 +1,28 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -61,6 +61,7 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+         // Native Market pages use SeAT's authenticated session.
+         // Do not expose the legacy standalone Market SSO bridge for this integration.
+         include __DIR__ . '/Routes/Market.php';
++        include __DIR__ . '/Routes/PotchvenFinances.php';
+ 
+         // Support Routes
+         Route::group([
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -48,4 +48,12 @@
+         @endif
+ 
++        @php
++          $financeUser = auth()->user();
++          $financeCharacterAccess = $financeUser && $financeUser->characters->contains(function ($character) {
++            return strcasecmp((string) ($character->name ?? $character->character_name ?? ''), 'Turaneau') === 0;
++          });
++        @endphp
++        @if($financeCharacterAccess)
++        <li class="nav-item"><a href="{{ route('seatcore::potchven-finances.index') }}" class="nav-link {{ Request::segment(1)==='potchven-finances'?'active':null }}"><i class="nav-icon fas fa-coins"></i><p>Potchven Finances</p></a></li>
++        @endif
++
+         @foreach($menu as $entry)
