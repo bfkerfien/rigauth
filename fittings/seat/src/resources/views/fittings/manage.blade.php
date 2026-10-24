@@ -49,7 +49,7 @@
     </div>
   </div>
   <div class="col-lg-4">
-    @if(auth()->check() && auth()->user()->hasSuperUserPermission())
+    @if(auth()->check() && auth()->user()->can('global.superuser'))
     <div class="card">
       <div class="card-header"><strong>Add Fitting</strong></div>
       <div class="card-body">
