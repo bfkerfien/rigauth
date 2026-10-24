@@ -81,6 +81,15 @@ class FittingsController
             ->get(['da.doctrine', 'f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text'])
             ->groupBy('doctrine');
 
+        foreach ($doctrineFits as $doctrineFitList) {
+            foreach ($doctrineFitList as $fit) {
+                $fit->clipboard_text = $this->eftClipboardText($fit);
+            }
+        }
+
+        $pilots = auth()->user()->characters->unique('character_id')->values();
+        $fitSkillStatus = $this->pilotFitEligibility($db, $doctrineFits, $pilots);
+
         $shoppingLists = $db->table('fit_shopping_lists')
             ->where('owner_user_id', auth()->id())
             ->orderBy('list_type')
@@ -96,6 +105,8 @@ class FittingsController
             'fits' => $fits,
             'doctrines' => $doctrines,
             'doctrineFits' => $doctrineFits,
+            'pilots' => $pilots,
+            'fitSkillStatus' => $fitSkillStatus,
             'shoppingLists' => $shoppingLists,
             'shoppingListItems' => $shoppingListItems,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
@@ -156,6 +167,158 @@ class FittingsController
         ]);
 
         return redirect()->route('seatcore::fittings.index')->with('success', 'Item added to your shopping list.');
+    }
+
+    private function eftClipboardText(object $fit): string
+    {
+        $source = trim((string) ($fit->fit_text ?? ''));
+        if ($source === '') {
+            return '[' . $fit->ship_name . ', ' . $fit->fit_name . ']';
+        }
+
+        $previousLibxmlSetting = libxml_use_internal_errors(true);
+        try {
+            $xml = simplexml_load_string($source, \SimpleXMLElement::class, LIBXML_NONET | LIBXML_NOBLANKS);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousLibxmlSetting);
+        }
+
+        if ($xml === false) {
+            return $source;
+        }
+
+        $lines = ['[' . $fit->ship_name . ', ' . $fit->fit_name . ']'];
+        foreach (($xml->xpath('//hardware') ?: []) as $hardware) {
+            $typeName = trim((string) ($hardware['type'] ?? ''));
+            if ($typeName === '' || strtolower($typeName) === 'empty') {
+                continue;
+            }
+
+            $quantityValue = (string) ($hardware['qty'] ?? $hardware['quantity'] ?? '1');
+            $quantity = ctype_digit($quantityValue) ? max(1, (int) $quantityValue) : 1;
+            $lines[] = $quantity > 1 ? $typeName . ' x' . $quantity : $typeName;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function pilotFitEligibility($db, $doctrineFits, $pilots): array
+    {
+        $fits = $doctrineFits->flatten(1);
+        $fitIds = $fits->pluck('id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $status = [];
+
+        foreach ($fitIds as $fitId) {
+            $status[$fitId] = ['eligible' => [], 'checked_pilots' => 0, 'unsynced_pilots' => count($pilotIds)];
+        }
+        if (!$fitIds || !$pilotIds) {
+            return $status;
+        }
+
+        $schema = $db->getSchemaBuilder();
+        foreach (['fit_items', 'character_skills', 'dgmTypeAttributes', 'dgmAttributeTypes', 'invTypes'] as $table) {
+            if (!$schema->hasTable($table)) {
+                return $status;
+            }
+        }
+
+        $typeIdsByFit = [];
+        foreach ($fits as $fit) {
+            $typeIdsByFit[(int) $fit->id][] = (int) $fit->ship_type_id;
+        }
+        foreach ($db->table('fit_items')->whereIn('fit_id', $fitIds)->get(['fit_id', 'type_id']) as $item) {
+            $typeIdsByFit[(int) $item->fit_id][] = (int) $item->type_id;
+        }
+        foreach ($typeIdsByFit as $fitId => $typeIds) {
+            $typeIdsByFit[$fitId] = array_values(array_unique(array_filter($typeIds)));
+        }
+        $allTypeIds = array_values(array_unique(array_merge(...array_values($typeIdsByFit))));
+        if (!$allTypeIds) {
+            return $status;
+        }
+
+        $attributeNames = [];
+        for ($slot = 1; $slot <= 6; $slot++) {
+            $attributeNames[] = 'requiredSkill' . $slot;
+            $attributeNames[] = 'requiredSkill' . $slot . 'Level';
+        }
+        $attributesByType = [];
+        foreach ($db->table('dgmTypeAttributes as ta')
+            ->join('dgmAttributeTypes as at', 'at.attributeID', '=', 'ta.attributeID')
+            ->whereIn('ta.typeID', $allTypeIds)
+            ->whereIn('at.attributeName', $attributeNames)
+            ->get(['ta.typeID', 'at.attributeName', 'ta.valueInt', 'ta.valueFloat']) as $row) {
+            $value = $row->valueInt ?? $row->valueFloat;
+            if ($value === null) {
+                continue;
+            }
+            if (preg_match('/^requiredSkill([1-6])$/', $row->attributeName, $matches)) {
+                $attributesByType[(int) $row->typeID]['skill'][(int) $matches[1]] = (int) $value;
+            } elseif (preg_match('/^requiredSkill([1-6])Level$/', $row->attributeName, $matches)) {
+                $attributesByType[(int) $row->typeID]['level'][(int) $matches[1]] = (int) $value;
+            }
+        }
+
+        $requirementsByFit = [];
+        foreach ($typeIdsByFit as $fitId => $typeIds) {
+            foreach ($typeIds as $typeId) {
+                foreach (($attributesByType[$typeId]['skill'] ?? []) as $slot => $skillId) {
+                    $requiredLevel = (int) ($attributesByType[$typeId]['level'][$slot] ?? 0);
+                    if ($skillId > 0 && $requiredLevel > 0) {
+                        $requirementsByFit[$fitId][$skillId] = max($requirementsByFit[$fitId][$skillId] ?? 0, $requiredLevel);
+                    }
+                }
+            }
+        }
+
+        $skillIds = [];
+        foreach ($requirementsByFit as $requirements) {
+            $skillIds = array_merge($skillIds, array_keys($requirements));
+        }
+        $skillIds = array_values(array_unique($skillIds));
+        $skillNames = $skillIds
+            ? $db->table('invTypes')->whereIn('typeID', $skillIds)->pluck('typeName', 'typeID')->all()
+            : [];
+
+        $syncedPilotIds = $db->table('character_skills')
+            ->whereIn('character_id', $pilotIds)
+            ->distinct()
+            ->pluck('character_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $skillRows = $db->table('character_skills')
+            ->whereIn('character_id', $pilotIds)
+            ->when($skillIds, fn ($query) => $query->whereIn('skill_id', $skillIds))
+            ->get(['character_id', 'skill_id', 'trained_skill_level']);
+        $levelsByPilot = [];
+        foreach ($skillRows as $skill) {
+            $levelsByPilot[(int) $skill->character_id][(int) $skill->skill_id] = (int) $skill->trained_skill_level;
+        }
+
+        foreach ($fitIds as $fitId) {
+            foreach ($pilots as $pilot) {
+                $pilotId = (int) $pilot->character_id;
+                if (!in_array($pilotId, $syncedPilotIds, true)) {
+                    continue;
+                }
+
+                $missing = [];
+                foreach (($requirementsByFit[$fitId] ?? []) as $skillId => $requiredLevel) {
+                    if (($levelsByPilot[$pilotId][$skillId] ?? 0) < $requiredLevel) {
+                        $missing[] = ($skillNames[$skillId] ?? ('Skill ' . $skillId)) . ' ' . $requiredLevel;
+                    }
+                }
+                if (!$missing) {
+                    $status[$fitId]['eligible'][] = ['character_id' => $pilotId, 'name' => $pilot->name];
+                }
+            }
+            $status[$fitId]['checked_pilots'] = count($syncedPilotIds);
+            $status[$fitId]['unsynced_pilots'] = max(0, count($pilotIds) - count($syncedPilotIds));
+        }
+
+        return $status;
     }
 
     public function importXml(Request $request): RedirectResponse
