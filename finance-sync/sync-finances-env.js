@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-require('dotenv').config({path:process.env.DOTENV_CONFIG_PATH || '/opt/potchven-finances/.env'});
+require('dotenv').config({path:process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), '.env')});
 const fs = require('node:fs');
 const path = require('node:path');
 const mysql = require('mysql2/promise');
