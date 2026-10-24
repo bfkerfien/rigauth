@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,5 +54,8 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+@@ -53,5 +53,8 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
  
          include __DIR__ . '/Routes/Home.php';
  
