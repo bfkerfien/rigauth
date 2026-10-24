@@ -24,6 +24,7 @@ class FittingsController
 
     public function index(Request $request): View
     {
+        $this->requireAdmin();
         $db = $this->market();
         $categories = $db->table('fit_categories')->orderBy('sort_order')->orderBy('category_name')->get();
         $selectedCategory = $request->integer('category') ?: null;
