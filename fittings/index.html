@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Fittings · Triglavian Consortium</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" href="#fits" aria-label="Triglavian Consortium home">
+      <span class="brand-mark">TC</span>
+      <span><strong>TRIGLAVIAN</strong><small>CONSORTIUM</small></span>
+    </a>
+    <div class="side-label">TOOLS</div>
+    <a class="side-link muted-link" href="#market"><span class="side-icon">▦</span>Market</a>
+    <button class="side-link section-toggle active" id="fittingsToggle" aria-expanded="true" aria-controls="fittingsNav">
+      <span class="side-icon">⌘</span><span>Fittings</span><span class="chevron">⌄</span>
+    </button>
+    <nav class="fittings-nav" id="fittingsNav" aria-label="Fittings pages">
+      <a class="sub-link selected" href="#fits" aria-current="page"><span class="nav-dot"></span>Fits</a>
+      <a class="sub-link" href="#shopping-list"><span class="nav-dot"></span>Shopping List</a>
+      <a class="sub-link" href="#deployment-shopping-list"><span class="nav-dot"></span>Deployment Shopping List</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="preview-chip"><span class="status-dot"></span>DISPLAY PREVIEW</div>
+      <div class="sidebar-caption">EVE Online fleet logistics</div>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <div class="crumb"><span>TOOLS</span><b>/</b><strong>FITTINGS</strong></div>
+      <div class="account"><span class="account-orb">?</span><span>Not connected</span><span class="caret">⌄</span></div>
+    </header>
+
+    <div class="page-wrap">
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">Fleet logistics</div>
+          <h1>Fittings</h1>
+          <p>Organize doctrine fits and see what is needed to undock every ship.</p>
+        </div>
+        <div class="preview-label"><span class="status-dot"></span>LAYOUT PREVIEW · SAMPLE DATA</div>
+      </section>
+
+      <div class="fit-tabs" role="tablist" aria-label="Fittings sections">
+        <button class="fit-tab active" id="tab-fits" role="tab" aria-selected="true" aria-controls="panel-fits" data-panel="fits"><span class="tab-index">01</span>Fits</button>
+        <button class="fit-tab" id="tab-shopping" role="tab" aria-selected="false" aria-controls="panel-shopping" data-panel="shopping"><span class="tab-index">02</span>Shopping List</button>
+        <button class="fit-tab" id="tab-deployment" role="tab" aria-selected="false" aria-controls="panel-deployment" data-panel="deployment"><span class="tab-index">03</span>Deployment Shopping List</button>
+      </div>
+
+      <section class="fit-panel active" id="panel-fits" role="tabpanel" aria-labelledby="tab-fits">
+        <div class="panel-intro">
+          <div><div class="eyebrow">Doctrine library</div><h2>Saved fits</h2><p>Fits are grouped by doctrine. Import or manage fits from this section.</p></div>
+          <button class="button-primary" type="button" disabled>＋ Import fits</button>
+        </div>
+        <div class="summary-grid">
+          <article class="summary-card"><span class="summary-label">SAVED FITS</span><strong>24</strong><small>Across all doctrines</small></article>
+          <article class="summary-card"><span class="summary-label">DOCTRINES</span><strong>6</strong><small>Fleet configurations</small></article>
+          <article class="summary-card"><span class="summary-label">HULL CONFIGURATIONS</span><strong>18</strong><small>Unique hull and rig sets</small></article>
+        </div>
+        <div class="content-card">
+          <div class="card-heading"><div><h3>Doctrine fits</h3><p>Sample display only</p></div><label class="search"><span>⌕</span><input type="search" placeholder="Filter fits or doctrines" aria-label="Filter fits" data-filter="fits"></label></div>
+          <div class="fit-list" id="fitList">
+            <article class="fit-row" data-search="retribution armor fleet"><div class="ship-sigil">R</div><div class="fit-name"><strong>Retribution · Armor Fleet</strong><span>Amarr Frigate <i>·</i> 12 modules <i>·</i> 3 rigs</span></div><div class="doctrine-tag">ARMOR FLEET</div><div class="fit-row-arrow">›</div></article>
+            <article class="fit-row" data-search="confessor armor fleet"><div class="ship-sigil">C</div><div class="fit-name"><strong>Confessor · Armor Fleet</strong><span>Amarr Tactical Destroyer <i>·</i> 13 modules <i>·</i> 3 rigs</span></div><div class="doctrine-tag">ARMOR FLEET</div><div class="fit-row-arrow">›</div></article>
+            <article class="fit-row" data-search="vedmak triglavian cruiser"><div class="ship-sigil trig">V</div><div class="fit-name"><strong>Vedmak · Mainline</strong><span>Triglavian Cruiser <i>·</i> 14 modules <i>·</i> 3 rigs</span></div><div class="doctrine-tag violet">TRIGLAVIAN</div><div class="fit-row-arrow">›</div></article>
+            <article class="fit-row" data-search="basilisk logistics fleet"><div class="ship-sigil blue">B</div><div class="fit-name"><strong>Basilisk · Logistics</strong><span>Caldari Logistics Cruiser <i>·</i> 15 modules <i>·</i> 3 rigs</span></div><div class="doctrine-tag blue-tag">LOGISTICS</div><div class="fit-row-arrow">›</div></article>
+          </div>
+          <div class="empty-filter" id="fitEmpty" hidden>No fits match that filter.</div>
+        </div>
+      </section>
+
+      <section class="fit-panel" id="panel-shopping" role="tabpanel" aria-labelledby="tab-shopping" hidden>
+        <div class="panel-intro"><div><div class="eyebrow">Shared stock</div><h2>Shopping List</h2><p>Minimum stock to refit between saved doctrine fits.</p></div><button class="button-secondary" type="button" data-copy="shared">Copy missing items</button></div>
+        <div class="list-summary"><div><span class="summary-label">FITS INCLUDED</span><strong>24</strong></div><div><span class="summary-label">ITEMS TO ACQUIRE</span><strong>8</strong></div><div class="inventory-state"><span class="status-dot"></span><span><b>Hangar inventory</b><small>Connect EVE to compare your items</small></span></div></div>
+        <div class="content-card list-card">
+          <div class="subtabs" role="tablist" aria-label="Shopping list categories" data-subtabs="shared">
+            <button class="subtab active" role="tab" aria-selected="true" data-category="modules">Modules <span>5</span></button>
+            <button class="subtab" role="tab" aria-selected="false" data-category="hulls">Hulls &amp; Rigs <span>2</span></button>
+            <button class="subtab" role="tab" aria-selected="false" data-category="consumables">Consumables <span>1</span></button>
+          </div>
+          <div class="table-toolbar"><span class="table-context" id="sharedContext">MODULES <i>·</i> SHARED FIT STOCK</span><label class="search"><span>⌕</span><input type="search" placeholder="Filter items" aria-label="Filter shared shopping list" data-filter="shared"></label></div>
+          <div class="table-scroll"><table><thead><tr><th>ITEM</th><th>MINIMUM NEEDED</th><th>YOU OWN HERE</th><th>STILL TO ACQUIRE</th><th>DOCTRINES</th></tr></thead><tbody id="sharedRows"></tbody></table></div>
+          <div class="inventory-footnote"><span class="status-dot"></span>Inventory is compared with personal items in the selected station. Sample rows are shown for layout only.</div>
+        </div>
+      </section>
+
+      <section class="fit-panel" id="panel-deployment" role="tabpanel" aria-labelledby="tab-deployment" hidden>
+        <div class="panel-intro"><div><div class="eyebrow">Ready to undock</div><h2>Deployment Shopping List</h2><p>Total items for one ready-to-fly ship for each assigned fit.</p></div><button class="button-secondary" type="button" data-copy="deployment">Copy missing items</button></div>
+        <div class="list-summary"><div><span class="summary-label">ASSIGNED FITS</span><strong>18</strong></div><div><span class="summary-label">ITEMS TO ACQUIRE</span><strong>14</strong></div><div class="inventory-state"><span class="status-dot"></span><span><b>Hangar inventory</b><small>Connect EVE to compare your items</small></span></div></div>
+        <div class="content-card list-card">
+          <div class="subtabs" role="tablist" aria-label="Deployment list categories" data-subtabs="deployment">
+            <button class="subtab active" role="tab" aria-selected="true" data-category="modules">Modules <span>8</span></button>
+            <button class="subtab" role="tab" aria-selected="false" data-category="hulls">Hulls &amp; Rigs <span>4</span></button>
+            <button class="subtab" role="tab" aria-selected="false" data-category="consumables">Consumables <span>2</span></button>
+          </div>
+          <div class="table-toolbar"><span class="table-context" id="deploymentContext">MODULES <i>·</i> ONE OF EACH ASSIGNED FIT</span><label class="search"><span>⌕</span><input type="search" placeholder="Filter items" aria-label="Filter deployment list" data-filter="deployment"></label></div>
+          <div class="table-scroll"><table><thead><tr><th>ITEM</th><th>TOTAL NEEDED</th><th>YOU OWN HERE</th><th>STILL TO ACQUIRE</th><th>DOCTRINES</th></tr></thead><tbody id="deploymentRows"></tbody></table></div>
+          <div class="inventory-footnote"><span class="status-dot"></span>Counts include one complete hull, fit, and rig setup for every assigned fit. Sample rows are shown for layout only.</div>
+        </div>
+      </section>
+      <footer class="page-footer"><span>TRIGLAVIAN CONSORTIUM <i>·</i> FLEET LOGISTICS</span><span>DISPLAY PREVIEW <i>·</i> NO LIVE EVE DATA</span></footer>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
+
