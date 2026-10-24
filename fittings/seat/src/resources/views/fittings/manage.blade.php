@@ -82,7 +82,7 @@
     <div class="card">
       <div class="card-header"><strong>Home &amp; Deployment Stations</strong></div>
       <div class="card-body">
-        <p class="text-muted">Choose each location from its own alliance station list. Station and solar system details are filled from SeAT’s EVE data.</p>
+        <p class="text-muted">Choose each location from its own list. Home also includes Keepstars that SeAT has cached in 4-HWWF. Station and solar system details are filled from SeAT’s EVE data.</p>
         <form method="POST" action="{{ route('seatcore::fittings.locations.store') }}">
           @csrf
           @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $key => $label)
@@ -104,7 +104,7 @@
         </form>
         <hr>
         <h5>Alliance Station Options</h5>
-        <p class="text-muted">Jita stations are preloaded in both lists. Add a station ID to Home or Deployment to make it available in that dropdown.</p>
+        <p class="text-muted">Jita stations are preloaded in both lists. Keepstars in 4-HWWF appear automatically in Home when present in SeAT’s corporation-structure cache. Add station IDs to either list as needed.</p>
         <form method="POST" action="{{ route('seatcore::fittings.stations.store') }}" class="form-inline mb-3">
           @csrf
           <label for="station-list-type" class="mr-2">Add to</label>
@@ -121,11 +121,15 @@
           @forelse(($stations[$listType] ?? collect()) as $station)
             <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1">
               <span>{{ $station->station_name }} — {{ $station->system_name }} <small class="text-muted">({{ $station->station_id }})</small></span>
-              <form method="POST" action="{{ route('seatcore::fittings.stations.destroy', ['locationType' => $listType, 'stationId' => $station->station_id]) }}">
-                @csrf
-                @method('DELETE')
-                <button class="btn btn-outline-danger btn-sm" type="submit">Remove</button>
-              </form>
+              @if(empty($station->is_keepstar))
+                <form method="POST" action="{{ route('seatcore::fittings.stations.destroy', ['locationType' => $listType, 'stationId' => $station->station_id]) }}">
+                  @csrf
+                  @method('DELETE')
+                  <button class="btn btn-outline-danger btn-sm" type="submit">Remove</button>
+                </form>
+              @else
+                <small class="text-muted">Auto</small>
+              @endif
             </div>
           @empty
             <p class="small text-muted">No stations in this list.</p>
