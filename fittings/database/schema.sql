@@ -1,7 +1,7 @@
--- Import only into the dedicated triglavian_market database.
--- No DROP statements. Do not run against SeAT's own seat schema.
+-- Import into SeAT's existing database (the same database configured for SeAT).
+-- All tables created by this feature use the fit_ prefix. No DROP statements.
 
-CREATE TABLE IF NOT EXISTS collection_runs (
+CREATE TABLE IF NOT EXISTS fit_collection_runs (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  structure_id BIGINT UNSIGNED NOT NULL,
  started_at DATETIME NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS collection_runs (
  KEY ix_runs_status (status, started_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS market_orders (
+CREATE TABLE IF NOT EXISTS fit_market_orders (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  run_id BIGINT UNSIGNED NOT NULL,
  source ENUM('structure','jita_44') NOT NULL,
@@ -33,14 +33,14 @@ CREATE TABLE IF NOT EXISTS market_orders (
  duration SMALLINT UNSIGNED NOT NULL,
  order_range VARCHAR(32) NOT NULL,
  collected_at DATETIME NOT NULL,
- CONSTRAINT fk_market_orders_run FOREIGN KEY (run_id) REFERENCES collection_runs(id) ON DELETE CASCADE,
+ CONSTRAINT fk_market_orders_run FOREIGN KEY (run_id) REFERENCES fit_collection_runs(id) ON DELETE CASCADE,
  UNIQUE KEY uq_run_source_order (run_id, source, order_id),
  KEY ix_market_run_type_source_side (run_id,type_id,source,is_buy_order),
  KEY ix_market_collected (collected_at),
  KEY ix_market_type_time (type_id,collected_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS item_comparisons (
+CREATE TABLE IF NOT EXISTS fit_item_comparisons (
  run_id BIGINT UNSIGNED NOT NULL,
  type_id INT UNSIGNED NOT NULL,
  type_name VARCHAR(255) NULL,
@@ -53,17 +53,17 @@ CREATE TABLE IF NOT EXISTS item_comparisons (
  structure_sell_volume BIGINT UNSIGNED NOT NULL DEFAULT 0,
  jita_sell_volume BIGINT UNSIGNED NOT NULL DEFAULT 0,
  PRIMARY KEY (run_id,type_id),
- CONSTRAINT fk_comparisons_run FOREIGN KEY (run_id) REFERENCES collection_runs(id) ON DELETE CASCADE,
+ CONSTRAINT fk_comparisons_run FOREIGN KEY (run_id) REFERENCES fit_collection_runs(id) ON DELETE CASCADE,
  KEY ix_comparison_type (type_id,run_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS market_type_volumes (
+CREATE TABLE IF NOT EXISTS fit_market_type_volumes (
  type_id INT UNSIGNED NOT NULL PRIMARY KEY,
  volume DECIMAL(24,6) NOT NULL,
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS ship_fits (
+CREATE TABLE IF NOT EXISTS fit_fits (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  fit_name VARCHAR(160) NOT NULL,
  ship_type_id INT UNSIGNED NOT NULL,
@@ -90,30 +90,30 @@ CREATE TABLE IF NOT EXISTS fit_categories (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Many-to-many: one fit can appear in several categories.
-CREATE TABLE IF NOT EXISTS ship_fit_categories (
+CREATE TABLE IF NOT EXISTS fit_category_assignments (
  fit_id BIGINT UNSIGNED NOT NULL,
  category_id BIGINT UNSIGNED NOT NULL,
  assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY (fit_id,category_id),
  KEY ix_ship_fit_categories_category (category_id,fit_id),
- CONSTRAINT fk_ship_fit_categories_fit FOREIGN KEY (fit_id) REFERENCES ship_fits(id) ON DELETE CASCADE,
+ CONSTRAINT fk_ship_fit_categories_fit FOREIGN KEY (fit_id) REFERENCES fit_fits(id) ON DELETE CASCADE,
  CONSTRAINT fk_ship_fit_categories_category FOREIGN KEY (category_id) REFERENCES fit_categories(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS doctrines (
+CREATE TABLE IF NOT EXISTS fit_doctrines (
  name VARCHAR(120) NOT NULL PRIMARY KEY,
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS ship_fit_doctrines (
+CREATE TABLE IF NOT EXISTS fit_doctrine_assignments (
  fit_id BIGINT UNSIGNED NOT NULL,
  doctrine VARCHAR(120) NOT NULL,
  PRIMARY KEY (fit_id,doctrine),
  KEY ix_fit_doctrine (doctrine),
- CONSTRAINT fk_fit_doctrines_fit FOREIGN KEY (fit_id) REFERENCES ship_fits(id) ON DELETE CASCADE
+ CONSTRAINT fk_fit_doctrines_fit FOREIGN KEY (fit_id) REFERENCES fit_fits(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS ship_fit_items (
+CREATE TABLE IF NOT EXISTS fit_items (
  fit_id BIGINT UNSIGNED NOT NULL,
  type_id INT UNSIGNED NOT NULL,
  type_name VARCHAR(255) NOT NULL,
@@ -122,10 +122,10 @@ CREATE TABLE IF NOT EXISTS ship_fit_items (
  is_rig BOOLEAN NOT NULL DEFAULT FALSE,
  is_consumable BOOLEAN NULL DEFAULT NULL,
  PRIMARY KEY (fit_id,type_id),
- CONSTRAINT fk_fit_items_fit FOREIGN KEY (fit_id) REFERENCES ship_fits(id) ON DELETE CASCADE
+ CONSTRAINT fk_fit_items_fit FOREIGN KEY (fit_id) REFERENCES fit_fits(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS shopping_lists (
+CREATE TABLE IF NOT EXISTS fit_shopping_lists (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  list_name VARCHAR(160) NOT NULL,
  list_type ENUM('home','deployment') NOT NULL,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
  KEY ix_shopping_lists_type (list_type,list_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS shopping_list_items (
+CREATE TABLE IF NOT EXISTS fit_shopping_list_items (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  shopping_list_id BIGINT UNSIGNED NOT NULL,
  type_id INT UNSIGNED NULL,
@@ -147,6 +147,6 @@ CREATE TABLE IF NOT EXISTS shopping_list_items (
  quantity INT UNSIGNED NOT NULL DEFAULT 1,
  notes VARCHAR(500) NULL,
  sort_order INT NOT NULL DEFAULT 0,
- CONSTRAINT fk_shopping_list_items_list FOREIGN KEY (shopping_list_id) REFERENCES shopping_lists(id) ON DELETE CASCADE,
+ CONSTRAINT fk_shopping_list_items_list FOREIGN KEY (shopping_list_id) REFERENCES fit_shopping_lists(id) ON DELETE CASCADE,
  KEY ix_shopping_items_list_category (shopping_list_id,category,sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
