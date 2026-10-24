@@ -73,7 +73,7 @@
         @php($shortageCategories = ['modules' => 'Modules', 'consumables' => 'Consumables', 'hull_rig' => 'Hull & Rig Combo'])
         @php($systemShortages = $inventoryShortages[$listType] ?? ['available' => false, 'categories' => []])
         @if($systemShortages['available'])
-          <p class="small text-muted">Missing quantities are calculated across one of every fit assigned to doctrines scoped to {{ strtolower($label) }}, using assets from all pilots linked to your SeAT account in this system.</p>
+          <p class="small text-muted">For each item, the required quantity is the highest amount used by any fit assigned to a doctrine scoped to {{ strtolower($label) }}. Quantities are not added across alternative fits. Available assets are combined across all pilots linked to your SeAT account in this system.</p>
           <ul class="nav nav-tabs mb-3" role="tablist">
             @foreach($shortageCategories as $categoryKey => $categoryLabel)
               <li class="nav-item"><a class="nav-link {{ $loop->first ? 'active' : '' }}" data-toggle="tab" href="#fittings-{{ $listType }}-{{ $categoryKey }}" role="tab">{{ $categoryLabel }}</a></li>
