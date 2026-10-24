@@ -18,6 +18,14 @@
             <label for="doctrine-name">Doctrine name</label>
             <input id="doctrine-name" name="doctrine_name" class="form-control" maxlength="120" value="{{ old('doctrine_name') }}" required>
           </div>
+          <div class="form-group">
+            <label for="doctrine-scope">System assignment</label>
+            <select id="doctrine-scope" name="location_scope" class="form-control" required>
+              <option value="home" {{ old('location_scope', 'both') === 'home' ? 'selected' : '' }}>Home system</option>
+              <option value="deployment" {{ old('location_scope') === 'deployment' ? 'selected' : '' }}>Deployment system</option>
+              <option value="both" {{ old('location_scope', 'both') === 'both' ? 'selected' : '' }}>Both systems</option>
+            </select>
+          </div>
           <button class="btn btn-primary" type="submit">Add Doctrine</button>
         </form>
       </div>
@@ -34,7 +42,7 @@
         <div class="list-group">
           @forelse($doctrines as $doctrine)
             <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ route('seatcore::fittings.doctrines.show', ['doctrine' => $doctrine->name]) }}">
-              <span>{{ $doctrine->name }}</span>
+              <span>{{ $doctrine->name }} <span class="badge badge-info">{{ ucfirst($doctrine->location_scope ?? 'both') }}</span></span>
               <span class="text-muted small">Manage fits &rsaquo;</span>
             </a>
           @empty
