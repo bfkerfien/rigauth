@@ -1,0 +1,14 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@
+-        // Triglavian Consortium Fittings placeholder page.
+-        Route::get('/fittings', function () {
+-            return view('web::fittings');
+-        })->name('seatcore::fittings.index');
++        // Triglavian Consortium native fittings and category management.
++        Route::get('/fittings', 'FittingsController@index')->name('seatcore::fittings.manage');
++        Route::post('/fittings', 'FittingsController@store')->name('seatcore::fittings.store');
++        Route::put('/fittings/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
++        Route::delete('/fittings/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
++        Route::post('/fittings/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
