@@ -186,3 +186,7 @@ SELECT 'deployment', s.stationID, s.stationName, s.solarSystemID, m.name
 FROM staStations AS s
 JOIN solar_systems AS m ON m.system_id = s.solarSystemID
 WHERE m.name = 'Jita';
+
+-- Designated alliance home Keepstar in 4-HWWF (system ID 30000240).
+INSERT IGNORE INTO fit_alliance_stations (location_type, station_id, station_name, system_id, system_name)
+VALUES ('home', 1054994218305, 'Keepstar 1054994218305', 30000240, '4-HWWF');
