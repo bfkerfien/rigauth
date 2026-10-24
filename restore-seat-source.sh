@@ -62,6 +62,7 @@ git -C "$DEST/seat-docker/packages/eveseat/web" apply --unidiff-zero "$(dirname 
 git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0006-market-section.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0007-potchven-finances.patch"
 cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
 mkdir -p "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/market"
 cp "$(dirname "$0")/fittings/seat/src/Http/Controllers/FittingsController.php" "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers/FittingsController.php"
