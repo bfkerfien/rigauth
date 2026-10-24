@@ -10,6 +10,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Fitting Library</strong>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ route('seatcore::fittings.doctrines') }}">Manage Doctrines</a>
         <form method="GET" action="{{ route('seatcore::fittings.manage') }}" class="form-inline">
           <label for="category-filter" class="mr-2">Category</label>
           <select id="category-filter" name="category" class="form-control form-control-sm" onchange="this.form.submit()">
