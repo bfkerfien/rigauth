@@ -1,35 +1,29 @@
-# Fresh database setup
+# Database setup
 
-The Fittings section uses a dedicated `triglavian_market` schema on the existing SeAT MariaDB server. SeAT's own `seat` schema is not used for market records, and the legacy `eve_market` schema is left untouched.
+Fittings and Market Intelligence uses SeAT's **existing configured database connection and database**. It does not create another database, database user, or Laravel connection.
 
-## Create the dedicated database and account
+All tables owned by this feature use the `fit_` prefix, so they are clearly separated from SeAT's own tables and from other extensions. The schema has no `DROP` statements and does not alter or delete existing tables.
 
-Connect to MariaDB with a working administrative account and run the following SQL after replacing the example password with a long random value:
+## Initialize the tables
 
-    CREATE DATABASE IF NOT EXISTS triglavian_market
-      CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    CREATE USER IF NOT EXISTS 'triglavian_market'@'%'
-      IDENTIFIED BY 'REPLACE_WITH_A_LONG_RANDOM_PASSWORD';
-    GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
-      ON triglavian_market.* TO 'triglavian_market'@'%';
-    FLUSH PRIVILEGES;
+First confirm the database configured for SeAT in its private environment. Back up the database before adding the feature tables. Then run `fittings/database/schema.sql` against that same database.
 
-Do not paste the real password into GitHub, chat, or shell history. Keep port 3306 private to the Docker network.
+For example, from a host that can connect to the SeAT MariaDB service, use the existing SeAT database name and credentials without putting the password in shell history:
 
-## Initialize tables
+```bash
+mariadb --host=YOUR_SEAT_DB_HOST --user=YOUR_SEAT_DB_USER --password YOUR_EXISTING_SEAT_DATABASE < fittings/database/schema.sql
+```
 
-Import `fittings/database/schema.sql` into the new schema. Run it only against `triglavian_market`; it contains no DROP statements, but it is not intended to be run against SeAT's own schema.
+The command prompts for the password. Replace the three uppercase placeholders with the values already configured for SeAT. Do not run the schema against a different database by mistake.
 
-    mariadb --user=triglavian_market --password triglavian_market < fittings/database/schema.sql
+## Tables created
 
-If the database is only reachable over the internal Docker network, run the client from a container attached to that network.
+- `fit_collection_runs`, `fit_market_orders`, `fit_item_comparisons`, `fit_market_type_volumes`: market snapshots, orders, comparisons, and item-volume cache.
+- `fit_fits`, `fit_items`: canonical fittings and per-ship item quantities.
+- `fit_categories`, `fit_category_assignments`: category catalogue and many-to-many category assignments.
+- `fit_doctrines`, `fit_doctrine_assignments`: doctrine catalogue and fitting assignments.
+- `fit_shopping_lists`, `fit_shopping_list_items`: home/deployment shopping lists.
 
-## Tables defined
+A fitting is stored once and can be assigned to multiple categories. For example, the same Scimitar fit can appear in Logistics, Shield Doctrine, and Fleet Support.
 
-- `collection_runs`, `market_orders`, `item_comparisons`, `market_type_volumes`: market snapshots, orders, comparisons, and item-volume cache.
-- `ship_fits`, `ship_fit_items`: canonical fitting and its per-ship item quantities.
-- `fit_categories`, `ship_fit_categories`: many-to-many category assignments; a fit can appear in multiple categories.
-- `doctrines`, `ship_fit_doctrines`: doctrine catalogue and fitting assignments.
-- `shopping_lists`, `shopping_list_items`: home/deployment shopping lists.
-
-The native SeAT database connection is added by `fittings/patches/0006-market-db-connection.patch`. The real environment variables must be set in the private SeAT environment before the page is enabled.
+No database connection patch is required: the SeAT controller uses Laravel's existing default connection.
