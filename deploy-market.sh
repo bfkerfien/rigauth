@@ -134,12 +134,38 @@ printf '%s\n' "$ROUTES" | grep -q 'market' || {
 echo "Restarting only the SeAT front web service (no database/volume changes)..."
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
-echo "Checking local Market response inside the front container..."
-LOCAL_HTTP="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front sh -lc 'curl -sS -o /dev/null -w "%{http_code}" --max-time 8 http://127.0.0.1:8080/market' | tr -d '\r')"
-echo "Local /market HTTP status: $LOCAL_HTTP"
+echo "Waiting for the SeAT front service to finish restarting..."
+LOCAL_HTTP=""
+for attempt in $(seq 1 30); do
+  # A restarted container can be running before PHP/Laravel starts listening.
+  # Treat connection failures during this window as transient, not as a failed deployment.
+  LOCAL_HTTP="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front sh -lc 'curl -sS -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:8080/market' 2>/dev/null | tr -d '\r' || true)"
+  case "$LOCAL_HTTP" in
+    200|301|302|401|403|404|500|502|503) break ;;
+  esac
+  echo "  Attempt $attempt/30: web service is not responding yet; retrying in 2 seconds..."
+  sleep 2
+done
+
+echo "Local /market HTTP status: ${LOCAL_HTTP:-no response}"
 case "$LOCAL_HTTP" in
-  200|301|302|401|403) ;;
-  *) echo "WARNING: Unexpected local HTTP status. Check front logs before considering deployment complete." ;;
+  200|301|302|401|403)
+    echo "Market endpoint responded successfully."
+    ;;
+  404)
+    echo "ERROR: SeAT is responding, but /market returned 404."
+    exit 1
+    ;;
+  500|502|503)
+    echo "ERROR: SeAT returned HTTP $LOCAL_HTTP after restart."
+    sudo docker compose -f "$SEAT_DIR/docker-compose.yml" logs --tail=80 front || true
+    exit 1
+    ;;
+  *)
+    echo "ERROR: SeAT front service did not respond within 60 seconds."
+    sudo docker compose -f "$SEAT_DIR/docker-compose.yml" logs --tail=80 front || true
+    exit 1
+    ;;
 esac
 
 echo
