@@ -27,9 +27,9 @@ class MarketController extends Controller
         $profit18 = $comparisons->filter(fn($r) => $r->structure_sell_min !== null && $r->jita_sell_min !== null)->values();
         $shame = DB::table('mkt_shame_entries')->orderByRaw("CASE WHEN status='open' THEN 0 ELSE 1 END")->orderByDesc('created_at')->limit(500)->get();
         $health = [
-            'fits' => DB::table('mkt_ship_fits')->count(),
-            'doctrines' => DB::table('mkt_ship_fit_doctrines')->distinct()->count('doctrine'),
-            'items' => DB::table('mkt_ship_fit_items')->count(),
+            'fits' => DB::table('fit_fits')->count(),
+            'doctrines' => DB::table('fit_doctrine_assignments')->distinct()->count('doctrine'),
+            'items' => DB::table('fit_items')->count(),
             'snapshots' => DB::table('mkt_doctrine_health_snapshots')->orderByDesc('captured_at')->limit(100)->get(),
         ];
         return view('web::market.index', compact('tab','run','under30','profit18','shame','health'));
