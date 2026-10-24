@@ -232,17 +232,20 @@ class FittingsController
                     $typeId = (int) $item->type_id;
                     $key = $category . ':' . $typeId;
                     $quantity = (int) $item->quantity_per_ship;
-                    if (!isset($requirementsByCategory[$category][$key]) ||
-                        $quantity > $requirementsByCategory[$category][$key]['needed']) {
+                    if (!isset($requirementsByCategory[$category][$key])) {
                         $requirementsByCategory[$category][$key] = [
                             'type_id' => $typeId,
                             'type_name' => $item->type_name,
                             'needed' => $quantity,
-                            'fit_names' => [$fitId => $requirements[$fitId]['fit_name'] ?? ''],
+                            'fit_names' => [],
                         ];
-                    } elseif ($quantity === $requirementsByCategory[$category][$key]['needed']) {
-                        $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
+                    } else {
+                        $requirementsByCategory[$category][$key]['needed'] = max(
+                            $requirementsByCategory[$category][$key]['needed'],
+                            $quantity
+                        );
                     }
+                    $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
                     if ((bool) $item->is_hull) {
                         $hasHull[$fitId] = true;
                     }
