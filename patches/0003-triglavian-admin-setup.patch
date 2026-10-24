@@ -5,14 +5,13 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
              Route::group(['prefix' => 'settings'], function () {
  
                  include __DIR__ . '/Routes/Configuration/Seat.php';
+ 
              });
  
 +            // Triglavian Consortium administration.
 +            include __DIR__ . '/Routes/Configuration/Triglavian.php';
 +
          });
- 
-         // Impersonation Helper Group. This one is Separate purely
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
