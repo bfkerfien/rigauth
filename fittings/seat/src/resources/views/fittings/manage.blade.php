@@ -98,6 +98,7 @@
         </form>
       </div>
     </div>
+    @include('web::fittings.fit-tabs')
     <div class="card">
       <div class="card-header"><strong>Home &amp; Deployment Shopping Lists</strong></div>
       <div class="card-body">
