@@ -68,13 +68,7 @@ class PotchvenFinancesController extends Controller
     public function storeSite(Request $request): RedirectResponse
     {
         $this->authorizeFinance();
-        abort_unless(DB::connection()->getSchemaBuilder()->hasTable('fin_site_events'), 503, 'Finance tables have not been imported.');
-        $data = $request->validate(['occurred_at' => ['nullable', 'date'], 'review_note' => ['nullable', 'string', 'max:1000']]);
-        DB::table('fin_site_events')->insert([
-            'occurred_at' => $data['occurred_at'] ?? now(), 'status' => 'successful', 'payout_count' => 3,
-            'total_payout_isk' => 27000000, 'revenue_credit_isk' => 45000000, 'source' => 'manual',
-            'review_note' => $data['review_note'] ?? 'Manually confirmed by Turaneau',
-        ]);
-        return redirect()->route('seatcore::potchven-finances.index')->with('success', 'Successful site recorded.');
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('info', 'Site results are matched automatically from corporate reward payouts. Run the Potchven finance sync to refresh payout matching and SRP obligations.');
     }
 }
