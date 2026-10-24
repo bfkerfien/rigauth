@@ -27,6 +27,12 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 +            <p>Admin Setup</p>
 +          </a>
 +        </li>
++        <li class="nav-item">
++          <a href="{{ route('seatcore::fittings.manage') }}" class="nav-link {{ Request::segment(1) === 'fittings' ? 'active' : null }}">
++            <i class="nav-icon fas fa-tools"></i>
++            <p>Manage Fittings</p>
++          </a>
++        </li>
 +        @endcan
 +
          @foreach($menu as $entry)
