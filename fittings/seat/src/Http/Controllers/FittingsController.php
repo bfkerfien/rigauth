@@ -58,7 +58,7 @@ class FittingsController
             'selectedCategory' => $selectedCategory,
             'categoryMap' => $categoryMap,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
-            'stations' => $db->table('fit_alliance_stations')->orderBy('location_type')->orderBy('station_name')->get()->groupBy('location_type'),
+            'stations' => $this->stationOptions($db),
             'shoppingLists' => $db->table('fit_shopping_lists')->orderBy('list_type')->orderBy('list_name')->get(),
             'shoppingListItems' => $db->table('fit_shopping_list_items')->orderBy('shopping_list_id')->orderBy('category')->orderBy('sort_order')->get()->groupBy('shopping_list_id'),
         ]);
@@ -295,6 +295,35 @@ class FittingsController
     }
 
 
+    private function homeKeepstarQuery($db)
+    {
+        return $db->table('corporation_structures as cs')
+            ->join('invTypes as t', 't.typeID', '=', 'cs.type_id')
+            ->join('mapSolarSystems as m', 'm.solarSystemID', '=', 'cs.system_id')
+            ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'cs.structure_id')
+            ->where('m.solarSystemName', '4-HWWF')
+            ->where('t.typeName', 'Keepstar')
+            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.solarSystemName as system_name");
+    }
+
+    private function stationOptions($db): array
+    {
+        $stations = $db->table('fit_alliance_stations')
+            ->orderBy('location_type')
+            ->orderBy('station_name')
+            ->get()
+            ->groupBy('location_type');
+
+        $home = ($stations->get('home') ?? collect())
+            ->merge($this->homeKeepstarQuery($db)->get())
+            ->unique('station_id')
+            ->sortBy('station_name')
+            ->values();
+
+        $stations->put('home', $home);
+        return $stations->all();
+    }
+
     public function storeLocations(Request $request): RedirectResponse
     {
         $this->requireAdmin();
@@ -313,6 +342,12 @@ class FittingsController
                     ->where('location_type', $locationType)
                     ->where('station_id', $stationId)
                     ->first();
+                if (!$station && $locationType === 'home') {
+                    $station = $this->homeKeepstarQuery($db)
+                        ->where('cs.structure_id', $stationId)
+                        ->first();
+                }
+
                 if (!$station) {
                     return back()->withErrors([$locationType . '_station_id' => 'Choose a station from the ' . $locationType . ' station list.'])->withInput();
                 }
