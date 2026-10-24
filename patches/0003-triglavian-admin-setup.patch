@@ -15,16 +15,10 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,6 +29,17 @@
+@@ -29,6 +29,11 @@
        <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
  
 +        @can('global.superuser')
-+        <li class="nav-item">
-+          <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
-+            <i class="nav-icon fas fa-cogs"></i>
-+            <p>Admin Setup</p>
-+          </a>
-+        </li>
 +        <li class="nav-item">
 +          <a href="{{ route('seatcore::fittings.manage') }}" class="nav-link {{ Request::segment(1) === 'fittings' ? 'active' : null }}">
 +            <i class="nav-icon fas fa-tools"></i>
