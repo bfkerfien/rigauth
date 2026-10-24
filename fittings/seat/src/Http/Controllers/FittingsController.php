@@ -74,11 +74,12 @@ class FittingsController
 
         $doctrines = $db->table('fit_doctrines')->orderBy('name')->get();
         $doctrineFits = $db->table('fit_doctrine_assignments as da')
+            ->join('fit_doctrines as d', 'd.name', '=', 'da.doctrine')
             ->join('fit_fits as f', 'f.id', '=', 'da.fit_id')
             ->where('f.visibility', 'alliance')
             ->orderBy('f.ship_name')
             ->orderBy('f.fit_name')
-            ->get(['da.doctrine', 'f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text'])
+            ->get(['da.doctrine', 'd.location_scope', 'f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text'])
             ->groupBy('doctrine');
 
         foreach ($doctrineFits as $doctrineFitList) {
@@ -89,6 +90,8 @@ class FittingsController
 
         $pilots = auth()->user()->characters->unique('character_id')->values();
         $fitSkillStatus = $this->pilotFitEligibility($db, $doctrineFits, $pilots);
+        $locations = $db->table('fit_location_settings')->get()->keyBy('location_type');
+        $inventoryShortages = $this->missingInventoryShortages($db, $doctrineFits, $pilots, $locations);
 
         $shoppingLists = $db->table('fit_shopping_lists')
             ->where('owner_user_id', auth()->id())
@@ -109,7 +112,8 @@ class FittingsController
             'fitSkillStatus' => $fitSkillStatus,
             'shoppingLists' => $shoppingLists,
             'shoppingListItems' => $shoppingListItems,
-            'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
+            'locations' => $locations,
+            'inventoryShortages' => $inventoryShortages,
         ]);
     }
 
@@ -167,6 +171,176 @@ class FittingsController
         ]);
 
         return redirect()->route('seatcore::fittings.index')->with('success', 'Item added to your shopping list.');
+    }
+
+
+    /**
+     * Build a per-user shortage list for one ship of every fit assigned to doctrines
+     * scoped to each location. Assets are combined across the user's linked pilots.
+     */
+    private function missingInventoryShortages($db, $doctrineFits, $pilots, $locations): array
+    {
+        $categories = ['modules', 'consumables', 'hull_rig'];
+        $result = [];
+        foreach (['home', 'deployment'] as $locationType) {
+            $result[$locationType] = ['available' => false, 'categories' => []];
+            foreach ($categories as $category) {
+                $result[$locationType]['categories'][$category] = collect();
+            }
+
+            $setting = $locations->get($locationType);
+            $systemId = (int) ($setting->system_id ?? 0);
+            if ($systemId < 1) {
+                $result[$locationType]['message'] = 'An administrator has not selected this system yet.';
+                continue;
+            }
+
+            $schema = $db->getSchemaBuilder();
+            if (!$schema->hasTable('character_assets') || !$schema->hasTable('fit_items')) {
+                $result[$locationType]['message'] = 'SeAT asset data is not available yet.';
+                continue;
+            }
+
+            $requirements = [];
+            $fitIds = [];
+            foreach ($doctrineFits as $doctrine => $fits) {
+                $scope = $fits->first()->location_scope ?? 'both';
+                if (!in_array($scope, [$locationType, 'both'], true)) {
+                    continue;
+                }
+                foreach ($fits as $fit) {
+                    $fitId = (int) $fit->id;
+                    $fitIds[] = $fitId;
+                    $requirements[$fitId] = [
+                        'fit_name' => $fit->fit_name,
+                        'ship_type_id' => (int) $fit->ship_type_id,
+                        'doctrine' => $doctrine,
+                    ];
+                }
+            }
+
+            $requirementsByCategory = [];
+            if ($fitIds) {
+                $items = $db->table('fit_items')->whereIn('fit_id', array_unique($fitIds))
+                    ->get(['fit_id', 'type_id', 'type_name', 'quantity_per_ship', 'is_hull', 'is_rig', 'is_consumable']);
+                $hasHull = [];
+                foreach ($items as $item) {
+                    $fitId = (int) $item->fit_id;
+                    $category = ((bool) $item->is_hull || (bool) $item->is_rig)
+                        ? 'hull_rig'
+                        : ((bool) $item->is_consumable ? 'consumables' : 'modules');
+                    $typeId = (int) $item->type_id;
+                    $key = $category . ':' . $typeId;
+                    if (!isset($requirementsByCategory[$category][$key])) {
+                        $requirementsByCategory[$category][$key] = [
+                            'type_id' => $typeId,
+                            'type_name' => $item->type_name,
+                            'needed' => 0,
+                            'fit_names' => [],
+                        ];
+                    }
+                    $requirementsByCategory[$category][$key]['needed'] += (int) $item->quantity_per_ship;
+                    $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
+                    if ((bool) $item->is_hull) {
+                        $hasHull[$fitId] = true;
+                    }
+                }
+
+                // Imported fits include their hull in fit_items. Keep manually created
+                // fits from disappearing from the hull list if they have no item rows.
+                foreach ($requirements as $fitId => $fit) {
+                    if (!isset($hasHull[$fitId]) && $fit['ship_type_id'] > 0) {
+                        $type = $db->table('invTypes')->where('typeID', $fit['ship_type_id'])->first(['typeName']);
+                        $key = 'hull_rig:' . $fit['ship_type_id'];
+                        if (!isset($requirementsByCategory['hull_rig'][$key])) {
+                            $requirementsByCategory['hull_rig'][$key] = [
+                                'type_id' => $fit['ship_type_id'],
+                                'type_name' => $type->typeName ?? $fit['fit_name'],
+                                'needed' => 0,
+                                'fit_names' => [],
+                            ];
+                        }
+                        $requirementsByCategory['hull_rig'][$key]['needed']++;
+                        $requirementsByCategory['hull_rig'][$key]['fit_names'][$fitId] = $fit['fit_name'];
+                    }
+                }
+            }
+
+            $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+            $owned = [];
+            $rootLocations = [$systemId => true];
+            if ($schema->hasTable('staStations')) {
+                foreach ($db->table('staStations')->where('solarSystemID', $systemId)->pluck('stationID') as $id) {
+                    $rootLocations[(int) $id] = true;
+                }
+            }
+            if ($schema->hasTable('universe_structures')) {
+                foreach ($db->table('universe_structures')->where('solar_system_id', $systemId)->pluck('structure_id') as $id) {
+                    $rootLocations[(int) $id] = true;
+                }
+            }
+
+            if ($pilotIds) {
+                $assets = $db->table('character_assets')->whereIn('character_id', $pilotIds)
+                    ->get(['character_id', 'item_id', 'type_id', 'quantity', 'location_id', 'location_type']);
+                foreach ($pilotIds as $pilotId) {
+                    $pilotAssets = $assets->where('character_id', $pilotId);
+                    $parentByItem = [];
+                    foreach ($pilotAssets as $asset) {
+                        $parentByItem[(int) $asset->item_id] = (int) $asset->location_id;
+                    }
+                    foreach ($pilotAssets as $asset) {
+                        $locationId = (int) $asset->location_id;
+                        $isInSystem = false;
+                        if (($asset->location_type ?? '') === 'solar_system' && $locationId === $systemId) {
+                            $isInSystem = true;
+                        } else {
+                            $seen = [];
+                            for ($depth = 0; $depth < 25 && $locationId > 0; $depth++) {
+                                if (isset($rootLocations[$locationId])) {
+                                    $isInSystem = true;
+                                    break;
+                                }
+                                if (isset($seen[$locationId]) || !isset($parentByItem[$locationId])) {
+                                    break;
+                                }
+                                $seen[$locationId] = true;
+                                $locationId = $parentByItem[$locationId];
+                            }
+                        }
+                        if ($isInSystem) {
+                            $typeId = (int) $asset->type_id;
+                            $owned[$typeId] = ($owned[$typeId] ?? 0) + max(1, (int) $asset->quantity);
+                        }
+                    }
+                }
+            }
+
+            foreach ($categories as $category) {
+                $shortages = [];
+                foreach ($requirementsByCategory[$category] ?? [] as $requirement) {
+                    $have = (int) ($owned[$requirement['type_id']] ?? 0);
+                    $missing = max(0, $requirement['needed'] - $have);
+                    if ($missing > 0) {
+                        $shortages[] = (object) [
+                            'type_id' => $requirement['type_id'],
+                            'type_name' => $requirement['type_name'],
+                            'needed' => $requirement['needed'],
+                            'have' => $have,
+                            'missing' => $missing,
+                            'fit_names' => array_values(array_filter(array_unique($requirement['fit_names']))),
+                        ];
+                    }
+                }
+                usort($shortages, fn ($a, $b) => strcasecmp($a->type_name, $b->type_name));
+                $result[$locationType]['categories'][$category] = collect($shortages);
+            }
+
+            $result[$locationType]['available'] = true;
+            $result[$locationType]['system_name'] = $setting->system_name ?? null;
+        }
+
+        return $result;
     }
 
     private function eftClipboardText(object $fit): string
@@ -765,6 +939,7 @@ class FittingsController
         $this->requireAdmin();
         $data = $request->validate([
             'doctrine_name' => ['required', 'string', 'max:120'],
+            'location_scope' => ['required', 'in:home,deployment,both'],
         ]);
 
         $name = trim($data['doctrine_name']);
@@ -773,7 +948,10 @@ class FittingsController
             return back()->withErrors(['doctrine_name' => 'That doctrine already exists.'])->withInput();
         }
 
-        $db->table('fit_doctrines')->insert(['name' => $name]);
+        $db->table('fit_doctrines')->insert([
+            'name' => $name,
+            'location_scope' => $data['location_scope'],
+        ]);
 
         return redirect()->route('seatcore::fittings.doctrines')->with('success', 'Doctrine added.');
     }
@@ -806,6 +984,7 @@ class FittingsController
     {
         $this->requireAdmin();
         $data = $request->validate([
+            'location_scope' => ['required', 'in:home,deployment,both'],
             'fits' => ['nullable', 'array'],
             'fits.*' => ['integer', 'min:1'],
         ]);
@@ -817,7 +996,10 @@ class FittingsController
             ->pluck('id')
             ->all();
 
-        $db->transaction(function () use ($db, $doctrine, $fitIds) {
+        $db->transaction(function () use ($db, $doctrine, $fitIds, $data) {
+            $db->table('fit_doctrines')->where('name', $doctrine)->update([
+                'location_scope' => $data['location_scope'],
+            ]);
             $db->table('fit_doctrine_assignments')->where('doctrine', $doctrine)->delete();
             if ($fitIds) {
                 $db->table('fit_doctrine_assignments')->insert(array_map(fn ($fitId) => [
