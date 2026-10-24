@@ -4,7 +4,7 @@ Native fitting management and market intelligence for the Triglavian Consortium'
 
 ## Fitting management
 
-The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Writes are restricted to SeAT users with the `global.superuser` permission.
+The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Administrators can also set separate home and deployment station/system names and IDs for shopping-list defaults. Writes are restricted to SeAT users with the `global.superuser` permission.
 
 **A fitting can belong to multiple categories.** The database uses `fit_fits` as the canonical fit record, `fit_categories` as the category catalogue, and `fit_category_assignments` as a many-to-many join. For example, one Scimitar fitting can appear under Logistics, Shield Doctrine, and Fleet Support without duplicating the fit. Doctrine tags are modeled separately.
 
