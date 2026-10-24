@@ -23,10 +23,13 @@
         <summary class="card-header" style="cursor:pointer"><strong>{{ $doctrine->name }}</strong> <span class="badge badge-secondary">{{ $doctrineDoctrineFits->count() }} fits</span></summary>
         <div class="card-body table-responsive">
           <table class="table table-striped table-sm mb-0">
-            <thead><tr><th>Fit</th><th>Ship</th><th>Qualified pilots</th><th class="text-center" aria-label="Clipboard"><i class="far fa-clipboard" title="Clipboard"></i></th></tr></thead>
+            <thead><tr><th>Fit</th><th>Ship</th><th>Qualified pilots</th><th class="text-center" title="Home inventory">Home</th><th class="text-center" title="Deployment inventory">Deployment</th><th class="text-center" aria-label="Clipboard"><i class="far fa-clipboard" title="Clipboard"></i></th></tr></thead>
             <tbody>
               @forelse($doctrineDoctrineFits as $fit)
                 @php($fitStatus = $fitSkillStatus[$fit->id] ?? ['eligible' => [], 'checked_pilots' => 0, 'unsynced_pilots' => $pilots->count()])
+                @php($fitInventory = $fitInventoryStatus[$fit->id] ?? [])
+                @php($homeInventory = $fitInventory['home'] ?? ['applicable' => false, 'available' => false, 'ready' => false])
+                @php($deploymentInventory = $fitInventory['deployment'] ?? ['applicable' => false, 'available' => false, 'ready' => false])
                 <tr class="{{ $fitStatus['checked_pilots'] > 0 && count($fitStatus['eligible']) === 0 ? 'table-danger' : '' }}">
                   <td>{{ $fit->fit_name }}
                     @if($fitStatus['checked_pilots'] > 0 && count($fitStatus['eligible']) === 0)
@@ -36,6 +39,28 @@
                     @endif
                   </td>
                   <td>{{ $fit->ship_name }}</td>
+                  <td class="text-center">
+                    @if(!$homeInventory['applicable'])
+                      <span class="fa-stack text-muted" title="This doctrine is not assigned to the home system" aria-label="Not a home doctrine">
+                        <i class="fas fa-home fa-stack-1x" aria-hidden="true"></i><i class="fas fa-times fa-stack-1x text-danger" aria-hidden="true"></i>
+                      </span>
+                    @elseif(!$homeInventory['available'])
+                      <i class="fas fa-home text-muted" title="Home inventory status unavailable" aria-label="Home inventory status unavailable"></i>
+                    @else
+                      <i class="fas fa-home {{ $homeInventory['ready'] ? 'text-success' : 'text-danger' }}" title="{{ $homeInventory['ready'] ? 'All required items are in the home system' : 'Missing required items in the home system' }}" aria-label="{{ $homeInventory['ready'] ? 'Home inventory ready' : 'Home inventory missing' }}"></i>
+                    @endif
+                  </td>
+                  <td class="text-center">
+                    @if(!$deploymentInventory['applicable'])
+                      <span class="fa-stack text-muted" title="This doctrine is not assigned to the deployment system" aria-label="Not a deployment doctrine">
+                        <i class="fas fa-caravan fa-stack-1x" aria-hidden="true"></i><i class="fas fa-times fa-stack-1x text-danger" aria-hidden="true"></i>
+                      </span>
+                    @elseif(!$deploymentInventory['available'])
+                      <i class="fas fa-caravan text-muted" title="Deployment inventory status unavailable" aria-label="Deployment inventory status unavailable"></i>
+                    @else
+                      <i class="fas fa-caravan {{ $deploymentInventory['ready'] ? 'text-success' : 'text-danger' }}" title="{{ $deploymentInventory['ready'] ? 'All required items are in the deployment system' : 'Missing required items in the deployment system' }}" aria-label="{{ $deploymentInventory['ready'] ? 'Deployment inventory ready' : 'Deployment inventory missing' }}"></i>
+                    @endif
+                  </td>
                   <td>
                     @forelse($fitStatus['eligible'] as $pilot)
                       <span class="d-inline-block mr-1" title="{{ $pilot['name'] }}">{!! img('characters', 'portrait', $pilot['character_id'], 32, ['class' => 'img-circle', 'alt' => $pilot['name'], 'title' => $pilot['name']], false) !!}</span>
@@ -54,7 +79,7 @@
                   </td>
                 </tr>
               @empty
-                <tr><td colspan="4" class="text-muted">No alliance fittings are assigned to this doctrine yet.</td></tr>
+                <tr><td colspan="6" class="text-muted">No alliance fittings are assigned to this doctrine yet.</td></tr>
               @endforelse
             </tbody>
           </table>
@@ -62,7 +87,7 @@
       </details>
     @endforeach
     @if($doctrines->isEmpty())<div class="alert alert-info">No doctrines have been added yet.</div>@endif
-    <p class="small text-muted">Skill checks use synced skills for all pilots linked to your SeAT account. Red fits have no linked pilot with synced skills that meet the requirements.</p>
+    <p class="small text-muted">Skill checks use synced skills for all pilots linked to your SeAT account. Red fits have no linked pilot with synced skills that meet the requirements. House and camper icons show whether the full fit inventory is present at the assigned home or deployment system; a crossed icon means that doctrine is not assigned there.</p>
   </div>
 
   @foreach(['home' => 'Home System', 'deployment' => 'Deployment System'] as $listType => $label)
