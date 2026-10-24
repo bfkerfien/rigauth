@@ -29,7 +29,7 @@ class FittingsController
         $selectedCategory = $request->integer('category') ?: null;
 
         $query = $db->table('ship_fits as f')
-            ->select('f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.visibility', 'f.updated_at')
+            ->select('f.id', 'f.fit_name', 'f.ship_name', 'f.ship_type_id', 'f.fit_text', 'f.visibility', 'f.updated_at')
             ->orderBy('f.fit_name');
 
         if ($selectedCategory) {
