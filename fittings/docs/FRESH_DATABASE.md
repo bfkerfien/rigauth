@@ -22,7 +22,7 @@ The command prompts for the password. Replace the three uppercase placeholders w
 - `fit_fits`, `fit_items`: canonical fittings and per-ship item quantities.
 - `fit_categories`, `fit_category_assignments`: category catalogue and many-to-many category assignments.
 - `fit_doctrines`, `fit_doctrine_assignments`: doctrine catalogue and fitting assignments.
-- `fit_shopping_lists`, `fit_shopping_list_items`: home/deployment shopping lists.
+- `fit_shopping_lists`, `fit_shopping_list_items`: home/deployment shopping lists, including the station/system snapshot applied when each list is created.
 - `fit_location_settings`: administrator-configured home and deployment station/system IDs and names.
 
 A fitting is stored once and can be assigned to multiple categories. For example, the same Scimitar fit can appear in Logistics, Shield Doctrine, and Fleet Support.
@@ -33,3 +33,4 @@ No database connection patch is required: the SeAT controller uses Laravel's exi
 ## Existing installations
 
 If the original fittings tables are already installed, run the additive migration `fittings/database/migrations/0002-fit-location-settings.sql` against the same SeAT database. It only creates the new `fit_location_settings` table if missing; it does not alter or delete existing data.
+\n\nIf the original shopping-list table already exists, also run `fittings/database/migrations/0003-fit-shopping-list-locations.sql` to add station columns without dropping existing lists. New lists inherit the configured home or deployment station and system; existing lists retain their saved location snapshot.\n
