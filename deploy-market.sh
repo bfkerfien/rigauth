@@ -101,10 +101,10 @@ echo "Backed up deployment files to $BACKUP"
 ROLLBACK_ENABLED=1
 
 # Apply the route/sidebar patch once. If it is already present, leave it in place.
-if sudo git -C "$WEB" apply --reverse --check "$PATCH" >/dev/null 2>&1; then
+if sudo git -C "$WEB" apply --recount --reverse --check "$PATCH" >/dev/null 2>&1; then
   echo "Market route/sidebar patch is already applied."
-elif sudo git -C "$WEB" apply --check "$PATCH"; then
-  sudo git -C "$WEB" apply "$PATCH"
+elif sudo git -C "$WEB" apply --recount --check "$PATCH"; then
+  sudo git -C "$WEB" apply --recount "$PATCH"
   echo "Applied Market route/sidebar patch."
 else
   echo "STOP: Market patch does not apply cleanly to the deployed SeAT source."
