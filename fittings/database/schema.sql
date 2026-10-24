@@ -150,3 +150,15 @@ CREATE TABLE IF NOT EXISTS fit_shopping_list_items (
  CONSTRAINT fk_shopping_list_items_list FOREIGN KEY (shopping_list_id) REFERENCES fit_shopping_lists(id) ON DELETE CASCADE,
  KEY ix_shopping_items_list_category (shopping_list_id,category,sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- Default station and solar system for the home and deployment shopping lists.
+CREATE TABLE IF NOT EXISTS fit_location_settings (
+ location_type ENUM('home','deployment') NOT NULL PRIMARY KEY,
+ station_id BIGINT UNSIGNED NULL,
+ station_name VARCHAR(255) NULL,
+ system_id INT UNSIGNED NULL,
+ system_name VARCHAR(100) NULL,
+ updated_by BIGINT UNSIGNED NULL,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
