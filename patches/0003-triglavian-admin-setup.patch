@@ -15,10 +15,8 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -35,5 +35,14 @@
-             <p>Fittings</p>
-           </a>
-         </li>
+@@ -29,6 +29,17 @@
+       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
  
 +        @can('global.superuser')
 +        <li class="nav-item">
