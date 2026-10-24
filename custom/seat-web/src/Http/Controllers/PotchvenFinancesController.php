@@ -68,7 +68,7 @@ class PotchvenFinancesController extends Controller
     public function storeSite(Request $request): RedirectResponse
     {
         $this->authorizeFinance();
-        abort_unless(DB::getSchemaBuilder()->hasTable('fin_site_events'), 503, 'Finance tables have not been imported.');
+        abort_unless(DB::connection()->getSchemaBuilder()->hasTable('fin_site_events'), 503, 'Finance tables have not been imported.');
         $data = $request->validate(['occurred_at' => ['nullable', 'date'], 'review_note' => ['nullable', 'string', 'max:1000']]);
         DB::table('fin_site_events')->insert([
             'occurred_at' => $data['occurred_at'] ?? now(), 'status' => 'successful', 'payout_count' => 3,
