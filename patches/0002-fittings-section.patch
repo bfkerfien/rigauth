@@ -14,23 +14,6 @@ index 0a3f7a90..a1f07b12 100644
          // Support Routes
          Route::group([
              'namespace' => 'Support',
-diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
-index bf07b76c..cb41d9a7 100644
---- a/src/resources/views/includes/sidebar.blade.php
-+++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,5 +29,12 @@
-       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
- 
-+        <li class="nav-item">
-+          <a href="{{ route('seatcore::fittings.index') }}" class="nav-link {{ Request::segment(1) === 'fittings' ? 'active' : null }}">
-+            <i class="nav-icon fas fa-tools"></i>
-+            <p>Fittings</p>
-+          </a>
-+        </li>
-+
-         @foreach($menu as $entry)
- 
-           {{-- determine if we should pop a treeview --}}
 diff --git a/src/resources/views/fittings.blade.php b/src/resources/views/fittings.blade.php
 new file mode 100644
 index 00000000..c1a1b2d3
