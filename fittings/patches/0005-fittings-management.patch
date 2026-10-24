@@ -13,4 +13,5 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            Route::put('/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
 +            Route::delete('/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
 +            Route::post('/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
+            Route::post('/locations', 'FittingsController@storeLocations')->name('seatcore::fittings.locations.store');
 +        });
