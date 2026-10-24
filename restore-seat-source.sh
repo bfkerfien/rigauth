@@ -65,6 +65,8 @@ cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/we
 mkdir -p "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings"
 cp "$(dirname "$0")/fittings/seat/src/Http/Controllers/FittingsController.php" "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers/FittingsController.php"
 cp "$(dirname "$0")/fittings/seat/src/resources/views/fittings/manage.blade.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings/manage.blade.php"
+cp "$(dirname "$0")/fittings/seat/src/resources/views/fittings/doctrines.blade.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings/doctrines.blade.php"
+cp "$(dirname "$0")/fittings/seat/src/resources/views/fittings/doctrine.blade.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings/doctrine.blade.php"
 cp "$(dirname "$0")/fittings/seat/src/resources/views/fittings/fit-tabs.blade.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings/fit-tabs.blade.php"
 cp "$(dirname "$0")/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
