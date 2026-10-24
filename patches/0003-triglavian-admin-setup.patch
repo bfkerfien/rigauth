@@ -1,0 +1,33 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -139,6 +139,8 @@ Route::group([
+             Route::group(['prefix' => 'settings'], function () {
+ 
+                 include __DIR__ . '/Routes/Configuration/Seat.php';
+             });
+ 
++            // Triglavian Consortium administration.
++            include __DIR__ . '/Routes/Configuration/Triglavian.php';
++
+         });
+ 
+         // Impersonation Helper Group. This one is Separate purely
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -35,6 +35,13 @@
+             <p>Fittings</p>
+           </a>
+         </li>
+ 
++        @can('global.superuser')
++        <li class="nav-item">
++          <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
++            <i class="nav-icon fas fa-cogs"></i>
++            <p>Admin Setup</p>
++          </a>
++        </li>
++        @endcan
++
+         @foreach($menu as $entry)
