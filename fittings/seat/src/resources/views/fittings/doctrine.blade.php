@@ -13,9 +13,17 @@
   <div class="card-body">
     @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
     @if($errors->any()) <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div> @endif
-    <p class="text-muted">Check each fitting to assign it to this doctrine. Clear a checkbox to unassign it.</p>
+    <p class="text-muted">Choose where this doctrine applies, then check fittings to assign them. Clear a checkbox to unassign it.</p>
     <form method="POST" action="{{ route('seatcore::fittings.doctrines.fits.update', ['doctrine' => $doctrine->name]) }}">
       @csrf
+      <div class="form-group col-md-5 pl-0">
+        <label for="doctrine-scope">System assignment</label>
+        <select id="doctrine-scope" name="location_scope" class="form-control" required>
+          <option value="home" {{ ($doctrine->location_scope ?? 'both') === 'home' ? 'selected' : '' }}>Home system</option>
+          <option value="deployment" {{ ($doctrine->location_scope ?? 'both') === 'deployment' ? 'selected' : '' }}>Deployment system</option>
+          <option value="both" {{ ($doctrine->location_scope ?? 'both') === 'both' ? 'selected' : '' }}>Both systems</option>
+        </select>
+      </div>
       <div class="table-responsive">
         <table class="table table-striped table-sm">
           <thead><tr><th>Assigned</th><th>Fit</th><th>Ship</th></tr></thead>
