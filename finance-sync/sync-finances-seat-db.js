@@ -1,0 +1,238 @@
+#!/usr/bin/env node
+'use strict';
+
+const crypto = require('node:crypto');
+const mysql = require('mysql2/promise');
+
+const SSO = 'https://login.eveonline.com';
+const ESI = 'https://esi.evetech.net/latest';
+const UA = 'TriglavianConsortium-PotchvenFinances/1.0 (self-hosted)';
+const REQUIRED_CHARACTER = ['esi-wallet.read_character_wallet.v1', 'esi-assets.read_assets.v1'];
+const REQUIRED_CORP = ['esi-wallet.read_corporation_wallets.v1', 'esi-assets.read_corporation_assets.v1'];
+
+function required(name) {
+  const value = String(process.env[name] || '').trim();
+  if (!value) throw new Error('Missing required runtime setting: ' + name);
+  return value;
+}
+function encryptionKey() {
+  const raw = required('TOKEN_ENCRYPTION_KEY');
+  if (!/^[a-f\d]{64}$/i.test(raw)) throw new Error('TOKEN_ENCRYPTION_KEY has invalid format');
+  return Buffer.from(raw, 'hex');
+}
+function decrypt(value) {
+  if (!value) throw new Error('Missing encrypted credential');
+  const parts = value.split('.');
+  if (parts.length !== 3) throw new Error('Stored credential has an invalid format');
+  const d = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(parts[0], 'base64'));
+  d.setAuthTag(Buffer.from(parts[1], 'base64'));
+  return Buffer.concat([d.update(Buffer.from(parts[2], 'base64')), d.final()]).toString();
+}
+function encrypt(value) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv);
+  const data = Buffer.concat([c.update(value), c.final()]);
+  return [iv.toString('base64'), c.getAuthTag().toString('base64'), data.toString('base64')].join('.');
+}
+function tokenClaims(token) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('EVE SSO returned an unexpected access-token format');
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+}
+function scopesFrom(token, fallback) {
+  const claims = tokenClaims(token);
+  const raw = claims.scp ?? claims.scope ?? fallback ?? [];
+  return Array.isArray(raw) ? raw : String(raw).split(/\s+/).filter(Boolean);
+}
+async function jsonResponse(response, label) {
+  const body = await response.text();
+  if (!response.ok) {
+    let code = 'HTTP_' + response.status;
+    try { code = JSON.parse(body).error || code; } catch {}
+    throw new Error(label + ' failed (' + code + ')');
+  }
+  try { return body ? JSON.parse(body) : null; }
+  catch { throw new Error(label + ' returned invalid JSON'); }
+}
+async function refreshCredential(db, row, basic) {
+  const oldRefresh = decrypt(row.refresh_token_ciphertext);
+  const response = await fetch(SSO + '/v2/oauth/token', {
+    method: 'POST',
+    headers: { Authorization: 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: oldRefresh }),
+    signal: AbortSignal.timeout(25000)
+  });
+  const result = await jsonResponse(response, 'SSO refresh for ' + row.display_name);
+  if (!result.access_token) throw new Error('SSO did not return an access token for ' + row.display_name);
+  const scopes = scopesFrom(result.access_token, result.scope || row.scopes);
+  const missing = REQUIRED_CHARACTER.filter(s => !scopes.includes(s));
+  if (missing.length) throw new Error(row.display_name + ' missing required character scopes: ' + missing.join(', '));
+  const claims = tokenClaims(result.access_token);
+  if (claims.exp && claims.exp * 1000 <= Date.now()) throw new Error('SSO returned an expired token for ' + row.display_name);
+  const refresh = result.refresh_token || oldRefresh;
+  const expires = new Date(Date.now() + Number(result.expires_in || 1200) * 1000);
+  await db.execute(`
+    UPDATE fin_oauth_credentials
+    SET access_token_ciphertext = ?, refresh_token_ciphertext = ?,
+        access_token_expires_at = ?, scopes = ?, revoked_at = NULL
+    WHERE owner_id = ?
+  `, [encrypt(result.access_token), encrypt(refresh), expires, scopes.join(' '), row.owner_id]);
+  return { token: result.access_token, scopes, claims };
+}
+async function esi(path, token) {
+  return jsonResponse(await fetch(ESI + path, {
+    headers: { Authorization: 'Bearer ' + token, 'User-Agent': UA },
+    signal: AbortSignal.timeout(30000)
+  }), 'ESI ' + path);
+}
+async function pages(path, token) {
+  const first = await fetch(ESI + path, {
+    headers: { Authorization: 'Bearer ' + token, 'User-Agent': UA },
+    signal: AbortSignal.timeout(30000)
+  });
+  const rows = await jsonResponse(first, 'ESI ' + path);
+  const all = Array.isArray(rows) ? rows : [];
+  const count = Math.max(1, Math.min(1000, Number(first.headers.get('X-Pages') || 1)));
+  for (let page = 2; page <= count; page++) {
+    const separator = path.includes('?') ? '&' : '?';
+    const data = await esi(path + separator + 'page=' + page, token);
+    if (Array.isArray(data)) all.push(...data);
+  }
+  return all;
+}
+async function ownerById(db, type, eveId) {
+  const [rows] = await db.execute(
+    'SELECT id, eve_id, display_name, owner_type FROM fin_owners WHERE owner_type = ? AND eve_id = ? AND is_active = 1 LIMIT 1',
+    [type, eveId]
+  );
+  if (!rows.length) throw new Error('No active finance owner row for ' + type + ' EVE ID ' + eveId);
+  return rows[0];
+}
+async function saveWallet(db, ownerId, balance) {
+  await db.execute(
+    'INSERT INTO fin_wallet_snapshots(owner_id, balance_isk, captured_at) VALUES(?,?,UTC_TIMESTAMP())',
+    [ownerId, Number(balance)]
+  );
+}
+async function saveJournal(db, ownerId, entries) {
+  for (const entry of entries) {
+    const amount = Number(entry.amount || 0);
+    await db.execute(`
+      INSERT INTO fin_wallet_entries
+        (owner_id, source_type, external_id, occurred_at, reference_type, amount_isk,
+         description, is_operational_expense, expense_category, raw_payload)
+      VALUES (?, 'journal', ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE amount_isk = VALUES(amount_isk),
+        raw_payload = VALUES(raw_payload), description = VALUES(description),
+        reference_type = VALUES(reference_type), occurred_at = VALUES(occurred_at)
+    `, [
+      ownerId, String(entry.id), new Date(entry.date), entry.ref_type || null, amount,
+      entry.description || '', amount < 0 ? 1 : 0,
+      amount < 0 ? (entry.ref_type || 'uncategorized') : null, JSON.stringify(entry)
+    ]);
+  }
+}
+async function saveAssets(db, ownerId, assets) {
+  const [result] = await db.execute(
+    "INSERT INTO fin_asset_snapshots(owner_id, captured_at, pricing_source) VALUES(?, UTC_TIMESTAMP(), 'not_priced')",
+    [ownerId]
+  );
+  for (const asset of assets) {
+    await db.execute(
+      'INSERT INTO fin_asset_items(snapshot_id, item_type_id, quantity, location_id, raw_payload) VALUES(?,?,?,?,?)',
+      [result.insertId, asset.type_id, asset.quantity, asset.location_id || null, JSON.stringify(asset)]
+    );
+  }
+}
+async function syncState(db, ownerId, resource, error = null) {
+  const [rows] = await db.execute(
+    'SELECT id FROM fin_sync_state WHERE owner_id = ? AND resource_key = ? ORDER BY id DESC LIMIT 1',
+    [ownerId, resource]
+  );
+  if (rows.length) {
+    await db.execute(
+      'UPDATE fin_sync_state SET last_success_at = ?, last_error = ? WHERE id = ?',
+      [error ? null : new Date(), error, rows[0].id]
+    );
+  } else {
+    await db.execute(
+      'INSERT INTO fin_sync_state(owner_id, resource_key, last_success_at, last_error) VALUES(?,?,?,?)',
+      [ownerId, resource, error ? null : new Date(), error]
+    );
+  }
+}
+async function syncCharacter(db, owner, token) {
+  const id = Number(owner.eve_id);
+  const [balance, journal, assets] = await Promise.all([
+    esi('/characters/' + id + '/wallet/', token),
+    pages('/characters/' + id + '/wallet/journal/', token),
+    pages('/characters/' + id + '/assets/', token)
+  ]);
+  await saveWallet(db, owner.id, balance);
+  await saveJournal(db, owner.id, journal);
+  await saveAssets(db, owner.id, assets);
+  await syncState(db, owner.id, 'character_wallet', null);
+  await syncState(db, owner.id, 'character_assets', null);
+  return { character: owner.display_name, journalEntries: journal.length, assets: assets.length };
+}
+async function syncCorporation(db, owner, token) {
+  const scopes = scopesFrom(token, []);
+  const missing = REQUIRED_CORP.filter(s => !scopes.includes(s));
+  if (missing.length) throw new Error('Selected character lacks corporation scopes: ' + missing.join(', '));
+  const corpId = Number(owner.eve_id);
+  const division = Math.min(7, Math.max(1, Number(process.env.FIN_CORP_WALLET_DIVISION || 1)));
+  const [balance, journal, assets] = await Promise.all([
+    esi('/corporations/' + corpId + '/wallets/' + division + '/', token),
+    pages('/corporations/' + corpId + '/wallets/' + division + '/journal/', token),
+    pages('/corporations/' + corpId + '/assets/', token)
+  ]);
+  await saveWallet(db, owner.id, balance);
+  await saveJournal(db, owner.id, journal);
+  await saveAssets(db, owner.id, assets);
+  await syncState(db, owner.id, 'corporation_wallets', null);
+  await syncState(db, owner.id, 'corporation_assets', null);
+  return { corporation: owner.display_name, walletDivision: division, journalEntries: journal.length, assets: assets.length };
+}
+async function main() {
+  const db = await mysql.createConnection({
+    host: required('FIN_DB_HOST'),
+    port: Number(process.env.FIN_DB_PORT || 3306),
+    database: required('FIN_DB_NAME'),
+    user: required('FIN_DB_USER'),
+    password: required('FIN_DB_PASSWORD'),
+    connectTimeout: 10000
+  });
+  try {
+    const [owners] = await db.execute(`
+      SELECT o.id AS owner_id, o.eve_id, o.display_name, o.owner_type,
+             c.access_token_ciphertext, c.refresh_token_ciphertext,
+             c.scopes, c.revoked_at
+      FROM fin_owners o
+      JOIN fin_oauth_credentials c ON c.owner_id = o.id
+      WHERE o.owner_type = 'character' AND o.is_active = 1 AND c.revoked_at IS NULL
+      ORDER BY o.id
+    `);
+    if (owners.length !== 3) throw new Error('Expected 3 active authorized finance characters; found ' + owners.length);
+    const corporation = await ownerById(db, 'corporation', Number(process.env.FIN_CORP_EVE_ID || 98843282));
+    const basic = Buffer.from(required('EVE_CLIENT_ID') + ':' + required('EVE_CLIENT_SECRET')).toString('base64');
+    const refreshed = [];
+    for (const owner of owners) {
+      const credential = await refreshCredential(db, owner, basic);
+      const fullOwner = { id: owner.owner_id, eve_id: owner.eve_id, display_name: owner.display_name };
+      const result = await syncCharacter(db, fullOwner, credential.token);
+      console.log(JSON.stringify({ ok: true, ...result }));
+      refreshed.push({ owner: fullOwner, token: credential.token, scopes: credential.scopes });
+    }
+    const corpAuth = refreshed.find(r => REQUIRED_CORP.every(s => r.scopes.includes(s)));
+    if (!corpAuth) throw new Error('None of the three characters has both corporation wallet and asset scopes');
+    const corpResult = await syncCorporation(db, corporation, corpAuth.token);
+    console.log(JSON.stringify({ ok: true, ...corpResult }));
+    console.log(JSON.stringify({ ok: true, syncedCharacters: owners.length, corporation: corporation.display_name }));
+  } finally {
+    await db.end();
+  }
+}
+main().catch(error => {
+  console.error('Potchven finance sync failed:', String(error.message || 'unknown error').replace(/[\r\n]/g, ' ').slice(0, 350));
+  process.exitCode = 1;
+});
