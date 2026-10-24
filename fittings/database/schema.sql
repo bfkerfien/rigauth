@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS fit_shopping_lists (
  list_name VARCHAR(160) NOT NULL,
  list_type ENUM('home','deployment') NOT NULL,
  owner_user_id BIGINT UNSIGNED NULL,
+ station_id BIGINT UNSIGNED NULL,
+ station_name VARCHAR(255) NULL,
  system_id INT UNSIGNED NULL,
  system_name VARCHAR(100) NULL,
  notes TEXT NULL,
