@@ -303,7 +303,7 @@ class FittingsController
             ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'cs.structure_id')
             ->where('m.solarSystemName', '4-HWWF')
             ->where('t.typeName', 'Keepstar')
-            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.solarSystemName as system_name");
+            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.solarSystemName as system_name, 1 as is_keepstar");
     }
 
     private function stationOptions($db): array
