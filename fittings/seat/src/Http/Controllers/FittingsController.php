@@ -63,6 +63,169 @@ class FittingsController
         ]);
     }
 
+    public function importXml(Request $request): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'xml_file' => ['required', 'file', 'max:20480'],
+            'doctrine' => ['required', 'string', 'max:120'],
+            'visibility' => ['required', 'in:alliance,admins'],
+        ]);
+
+        $file = $request->file('xml_file');
+        if (strtolower($file->getClientOriginalExtension()) !== 'xml') {
+            return back()->withErrors(['xml_file' => 'Choose an EVE fitting XML file.'])->withInput();
+        }
+
+        $source = file_get_contents($file->getRealPath());
+        if ($source === false || stripos($source, '<!DOCTYPE') !== false || stripos($source, '<!ENTITY') !== false) {
+            return back()->withErrors(['xml_file' => 'The XML file could not be read or contains unsupported declarations.'])->withInput();
+        }
+
+        $previousLibxmlSetting = libxml_use_internal_errors(true);
+        try {
+            $xml = simplexml_load_string($source, \SimpleXMLElement::class, LIBXML_NONET | LIBXML_NOBLANKS);
+            $parseErrors = libxml_get_errors();
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousLibxmlSetting);
+        }
+
+        if ($xml === false || $parseErrors) {
+            return back()->withErrors(['xml_file' => 'The selected file is not valid EVE fitting XML.'])->withInput();
+        }
+
+        $fittings = $xml->xpath('//fitting') ?: [];
+        if (!$fittings) {
+            return back()->withErrors(['xml_file' => 'No fitting entries were found in this XML file.'])->withInput();
+        }
+        if (count($fittings) > 500) {
+            return back()->withErrors(['xml_file' => 'A single upload can contain up to 500 fittings.'])->withInput();
+        }
+
+        $db = $this->market();
+        $resolveType = static function (string $value) use ($db) {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+
+            $query = $db->table('invTypes');
+            if (ctype_digit($value)) {
+                $query->where('typeID', (int) $value);
+            } else {
+                $query->where('typeName', $value);
+            }
+
+            return $query->first(['typeID', 'typeName']);
+        };
+
+        $prepared = [];
+        foreach ($fittings as $index => $fitting) {
+            $fitName = trim((string) ($fitting['name'] ?? ''));
+            $shipType = trim((string) ($fitting['shipType'] ?? ''));
+            if ($fitName === '' || $shipType === '') {
+                return back()->withErrors(['xml_file' => 'Every fitting must have a name and ship type (entry ' . ($index + 1) . ').'])->withInput();
+            }
+
+            $hull = $resolveType($shipType);
+            if (!$hull) {
+                return back()->withErrors(['xml_file' => 'Could not match ship type "' . $shipType . '" to SeAT’s EVE type catalogue.'])->withInput();
+            }
+
+            $itemsByType = [];
+            foreach (($fitting->xpath('./hardware') ?: []) as $hardware) {
+                $itemName = trim((string) ($hardware['type'] ?? ''));
+                if ($itemName === '' || strtolower($itemName) === 'empty') {
+                    continue;
+                }
+
+                $itemType = $resolveType($itemName);
+                if (!$itemType) {
+                    return back()->withErrors(['xml_file' => 'Could not match fitting item "' . $itemName . '" to SeAT’s EVE type catalogue.'])->withInput();
+                }
+
+                $slot = strtolower((string) ($hardware['slot'] ?? ''));
+                $quantityValue = (string) ($hardware['qty'] ?? $hardware['quantity'] ?? '1');
+                $quantity = ctype_digit($quantityValue) ? max(1, (int) $quantityValue) : 1;
+                $typeId = (int) $itemType->typeID;
+                if (!isset($itemsByType[$typeId])) {
+                    $itemsByType[$typeId] = [
+                        'type_id' => $typeId,
+                        'type_name' => $itemType->typeName,
+                        'quantity_per_ship' => 0,
+                        'is_hull' => false,
+                        'is_rig' => str_contains($slot, 'rig'),
+                        'is_consumable' => (bool) preg_match('/drone|cargo|fighter|charge|ammo|missile|fuel|script|nanite/', $slot),
+                    ];
+                }
+                $itemsByType[$typeId]['quantity_per_ship'] += $quantity;
+            }
+
+            $prepared[] = [
+                'fit_name' => mb_substr($fitName, 0, 160),
+                'ship_type_id' => (int) $hull->typeID,
+                'ship_name' => $hull->typeName,
+                'fit_text' => $fitting->asXML(),
+                'items' => array_merge([[
+                    'type_id' => (int) $hull->typeID,
+                    'type_name' => $hull->typeName,
+                    'quantity_per_ship' => 1,
+                    'is_hull' => true,
+                    'is_rig' => false,
+                    'is_consumable' => false,
+                ]], array_values($itemsByType)),
+            ];
+        }
+
+        $doctrine = trim($data['doctrine']);
+        $created = 0;
+        $duplicates = 0;
+        $db->transaction(function () use ($db, $prepared, $doctrine, $data, &$created, &$duplicates) {
+            $db->table('fit_doctrines')->insertOrIgnore([
+                'name' => $doctrine,
+                'created_at' => now(),
+            ]);
+
+            foreach ($prepared as $fit) {
+                $existing = $db->table('fit_fits')
+                    ->where('fit_name', $fit['fit_name'])
+                    ->where('ship_type_id', $fit['ship_type_id'])
+                    ->first(['id']);
+
+                if ($existing) {
+                    $duplicates++;
+                    continue;
+                }
+
+                $fitId = $db->table('fit_fits')->insertGetId([
+                    'fit_name' => $fit['fit_name'],
+                    'ship_name' => $fit['ship_name'],
+                    'ship_type_id' => $fit['ship_type_id'],
+                    'fit_text' => $fit['fit_text'],
+                    'visibility' => $data['visibility'],
+                    'created_by' => auth()->id(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                foreach ($fit['items'] as &$item) {
+                    $item['fit_id'] = $fitId;
+                }
+                unset($item);
+                $db->table('fit_items')->insert($fit['items']);
+                $db->table('fit_doctrine_assignments')->insertOrIgnore([
+                    'fit_id' => $fitId,
+                    'doctrine' => $doctrine,
+                ]);
+                $created++;
+            }
+        });
+
+        return redirect()->route('seatcore::fittings.manage')
+            ->with('success', 'Imported ' . $created . ' fittings into ' . $doctrine . '; skipped ' . $duplicates . ' duplicates.');
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->requireAdmin();
