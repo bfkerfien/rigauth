@@ -231,16 +231,18 @@ class FittingsController
                         : ((bool) $item->is_consumable ? 'consumables' : 'modules');
                     $typeId = (int) $item->type_id;
                     $key = $category . ':' . $typeId;
-                    if (!isset($requirementsByCategory[$category][$key])) {
+                    $quantity = (int) $item->quantity_per_ship;
+                    if (!isset($requirementsByCategory[$category][$key]) ||
+                        $quantity > $requirementsByCategory[$category][$key]['needed']) {
                         $requirementsByCategory[$category][$key] = [
                             'type_id' => $typeId,
                             'type_name' => $item->type_name,
-                            'needed' => 0,
-                            'fit_names' => [],
+                            'needed' => $quantity,
+                            'fit_names' => [$fitId => $requirements[$fitId]['fit_name'] ?? ''],
                         ];
+                    } elseif ($quantity === $requirementsByCategory[$category][$key]['needed']) {
+                        $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
                     }
-                    $requirementsByCategory[$category][$key]['needed'] += (int) $item->quantity_per_ship;
-                    $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
                     if ((bool) $item->is_hull) {
                         $hasHull[$fitId] = true;
                     }
@@ -252,16 +254,17 @@ class FittingsController
                     if (!isset($hasHull[$fitId]) && $fit['ship_type_id'] > 0) {
                         $type = $db->table('invTypes')->where('typeID', $fit['ship_type_id'])->first(['typeName']);
                         $key = 'hull_rig:' . $fit['ship_type_id'];
-                        if (!isset($requirementsByCategory['hull_rig'][$key])) {
+                        if (!isset($requirementsByCategory['hull_rig'][$key]) ||
+                            1 > $requirementsByCategory['hull_rig'][$key]['needed']) {
                             $requirementsByCategory['hull_rig'][$key] = [
                                 'type_id' => $fit['ship_type_id'],
                                 'type_name' => $type->typeName ?? $fit['fit_name'],
-                                'needed' => 0,
-                                'fit_names' => [],
+                                'needed' => 1,
+                                'fit_names' => [$fitId => $fit['fit_name']],
                             ];
+                        } elseif (1 === $requirementsByCategory['hull_rig'][$key]['needed']) {
+                            $requirementsByCategory['hull_rig'][$key]['fit_names'][$fitId] = $fit['fit_name'];
                         }
-                        $requirementsByCategory['hull_rig'][$key]['needed']++;
-                        $requirementsByCategory['hull_rig'][$key]['fit_names'][$fitId] = $fit['fit_name'];
                     }
                 }
             }
