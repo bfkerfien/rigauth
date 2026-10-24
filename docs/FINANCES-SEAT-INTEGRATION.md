@@ -1,0 +1,32 @@
+# Potchven Finances — SeAT integration
+
+This branch adds a native SeAT page at `/potchven-finances`, labelled **Potchven Finances** in the sidebar. The authenticated SeAT account must have the EVE character **Turaneau** linked to it. The sidebar condition is only a convenience; the controller also checks every request.
+
+## Deploy the UI
+
+```bash
+cd /opt/rigauth
+bash ./deploy-finances.sh
+```
+
+The script backs up the files it changes, clears route/view caches, verifies the route list, and restarts only the SeAT front service. It does not import or delete database data.
+
+## One-time database import
+
+```bash
+cd /opt/rigauth
+bash ./import-finances-db.sh
+```
+
+Defaults: source container `potchven-finances-db-1`, target container `seat-docker-mariadb-1`, target database `seat`. The import script refuses to run if `fin_*` tables already exist, backs up the SeAT database to `/root`, dumps the standalone finance database without modifying it, renames `finance_*` identifiers to `fin_*`, and imports the tables and data. Keep both the standalone database and the backup until verification is complete.
+
+## Current scope
+
+The dashboard reads imported finance owners, wallet entries, site events, pending SRP obligations, wallet snapshots, and asset snapshots. It can manually record a successful site using the established three-payout/45,000,000 ISK revenue-credit convention. The original Node application's EVE SSO token-refresh and ESI wallet/assets synchronization routes have **not yet been ported** into SeAT's ESI token system, so live synchronization remains follow-up work.
+
+## Access verification
+
+- Turaneau's SeAT account: sidebar entry appears and `/potchven-finances` loads.
+- A different account: no sidebar entry and direct access returns HTTP 403.
+- Confirm the POST route also rejects other accounts.
+- Verify `fin_*` table names and row counts before retiring the standalone database.
