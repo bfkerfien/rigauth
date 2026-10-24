@@ -58,9 +58,9 @@ OVERRIDE
 
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0001-header-logout-button.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0002-fittings-section.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/fittings/patches/0005-fittings-management.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply --unidiff-zero "$(dirname "$0")/fittings/patches/0005-fittings-management.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply --recount "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
 cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
 mkdir -p "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings"
 cp "$(dirname "$0")/fittings/seat/src/Http/Controllers/FittingsController.php" "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers/FittingsController.php"
