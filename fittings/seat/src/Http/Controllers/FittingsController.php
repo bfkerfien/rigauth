@@ -69,7 +69,6 @@ class FittingsController
         $this->requireAdmin();
         $data = $request->validate([
             'xml_file' => ['required', 'file', 'max:20480'],
-            'doctrine' => ['required', 'string', 'max:120'],
             'visibility' => ['required', 'in:alliance,admins'],
         ]);
 
@@ -125,6 +124,9 @@ class FittingsController
         foreach ($fittings as $index => $fitting) {
             $fitName = trim((string) ($fitting['name'] ?? ''));
             $shipType = trim((string) ($fitting['shipType'] ?? ''));
+            if ($shipType === '') {
+                $shipType = trim((string) ($fitting->shipType['value'] ?? ''));
+            }
             if ($fitName === '' || $shipType === '') {
                 return back()->withErrors(['xml_file' => 'Every fitting must have a name and ship type (entry ' . ($index + 1) . ').'])->withInput();
             }
@@ -179,15 +181,9 @@ class FittingsController
             ];
         }
 
-        $doctrine = trim($data['doctrine']);
         $created = 0;
         $duplicates = 0;
-        $db->transaction(function () use ($db, $prepared, $doctrine, $data, &$created, &$duplicates) {
-            $db->table('fit_doctrines')->insertOrIgnore([
-                'name' => $doctrine,
-                'created_at' => now(),
-            ]);
-
+        $db->transaction(function () use ($db, $prepared, $data, &$created, &$duplicates) {
             foreach ($prepared as $fit) {
                 $existing = $db->table('fit_fits')
                     ->where('fit_name', $fit['fit_name'])
@@ -195,10 +191,6 @@ class FittingsController
                     ->first(['id']);
 
                 if ($existing) {
-                    $db->table('fit_doctrine_assignments')->insertOrIgnore([
-                        'fit_id' => $existing->id,
-                        'doctrine' => $doctrine,
-                    ]);
                     $duplicates++;
                     continue;
                 }
@@ -219,16 +211,12 @@ class FittingsController
                 }
                 unset($item);
                 $db->table('fit_items')->insert($fit['items']);
-                $db->table('fit_doctrine_assignments')->insertOrIgnore([
-                    'fit_id' => $fitId,
-                    'doctrine' => $doctrine,
-                ]);
                 $created++;
             }
         });
 
         return redirect()->route('seatcore::fittings.manage')
-            ->with('success', 'Imported ' . $created . ' fittings into ' . $doctrine . '; skipped ' . $duplicates . ' duplicates.');
+            ->with('success', 'Imported ' . $created . ' fittings; skipped ' . $duplicates . ' duplicates.');
     }
 
     public function store(Request $request): RedirectResponse
