@@ -1,11 +1,11 @@
 <?php
 
-namespace Seat\\Web\\Http\\Controllers;
+namespace Seat\Web\Http\Controllers;
 
-use Illuminate\\Http\\RedirectResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\View\\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class PotchvenFinancesController extends Controller
 {
