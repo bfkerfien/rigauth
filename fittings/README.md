@@ -4,7 +4,7 @@ Native fitting management and market intelligence for the Triglavian Consortium'
 
 ## Fitting management
 
-The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Administrators can also set separate home and deployment station/system names and IDs. Creating a home or deployment shopping list copies the corresponding saved station and system onto that list. Writes are restricted to SeAT users with the `global.superuser` permission.
+The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Administrators can also set separate home and deployment station/system names and IDs. Creating a home or deployment shopping list copies the corresponding saved station and system onto that list. Saving a changed default location also updates existing lists of that type. Administrators can add hulls, modules, rigs, consumables, and other items with quantities and notes. Writes are restricted to SeAT users with the `global.superuser` permission.
 
 **A fitting can belong to multiple categories.** The database uses `fit_fits` as the canonical fit record, `fit_categories` as the category catalogue, and `fit_category_assignments` as a many-to-many join. For example, one Scimitar fitting can appear under Logistics, Shield Doctrine, and Fleet Support without duplicating the fit. Doctrine tags are modeled separately.
 
@@ -24,6 +24,6 @@ See `database/schema.sql`, `docs/FRESH_DATABASE.md`, and `.env.example`.
 - `seat/src/Http/Controllers/FittingsController.php`: native Laravel controller.
 - `seat/src/resources/views/fittings/manage.blade.php`: fitting library and category UI.
 - `patches/0005-fittings-management.patch`: routes.
-- - `restore-seat-source.sh`: reconstructs the pinned SeAT source tree and applies integration patches.
+- `restore-seat-source.sh`: reconstructs the pinned SeAT source tree and applies integration patches.
 
 Repository changes are not a live deployment. Do not switch production traffic or stop the legacy collector until the database connection, permissions, fitting save/edit flow, and market collector have been tested.
