@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,12 @@
+@@ -54,4 +54,14 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
@@ -15,6 +15,8 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            Route::delete('/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
 +            Route::post('/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
 +            Route::post('/locations', 'FittingsController@storeLocations')->name('seatcore::fittings.locations.store');
++            Route::post('/stations', 'FittingsController@storeAllianceStation')->name('seatcore::fittings.stations.store');
++            Route::delete('/stations/{locationType}/{stationId}', 'FittingsController@destroyAllianceStation')->whereNumber('stationId')->name('seatcore::fittings.stations.destroy');
 +            Route::post('/shopping-lists', 'FittingsController@storeShoppingList')->name('seatcore::fittings.shopping-lists.store');
 +            Route::post('/shopping-lists/{listId}/items', 'FittingsController@storeShoppingListItem')->whereNumber('listId')->name('seatcore::fittings.shopping-list-items.store');
 +        });
