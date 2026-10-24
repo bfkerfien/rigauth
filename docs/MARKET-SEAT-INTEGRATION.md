@@ -1,20 +1,40 @@
 # Market inside SeAT
 
-The native Market section is at /market. It uses SeAT's normal authenticated web session directly; the old standalone Market SSO bridge route is removed from the active route table by the integration patch. No second Market login or SSO secret is needed for the native pages.
+The native Market section is at /market. It uses SeAT's authenticated web session directly; every controller action permits a SeAT superuser or a SeAT role whose title is exactly Marketeers. The left navigation uses the same rule. Normal users are denied. Creating and assigning Marketeers remains an administrator step.
 
-## Access control
-Every Market controller action permits a SeAT superuser or a SeAT role named exactly Marketeers. The sidebar uses the same visibility rule. Normal users are denied. Creating and assigning Marketeers remains an administrator step.
+## Database and data reuse
 
-## Database
-Migration 2026_10_24_010000_create_mkt_market_tables.php creates Market-owned tables in SeAT's existing configured Laravel database. Every new table is prefixed mkt_. It does not create a separate database or alter existing SeAT tables. Tables cover collector runs, orders, price comparisons, EVE token storage, Shame List entries, and doctrine-health snapshots. Doctrine Health reads existing Fittings records (fit_fits, fit_doctrine_assignments, and fit_items) instead of duplicating them in new mkt_ tables.
+The page reads existing collector snapshots and fitting/doctrine data from SeAT's configured database:
+- fit_collection_runs
+- fit_item_comparisons
+- fit_market_type_volumes
+- fit_market_orders
+- fit_fits
+- fit_doctrines
+- fit_doctrine_assignments
+- fit_items
 
-## Recovered source and gaps
-The source repository bfkerfien/reactions contains the old collector routes and schema. Its /api/runs/{run_id}/profit18 endpoint returns structure/Jita sell prices plus volume metadata; the checked-in endpoint does not itself implement an 18% threshold. The old /under130 page currently renders the same template as /over130, and no legacy Shame List table/route was found. The native pages surface recoverable comparison data and provide a SeAT-native Shame List, but exact legacy behavior and import of existing collector rows still need completion before production launch.
+These tables already belong to the SeAT Fittings integration, so the Market section reuses them rather than creating duplicate copies of market snapshots or doctrine/fitting records. No migration is required for this read-only Market page. Any future Market-only tables must use the mkt_ prefix and must be created in SeAT's configured database.
 
-## Deployment
-1. Review branch market/seat-integration.
+## Tab behavior
+
+- **Shame List:** structure lowest sell price is more than 30% above Jita 4-4's lowest sell price.
+- **Under 30:** markup is from 0% through 30%, inclusive.
+- **18 Percent:** item volume is used to estimate transport at 500 ISK/m³; structure sale proceeds are reduced by 4.37% fees. The row qualifies when Jita acquisition plus transport is no more than 82% of net structure proceeds.
+- **Doctrine Health:** for 100 ships per assigned fit, sums item demand by doctrine and compares it with available sell-order volume in the latest completed structure snapshot. Health is the percentage of required item types without a shortfall.
+
+The 18 Percent calculation matches the legacy collector's documented calculation. The former collector's /under130 route rendered the same template as /over130; the integrated page implements the intended 0–30% rule explicitly.
+
+## Authentication
+
+Native Market routes are inside SeAT's authenticated web middleware and enforce the superuser/Marketeers rule server-side. They do not use the old standalone Market SSO bridge. EVE SSO used by the collector for ESI market-data access is a separate data-collection concern and is not replaced by SeAT web login.
+
+## Deployment and verification
+
+1. Review the market/seat-integration branch.
 2. Rebuild the SeAT source with restore-seat-source.sh after applying the patch.
-3. Apply the migration using the deployment's normal SeAT database migration process.
-4. Import old collector data into corresponding mkt_ tables before expecting comparisons and doctrine-health snapshots to appear.
-5. Configure/assign the SeAT role Marketeers and test access as an admin, Marketeer, and normal user.
-6. Do not deploy until legacy calculations and data migration have been verified.
+3. Confirm the Fittings schema has been installed in SeAT's configured database and contains the tables listed above.
+4. Create/assign a SeAT role titled Marketeers in SeAT.
+5. Test as a SeAT superuser, a Marketeer, and a normal user. The normal user must receive 403 from /market and must not see the sidebar entry.
+6. Confirm the latest collector run has completed and that item volumes have been populated before validating 18 Percent results.
+7. Do not treat the feature as production-ready until it has been tested against the live SeAT version and database.
