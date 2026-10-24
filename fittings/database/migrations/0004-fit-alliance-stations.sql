@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS fit_alliance_stations (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO fit_alliance_stations (location_type, station_id, station_name, system_id, system_name)
-SELECT 'home', s.stationID, s.stationName, s.solarSystemID, m.solarSystemName
+SELECT 'home', s.stationID, s.stationName, s.solarSystemID, m.name
 FROM staStations AS s
-JOIN mapSolarSystems AS m ON m.solarSystemID = s.solarSystemID
-WHERE m.solarSystemName = 'Jita'
+JOIN solar_systems AS m ON m.system_id = s.solarSystemID
+WHERE m.name = 'Jita'
 UNION ALL
-SELECT 'deployment', s.stationID, s.stationName, s.solarSystemID, m.solarSystemName
+SELECT 'deployment', s.stationID, s.stationName, s.solarSystemID, m.name
 FROM staStations AS s
-JOIN mapSolarSystems AS m ON m.solarSystemID = s.solarSystemID
-WHERE m.solarSystemName = 'Jita';
+JOIN solar_systems AS m ON m.system_id = s.solarSystemID
+WHERE m.name = 'Jita';
