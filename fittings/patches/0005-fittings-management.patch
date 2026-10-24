@@ -7,9 +7,9 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 -            return view('web::fittings');
 -        })->name('seatcore::fittings.index');
 +        // Pilot-facing fittings page.
-+        Route::get('/fittings', function () {
-+            return view('web::fittings');
-+        })->name('seatcore::fittings.index');
++        Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');
++        Route::post('/fittings/shopping-lists', 'FittingsController@storePilotShoppingList')->name('seatcore::fittings.pilot.shopping-lists.store');
++        Route::post('/fittings/shopping-lists/{listId}/items', 'FittingsController@storePilotShoppingListItem')->whereNumber('listId')->name('seatcore::fittings.pilot.shopping-list-items.store');
 +
 +        // Native SeAT fitting management is administrator-only.
 +        Route::group(['prefix' => 'fittings/manage', 'middleware' => ['can:global.superuser']], function () {
