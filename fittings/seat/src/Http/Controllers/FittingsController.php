@@ -299,11 +299,11 @@ class FittingsController
     {
         return $db->table('corporation_structures as cs')
             ->join('invTypes as t', 't.typeID', '=', 'cs.type_id')
-            ->join('mapSolarSystems as m', 'm.solarSystemID', '=', 'cs.system_id')
+            ->join('solar_systems as m', 'm.system_id', '=', 'cs.system_id')
             ->leftJoin('universe_structures as us', 'us.structure_id', '=', 'cs.structure_id')
-            ->where('m.solarSystemName', '4-HWWF')
+            ->where('m.name', '4-HWWF')
             ->where('t.typeName', 'Keepstar')
-            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.solarSystemName as system_name, 1 as is_keepstar");
+            ->selectRaw("cs.structure_id as station_id, COALESCE(NULLIF(us.name, ''), CONCAT('Keepstar ', cs.structure_id)) as station_name, cs.system_id, m.name as system_name, 1 as is_keepstar");
     }
 
     private function stationOptions($db): array
@@ -394,13 +394,13 @@ class FittingsController
 
         $db = $this->market();
         $station = $db->table('staStations as s')
-            ->join('mapSolarSystems as m', 'm.solarSystemID', '=', 's.solarSystemID')
+            ->join('solar_systems as m', 'm.system_id', '=', 's.solarSystemID')
             ->where('s.stationID', $data['station_id'])
             ->first([
                 's.stationID as station_id',
                 's.stationName as station_name',
                 's.solarSystemID as system_id',
-                'm.solarSystemName as system_name',
+                'm.name as system_name',
             ]);
 
         if (!$station) {
