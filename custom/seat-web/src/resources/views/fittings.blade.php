@@ -98,7 +98,7 @@
         @php($shortageCategories = ['modules' => 'Modules', 'consumables' => 'Consumables', 'hull_rig' => 'Hull & Rig Combo'])
         @php($systemShortages = $inventoryShortages[$listType] ?? ['available' => false, 'categories' => []])
         @if($systemShortages['available'])
-          <p class="small text-muted">For each item, the required quantity is the highest amount used by any fit assigned to a doctrine scoped to {{ strtolower($label) }}. Quantities are not added across alternative fits. Available assets are combined across all pilots linked to your SeAT account in this system.</p>
+          <p class="small text-muted">Hulls &amp; Rigs are grouped separately for each fit so each ship is shown with its own rig requirements. Modules and consumables continue to use the highest quantity required by any applicable fit. Available assets are combined across all pilots linked to your SeAT account in this system.</p>
           <ul class="nav nav-tabs mb-3" role="tablist">
             @foreach($shortageCategories as $categoryKey => $categoryLabel)
               <li class="nav-item"><a class="nav-link {{ $loop->first ? 'active' : '' }}" data-toggle="tab" href="#fittings-{{ $listType }}-{{ $categoryKey }}" role="tab">{{ $categoryLabel }}</a></li>
@@ -110,16 +110,30 @@
               <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="fittings-{{ $listType }}-{{ $categoryKey }}" role="tabpanel">
                 <div class="table-responsive">
                   <table class="table table-sm table-striped">
-                    <thead><tr><th>Missing item</th><th>Needed</th><th>Available</th><th>Missing</th><th>Used by fits</th></tr></thead>
+                    <thead><tr><th>Missing item</th><th>Needed</th><th>Available</th><th>Missing</th><th>Fit</th></tr></thead>
                     <tbody>
-                      @forelse($missingItems as $item)
-                        <tr>
-                          <td>{{ $item->type_name }}</td><td>{{ $item->needed }}</td><td>{{ $item->have }}</td><td class="text-danger font-weight-bold">{{ $item->missing }}</td>
-                          <td>{{ implode(', ', $item->fit_names) }}</td>
-                        </tr>
-                      @empty
-                        <tr><td colspan="5" class="text-success">No missing {{ strtolower($categoryLabel) }} for the assigned doctrine fits.</td></tr>
-                      @endforelse
+                      @if($categoryKey === 'hull_rig')
+                        @forelse($missingItems->groupBy('group_key') as $fitShortages)
+                          @php($fitGroupName = $fitShortages->first()->group_name ?? ($fitShortages->first()->fit_names[0] ?? 'Fit'))
+                          <tr class="table-secondary"><th colspan="5">{{ $fitGroupName }}</th></tr>
+                          @foreach($fitShortages as $item)
+                            <tr>
+                              <td>{{ $item->type_name }}</td><td>{{ $item->needed }}</td><td>{{ $item->have }}</td><td class="text-danger font-weight-bold">{{ $item->missing }}</td><td>{{ $fitGroupName }}</td>
+                            </tr>
+                          @endforeach
+                        @empty
+                          <tr><td colspan="5" class="text-success">No missing hulls or rigs for the assigned doctrine fits.</td></tr>
+                        @endforelse
+                      @else
+                        @forelse($missingItems as $item)
+                          <tr>
+                            <td>{{ $item->type_name }}</td><td>{{ $item->needed }}</td><td>{{ $item->have }}</td><td class="text-danger font-weight-bold">{{ $item->missing }}</td>
+                            <td>{{ implode(', ', $item->fit_names) }}</td>
+                          </tr>
+                        @empty
+                          <tr><td colspan="5" class="text-success">No missing {{ strtolower($categoryLabel) }} for the assigned doctrine fits.</td></tr>
+                        @endforelse
+                      @endif
                     </tbody>
                   </table>
                 </div>
