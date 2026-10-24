@@ -1,14 +1,19 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,18 @@
+@@ -54,4 +54,23 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
 -        })->name('seatcore::fittings.index');
++        // Pilot-facing fittings page.
++        Route::get('/fittings', function () {
++            return view('web::fittings');
++        })->name('seatcore::fittings.index');
++
 +        // Native SeAT fitting management is administrator-only.
 +        Route::group(['prefix' => 'fittings', 'middleware' => ['can:global.superuser']], function () {
-+            Route::get('/', 'FittingsController@index')->name('seatcore::fittings.manage');
++            Route::get('/manage', 'FittingsController@index')->name('seatcore::fittings.manage');
 +            Route::get('/doctrines', 'FittingsController@doctrines')->name('seatcore::fittings.doctrines');
 +            Route::post('/doctrines', 'FittingsController@storeDoctrine')->name('seatcore::fittings.doctrines.store');
 +            Route::get('/doctrines/{doctrine}', 'FittingsController@showDoctrine')->name('seatcore::fittings.doctrines.show');
