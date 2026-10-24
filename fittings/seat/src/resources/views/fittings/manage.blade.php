@@ -99,6 +99,33 @@
       </div>
     </div>
     <div class="card">
+      <div class="card-header"><strong>Home &amp; Deployment Shopping Lists</strong></div>
+      <div class="card-body">
+        <p class="text-muted">New lists inherit the saved station and solar system for their type. Existing lists keep their recorded location.</p>
+        <form method="POST" action="{{ route('seatcore::fittings.shopping-lists.store') }}" class="mb-4">
+          @csrf
+          <div class="form-group"><label>List name</label><input name="list_name" class="form-control" maxlength="160" required></div>
+          <div class="form-group"><label>List type</label><select name="list_type" class="form-control" required><option value="home">Home</option><option value="deployment">Deployment</option></select></div>
+          <div class="form-group"><label>Notes (optional)</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+          <button class="btn btn-primary" type="submit">Create Shopping List</button>
+        </form>
+        <h5>Saved Lists</h5>
+        @forelse($shoppingLists as $list)
+          <div class="border rounded p-3 mb-2">
+            <strong>{{ $list->list_name }}</strong>
+            <span class="badge badge-secondary">{{ ucfirst($list->list_type) }}</span>
+            <div class="small text-muted mt-1">
+              Station: {{ $list->station_name ?: 'Not set' }}{{ $list->station_id ? ' (ID '.$list->station_id.')' : '' }}<br>
+              System: {{ $list->system_name ?: 'Not set' }}{{ $list->system_id ? ' (ID '.$list->system_id.')' : '' }}
+            </div>
+            @if($list->notes)<p class="mb-0 mt-2">{{ $list->notes }}</p>@endif
+          </div>
+        @empty
+          <p class="text-muted">No shopping lists created yet.</p>
+        @endforelse
+      </div>
+    </div>
+    <div class="card">
       <div class="card-header"><strong>Add Fitting</strong></div>
       <div class="card-body">
         <form method="POST" action="{{ route('seatcore::fittings.store') }}">
