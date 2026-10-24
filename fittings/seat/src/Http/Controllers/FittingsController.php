@@ -493,6 +493,86 @@ class FittingsController
         return redirect()->route('seatcore::fittings.manage')->with('success', 'Item added to shopping list.');
     }
 
+    public function doctrines(): View
+    {
+        $this->requireAdmin();
+
+        return view('web::fittings.doctrines', [
+            'doctrines' => $this->market()->table('fit_doctrines')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function storeDoctrine(Request $request): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'doctrine_name' => ['required', 'string', 'max:120'],
+        ]);
+
+        $name = trim($data['doctrine_name']);
+        $db = $this->market();
+        if ($db->table('fit_doctrines')->where('name', $name)->exists()) {
+            return back()->withErrors(['doctrine_name' => 'That doctrine already exists.'])->withInput();
+        }
+
+        $db->table('fit_doctrines')->insert(['name' => $name]);
+
+        return redirect()->route('seatcore::fittings.doctrines')->with('success', 'Doctrine added.');
+    }
+
+    public function showDoctrine(string $doctrine): View
+    {
+        $this->requireAdmin();
+        $db = $this->market();
+        $doctrineRecord = $db->table('fit_doctrines')->where('name', $doctrine)->first();
+        abort_unless($doctrineRecord, 404);
+
+        $fits = $db->table('fit_fits')
+            ->orderBy('fit_name')
+            ->orderBy('ship_name')
+            ->get(['id', 'fit_name', 'ship_name']);
+        $assignedFitIds = $db->table('fit_doctrine_assignments')
+            ->where('doctrine', $doctrine)
+            ->pluck('fit_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return view('web::fittings.doctrine', [
+            'doctrine' => $doctrineRecord,
+            'fits' => $fits,
+            'assignedFitIds' => $assignedFitIds,
+        ]);
+    }
+
+    public function syncDoctrineFits(Request $request, string $doctrine): RedirectResponse
+    {
+        $this->requireAdmin();
+        $data = $request->validate([
+            'fits' => ['nullable', 'array'],
+            'fits.*' => ['integer', 'min:1'],
+        ]);
+
+        $db = $this->market();
+        abort_unless($db->table('fit_doctrines')->where('name', $doctrine)->exists(), 404);
+        $fitIds = $db->table('fit_fits')
+            ->whereIn('id', array_map('intval', $data['fits'] ?? []))
+            ->pluck('id')
+            ->all();
+
+        $db->transaction(function () use ($db, $doctrine, $fitIds) {
+            $db->table('fit_doctrine_assignments')->where('doctrine', $doctrine)->delete();
+            if ($fitIds) {
+                $db->table('fit_doctrine_assignments')->insert(array_map(fn ($fitId) => [
+                    'fit_id' => $fitId,
+                    'doctrine' => $doctrine,
+                ], $fitIds));
+            }
+        });
+
+        return redirect()->route('seatcore::fittings.doctrines.show', ['doctrine' => $doctrine])
+            ->with('success', 'Doctrine fittings saved.');
+    }
+
     public function storeCategory(Request $request): RedirectResponse
     {
         $this->requireAdmin();
