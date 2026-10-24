@@ -15,6 +15,6 @@ cd rigauth
 sudo bash ./restore-seat-source.sh /opt/seat-source
 ```
 
-The restore script exits without changing anything if its destination already exists. It applies the tracked customizations in `patches/`: the character portrait and name move to the top right beside the Sign Out button, and the sidebar character panel is removed. The package autoload override is saved at `seat-docker/packages/override.json`.
+The restore script exits without changing anything if its destination already exists. It applies the tracked customizations in `patches/`: the character portrait and name move to the top right beside Sign Out, the Fittings section and shopping-list tabs are added, and a superuser-only Admin Setup page manages designated T2 stations and fittings. Supporting controller, view, route, and migration files are kept in `custom/seat-web/` and copied into the reconstructed web package. The package autoload override is saved at `seat-docker/packages/override.json`.
 
 Do not commit a server `.env` file or generated credentials here. Keep deployment secrets on each server.
