@@ -1,11 +1,10 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -139,7 +139,10 @@ Route::group([
+@@ -139,6 +139,9 @@ Route::group([
              Route::group(['prefix' => 'settings'], function () {
  
                  include __DIR__ . '/Routes/Configuration/Seat.php';
- 
              });
  
 +            // Triglavian Consortium administration.
