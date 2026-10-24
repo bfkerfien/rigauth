@@ -70,6 +70,40 @@
     <div class="tab-pane fade" id="fittings-{{ $listType }}" role="tabpanel">
       <div class="card"><div class="card-header"><strong>{{ $label }}</strong></div><div class="card-body">
         <p class="text-muted mb-3">Alliance location: {{ $location->station_name ?? 'Not selected' }}{{ !empty($location->system_name) ? ' — '.$location->system_name : '' }}</p>
+        @php($shortageCategories = ['modules' => 'Modules', 'consumables' => 'Consumables', 'hull_rig' => 'Hull & Rig Combo'])
+        @php($systemShortages = $inventoryShortages[$listType] ?? ['available' => false, 'categories' => []])
+        @if($systemShortages['available'])
+          <p class="small text-muted">Missing quantities are calculated across one of every fit assigned to doctrines scoped to {{ strtolower($label) }}, using assets from all pilots linked to your SeAT account in this system.</p>
+          <ul class="nav nav-tabs mb-3" role="tablist">
+            @foreach($shortageCategories as $categoryKey => $categoryLabel)
+              <li class="nav-item"><a class="nav-link {{ $loop->first ? 'active' : '' }}" data-toggle="tab" href="#fittings-{{ $listType }}-{{ $categoryKey }}" role="tab">{{ $categoryLabel }}</a></li>
+            @endforeach
+          </ul>
+          <div class="tab-content mb-4">
+            @foreach($shortageCategories as $categoryKey => $categoryLabel)
+              @php($missingItems = $systemShortages['categories'][$categoryKey] ?? collect())
+              <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="fittings-{{ $listType }}-{{ $categoryKey }}" role="tabpanel">
+                <div class="table-responsive">
+                  <table class="table table-sm table-striped">
+                    <thead><tr><th>Missing item</th><th>Needed</th><th>Available</th><th>Missing</th><th>Used by fits</th></tr></thead>
+                    <tbody>
+                      @forelse($missingItems as $item)
+                        <tr>
+                          <td>{{ $item->type_name }}</td><td>{{ $item->needed }}</td><td>{{ $item->have }}</td><td class="text-danger font-weight-bold">{{ $item->missing }}</td>
+                          <td>{{ implode(', ', $item->fit_names) }}</td>
+                        </tr>
+                      @empty
+                        <tr><td colspan="5" class="text-success">No missing {{ strtolower($categoryLabel) }} for the assigned doctrine fits.</td></tr>
+                      @endforelse
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        @else
+          <div class="alert alert-info">{{ $systemShortages['message'] ?? 'Inventory requirements are not available.' }}</div>
+        @endif
         <form method="POST" action="{{ route('seatcore::fittings.pilot.shopping-lists.store') }}" class="mb-4">
           @csrf<input type="hidden" name="list_type" value="{{ $listType }}">
           <div class="form-row align-items-end"><div class="form-group col-md-8"><label>New personal list</label><input name="list_name" class="form-control" maxlength="160" required></div><div class="form-group col-md-4"><button class="btn btn-primary" type="submit">Create List</button></div></div>
