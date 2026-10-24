@@ -398,7 +398,7 @@ class FittingsController
         }
 
         $schema = $db->getSchemaBuilder();
-        foreach (['fit_items', 'character_skills', 'dgmTypeAttributes', 'dgmAttributeTypes', 'invTypes'] as $table) {
+        foreach (['fit_items', 'character_skills', 'dgmTypeAttributes', 'invTypes'] as $table) {
             if (!$schema->hasTable($table)) {
                 return $status;
             }
@@ -419,26 +419,34 @@ class FittingsController
             return $status;
         }
 
-        $attributeNames = [];
-        for ($slot = 1; $slot <= 6; $slot++) {
-            $attributeNames[] = 'requiredSkill' . $slot;
-            $attributeNames[] = 'requiredSkill' . $slot . 'Level';
-        }
+        // Read skill requirement attributes by their stable EVE attribute IDs. The
+        // dgmAttributeTypes lookup table is absent in some SeAT data installs.
+        $attributeSlots = [
+            182 => ['skill', 1],
+            183 => ['skill', 2],
+            184 => ['skill', 3],
+            1285 => ['skill', 4],
+            1289 => ['skill', 5],
+            1290 => ['skill', 6],
+            277 => ['level', 1],
+            278 => ['level', 2],
+            279 => ['level', 3],
+            1286 => ['level', 4],
+            1287 => ['level', 5],
+            1288 => ['level', 6],
+        ];
         $attributesByType = [];
         foreach ($db->table('dgmTypeAttributes as ta')
-            ->join('dgmAttributeTypes as at', 'at.attributeID', '=', 'ta.attributeID')
             ->whereIn('ta.typeID', $allTypeIds)
-            ->whereIn('at.attributeName', $attributeNames)
-            ->get(['ta.typeID', 'at.attributeName', 'ta.valueInt', 'ta.valueFloat']) as $row) {
+            ->whereIn('ta.attributeID', array_keys($attributeSlots))
+            ->get(['ta.typeID', 'ta.attributeID', 'ta.valueInt', 'ta.valueFloat']) as $row) {
             $value = $row->valueInt ?? $row->valueFloat;
             if ($value === null) {
                 continue;
             }
-            if (preg_match('/^requiredSkill([1-6])$/', $row->attributeName, $matches)) {
-                $attributesByType[(int) $row->typeID]['skill'][(int) $matches[1]] = (int) $value;
-            } elseif (preg_match('/^requiredSkill([1-6])Level$/', $row->attributeName, $matches)) {
-                $attributesByType[(int) $row->typeID]['level'][(int) $matches[1]] = (int) $value;
-            }
+
+            [$kind, $slot] = $attributeSlots[(int) $row->attributeID];
+            $attributesByType[(int) $row->typeID][$kind][$slot] = (int) $value;
         }
 
         $requirementsByFit = [];
