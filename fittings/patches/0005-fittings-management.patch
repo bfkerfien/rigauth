@@ -1,14 +1,16 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,6 @@
+@@ -54,4 +54,8 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
 -        })->name('seatcore::fittings.index');
-+        // Native SeAT fitting library and multi-category management.
-+        Route::get('/fittings', 'FittingsController@index')->name('seatcore::fittings.manage');
-+        Route::post('/fittings', 'FittingsController@store')->name('seatcore::fittings.store');
-+        Route::put('/fittings/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
-+        Route::delete('/fittings/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
-+        Route::post('/fittings/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
++        // Native SeAT fitting management is administrator-only.
++        Route::group(['prefix' => 'fittings', 'middleware' => ['can:global.superuser']], function () {
++            Route::get('/', 'FittingsController@index')->name('seatcore::fittings.manage');
++            Route::post('/', 'FittingsController@store')->name('seatcore::fittings.store');
++            Route::put('/{fitId}', 'FittingsController@update')->whereNumber('fitId')->name('seatcore::fittings.update');
++            Route::delete('/{fitId}', 'FittingsController@destroy')->whereNumber('fitId')->name('seatcore::fittings.destroy');
++            Route::post('/categories', 'FittingsController@storeCategory')->name('seatcore::fittings.category.store');
++        });
