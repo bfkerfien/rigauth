@@ -63,6 +63,9 @@ git -C "$DEST/seat" apply "$(dirname "$0")/fittings/patches/0006-market-db-conne
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
 cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
+mkdir -p "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings"
+cp "$(dirname "$0")/fittings/seat/src/Http/Controllers/FittingsController.php" "$DEST/seat-docker/packages/eveseat/web/src/Http/Controllers/FittingsController.php"
+cp "$(dirname "$0")/fittings/seat/src/resources/views/fittings/manage.blade.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/fittings/manage.blade.php"
 cp "$(dirname "$0")/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
 echo "Restored SeAT sources with Triglavian UI patches to $DEST"
