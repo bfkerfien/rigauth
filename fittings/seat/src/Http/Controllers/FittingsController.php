@@ -59,8 +59,6 @@ class FittingsController
             'categoryMap' => $categoryMap,
             'locations' => $db->table('fit_location_settings')->get()->keyBy('location_type'),
             'stations' => $this->stationOptions($db),
-            'shoppingLists' => $db->table('fit_shopping_lists')->orderBy('list_type')->orderBy('list_name')->get(),
-            'shoppingListItems' => $db->table('fit_shopping_list_items')->orderBy('shopping_list_id')->orderBy('category')->orderBy('sort_order')->get()->groupBy('shopping_list_id'),
         ]);
     }
 
