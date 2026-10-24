@@ -14,12 +14,18 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,6 +29,11 @@
+@@ -29,6 +29,16 @@
        <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
  
++        <li class="nav-item">
++          <a href="{{ route('seatcore::fittings.index') }}" class="nav-link {{ Request::segment(1) === 'fittings' && Request::segment(2) === null ? 'active' : null }}">
++            <i class="nav-icon fas fa-ship"></i>
++            <p>Fittings</p>
++          </a>
++        </li>
 +        @can('global.superuser')
 +        <li class="nav-item">
-+          <a href="{{ route('seatcore::fittings.manage') }}" class="nav-link {{ Request::segment(1) === 'fittings' ? 'active' : null }}">
++          <a href="{{ route('seatcore::fittings.manage') }}" class="nav-link {{ Request::segment(1) === 'fittings' && Request::segment(2) === 'manage' ? 'active' : null }}">
 +            <i class="nav-icon fas fa-tools"></i>
 +            <p>Manage Fittings</p>
 +          </a>
