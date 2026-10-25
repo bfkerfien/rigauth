@@ -83,6 +83,14 @@ printf '%s\\n' "$ROUTES" | grep -q 'potchven-finances' || { echo "ERROR: finance
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
+# Install a host systemd timer so SeAT's fin_ tables stay refreshed without manual runs.
+[[ -f "$REPO/deploy/potchven-finances-seat-sync.service" && -f "$REPO/deploy/potchven-finances-seat-sync.timer" ]] || { echo "STOP: finance sync systemd units missing."; exit 1; }
+sudo install -m 0644 "$REPO/deploy/potchven-finances-seat-sync.service" /etc/systemd/system/potchven-finances-seat-sync.service
+sudo install -m 0644 "$REPO/deploy/potchven-finances-seat-sync.timer" /etc/systemd/system/potchven-finances-seat-sync.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now potchven-finances-seat-sync.timer
+sudo systemctl status --no-pager potchven-finances-seat-sync.timer || true
+
 echo "Deployment finished. Backup retained at $BACKUP"
 echo "Database import is separate: bash $REPO/import-finances-db.sh"
 echo "Keep the standalone database until the page and Turaneau-only access have been tested."
