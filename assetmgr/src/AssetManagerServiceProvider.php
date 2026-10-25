@@ -15,6 +15,7 @@ use Triglavian\AssetManager\Console\Commands\SyncWalletTransactions;
 use Triglavian\AssetManager\Console\Commands\SyncMarketOrders;
 use Triglavian\AssetManager\Console\Commands\SyncCorporationMarketOrders;
 use Triglavian\AssetManager\Console\Commands\SyncCorporationWalletJournals;
+use Triglavian\AssetManager\Console\Commands\SyncContracts;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
@@ -31,6 +32,8 @@ use Triglavian\AssetManager\Services\Markets\MarketOrderSource;
 use Triglavian\AssetManager\Services\Markets\EsiMarketOrderSource;
 use Triglavian\AssetManager\Services\Markets\CorporationMarketOrderSource;
 use Triglavian\AssetManager\Services\Markets\EsiCorporationMarketOrderSource;
+use Triglavian\AssetManager\Services\Contracts\ContractSource;
+use Triglavian\AssetManager\Services\Contracts\EsiContractSource;
 
 class AssetManagerServiceProvider extends AbstractSeatPlugin
 {
@@ -64,6 +67,7 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         $this->app->bind(CorporationWalletJournalSource::class, EsiCorporationWalletJournalSource::class);
         $this->app->bind(MarketOrderSource::class, EsiMarketOrderSource::class);
         $this->app->bind(CorporationMarketOrderSource::class, EsiCorporationMarketOrderSource::class);
+        $this->app->bind(ContractSource::class, EsiContractSource::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
         $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation.php', 'corporation');
         $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation_market_orders.php', 'corporation');
@@ -77,7 +81,7 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         RateLimiter::for('assetmgr-esi', static fn () => Limit::perMinute((int) config('assetmgr.sync.requests_per_minute', 30)));
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class, CaptureValuations::class, SyncWalletJournals::class, SyncWalletTransactions::class, SyncMarketOrders::class, SyncCorporationMarketOrders::class, SyncCorporationWalletJournals::class]);
+            $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class, CaptureValuations::class, SyncWalletJournals::class, SyncWalletTransactions::class, SyncMarketOrders::class, SyncCorporationMarketOrders::class, SyncCorporationWalletJournals::class, SyncContracts::class]);
         }
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
