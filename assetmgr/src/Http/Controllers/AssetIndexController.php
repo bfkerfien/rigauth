@@ -33,6 +33,25 @@ class AssetIndexController extends Controller
             'direction' => $request->query('direction', 'asc'),
         ];
 
+        $currentValuation = DB::query()
+            ->fromSub($assetQuery->personal($characterIds)->reorder(), 'inventory')
+            ->selectRaw('COUNT(*) AS asset_count')
+            ->selectRaw('COALESCE(SUM(quantity), 0) AS quantity_sum')
+            ->selectRaw('COALESCE(SUM(CASE WHEN jita_unit_price IS NOT NULL THEN jita_unit_price * quantity ELSE 0 END), 0) AS jita_total_value')
+            ->selectRaw('COALESCE(SUM(CASE WHEN regional_unit_price IS NOT NULL THEN regional_unit_price * quantity ELSE 0 END), 0) AS regional_total_value')
+            ->selectRaw('SUM(CASE WHEN jita_unit_price IS NULL THEN 1 ELSE 0 END) AS jita_unpriced_count')
+            ->selectRaw('SUM(CASE WHEN regional_unit_price IS NULL THEN 1 ELSE 0 END) AS regional_unpriced_count')
+            ->first();
+
+        $valuationHistory = DB::table('assetmgr_valuation_snapshots')
+            ->where('owner_kind', 'character')
+            ->whereIn('owner_id', $characterIds)
+            ->selectRaw('snapshot_at, SUM(jita_total_value) AS jita_total_value, SUM(regional_total_value) AS regional_total_value, SUM(jita_unpriced_count) AS jita_unpriced_count, SUM(regional_unpriced_count) AS regional_unpriced_count')
+            ->groupBy('snapshot_at')
+            ->orderByDesc('snapshot_at')
+            ->limit(24)
+            ->get();
+
         $syncStates = DB::table('assetmgr_sync_state')
             ->where('owner_kind', 'character')
             ->whereIn('owner_id', $characterIds)
@@ -43,6 +62,8 @@ class AssetIndexController extends Controller
         return view('assetmgr::index', [
             'assets' => $assetQuery->personal($characterIds, $filters)->paginate(50)->withQueryString(),
             'syncStates' => $syncStates,
+            'currentValuation' => $currentValuation,
+            'valuationHistory' => $valuationHistory,
             'search' => (string) $filters['q'],
             'characterId' => $filters['character_id'],
             'sort' => $filters['sort'],
