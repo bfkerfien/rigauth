@@ -20,9 +20,6 @@ use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersRefreshContr
 use Triglavian\AssetManager\Http\Controllers\CorporationWalletJournalController;
 use Triglavian\AssetManager\Http\Controllers\CorporationWalletJournalExportController;
 use Triglavian\AssetManager\Http\Controllers\CorporationWalletJournalRefreshController;
-use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersController;
-use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersExportController;
-use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersRefreshController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('assetmgr')
