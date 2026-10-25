@@ -34,7 +34,7 @@ class AssetExportController extends Controller
             if ($handle === false) return;
 
             fputcsv($handle, [
-                'Item', 'Type ID', 'Quantity', 'Character Owner', 'Location',
+                'Item', 'Type ID', 'Item ID', 'Parent Item ID', 'Quantity', 'Character Owner', 'Location',
                 'Region ID', 'Jita Best Sell Unit Price', 'Jita Total Sell Value',
                 'Regional Best Sell Unit Price', 'Regional Total Sell Value', 'Last Seen',
             ]);
@@ -51,6 +51,8 @@ class AssetExportController extends Controller
                 fputcsv($handle, [
                     $safeCell($asset->type_name),
                     (int) $asset->type_id,
+                    (int) $asset->item_id,
+                    $asset->parent_item_id,
                     (int) $asset->quantity,
                     $safeCell($asset->character_name ?? ('Character ' . $asset->character_id)),
                     $safeCell($asset->location_name ?? $asset->location_id),
