@@ -32,8 +32,16 @@ class AssetIndexController extends Controller
             'direction' => $request->query('direction', 'asc'),
         ];
 
+        $syncStates = DB::table('assetmgr_sync_state')
+            ->where('owner_kind', 'character')
+            ->whereIn('owner_id', $characterIds)
+            ->where('dataset', 'assets')
+            ->orderBy('owner_id')
+            ->get();
+
         return view('assetmgr::index', [
             'assets' => $assetQuery->personal($characterIds, $filters)->paginate(50)->withQueryString(),
+            'syncStates' => $syncStates,
             'search' => (string) $filters['q'],
             'characterId' => $filters['character_id'],
             'sort' => $filters['sort'],
