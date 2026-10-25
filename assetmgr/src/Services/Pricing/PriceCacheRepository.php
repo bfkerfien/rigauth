@@ -1,8 +1,8 @@
 <?php
 
-namespace Triglavian\\AssetManager\\Services\\Pricing;
+namespace Triglavian\AssetManager\Services\Pricing;
 
-use Illuminate\\Support\\Facades\\DB;
+use Illuminate\Support\Facades\DB;
 
 class PriceCacheRepository
 {
