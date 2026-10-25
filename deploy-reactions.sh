@@ -58,8 +58,8 @@ sidebar = sidebar_path.read_text()
 
 route_anchor = "include __DIR__ . '/Routes/Home.php';"
 route_addition = (
-    "\\n\\n        // Triglavian Consortium reaction planner (read-only inventory lookup).\\n"
-    "        Route::get('/reactions', 'ReactionsController@index')\\n"
+    "\n\n        // Triglavian Consortium reaction planner (read-only inventory lookup).\n"
+    "        Route::get('/reactions', 'ReactionsController@index')\n"
     "            ->name('seatcore::reactions.index');"
 )
 if "seatcore::reactions.index" not in routes:
