@@ -138,10 +138,10 @@
                                 <td>{{ $asset->regional_unit_price === null ? '—' : number_format((float) $asset->regional_unit_price * $asset->quantity, 2) . ' ISK' }}</td>
                                 <td>
                                     <div>Jita: {{ $asset->jita_price_updated_at ?? '—' }}
-                                        @if ($asset->jita_price_updated_at && \Illuminate\Support\Carbon::parse($asset->jita_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()) <strong>(stale)</strong> @endif
+                                        @if ($asset->jita_price_updated_at && (($asset->jita_price_expires_at && \Illuminate\Support\Carbon::parse($asset->jita_price_expires_at)->isPast()) || (!$asset->jita_price_expires_at && \Illuminate\Support\Carbon::parse($asset->jita_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()))) <strong>(stale)</strong> @endif
                                     </div>
                                     <div>Region: {{ $asset->regional_price_updated_at ?? '—' }}
-                                        @if ($asset->regional_price_updated_at && \Illuminate\Support\Carbon::parse($asset->regional_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()) <strong>(stale)</strong> @endif
+                                        @if ($asset->regional_price_updated_at && (($asset->regional_price_expires_at && \Illuminate\Support\Carbon::parse($asset->regional_price_expires_at)->isPast()) || (!$asset->regional_price_expires_at && \Illuminate\Support\Carbon::parse($asset->regional_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()))) <strong>(stale)</strong> @endif
                                     </div>
                                 </td>
                                 <td>{{ $asset->last_seen_at ?? 'Unknown' }}</td>
