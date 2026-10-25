@@ -41,6 +41,11 @@ class SyncPrices extends Command
                     continue;
                 }
 
+                if ($cached && ! $cached->source_expires_at && \Illuminate\Support\Carbon::parse($cached->fetched_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isFuture()) {
+                    $skipped++;
+                    continue;
+                }
+
                 RefreshMarketPrice::dispatch((int) $regionId, $typeId);
                 $queued++;
             }
