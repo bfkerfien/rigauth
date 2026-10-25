@@ -29,13 +29,13 @@
         <h2>Find reactions</h2>
         <div class="rx-field"><label for="rx-search">Product or input material</label><input id="rx-search" value="{{ $search }}" placeholder="Fullerite, Cytoserocin, product…"></div>
         <div class="rx-field"><label for="rx-run-count">Runs to calculate</label><input id="rx-run-count" type="number" min="1" step="1" value="1"></div>
-        <div class="rx-field"><label for="rx-gas-mode">Gas input pricing</label><select id="rx-gas-mode"><option value="buy">Jita Buy</option><option value="sell">Jita Sell</option><option value="split" selected>Jita Split</option></select></div>
+        <div class="rx-field"><label>Valuation rules</label><div class="rx-chip">Inputs: Jita Split</div><div class="rx-chip">Outputs: Jita Sell</div></div>
         <div class="rx-settings-grid">
           <div class="rx-field"><label for="rx-transport">Transport ISK/m³</label><input id="rx-transport" type="number" min="0" value="500"></div>
           <div class="rx-field"><label for="rx-sell-tax">Sales tax %</label><input id="rx-sell-tax" type="number" min="0" max="100" step=".01" value="4.37"></div>
           <div class="rx-field"><label for="rx-job-tax">Job tax %</label><input id="rx-job-tax" type="number" min="0" step=".01" value="0"></div>
         </div>
-        <p class="rx-help">Defaults follow the standalone calculator: 500 ISK/m³ transport and 4.37% sales tax. Missing prices stay unavailable rather than being treated as zero.</p>
+        <p class="rx-help">Inputs are costed at Jita Split; reacted products are valued at Jita Sell. Defaults: 500 ISK/m³ transport and 4.37% sales tax. Missing prices stay unavailable rather than being treated as zero.</p>
         <button id="rx-clear-search" type="button" style="width:100%">Clear search</button>
       </section>
       <section class="rx-panel">
@@ -50,8 +50,10 @@
     </aside>
     <section>
       <nav class="rx-tabs" role="tablist" aria-label="Reaction planner sections">
-        <button type="button" class="rx-tab active" data-tab="gas" aria-selected="true">Gas Reactions</button>
+        <button type="button" class="rx-tab active" data-tab="gas" aria-selected="true">Gas / Polymer</button>
+        <button type="button" class="rx-tab" data-tab="biochemical" aria-selected="false">Biochemical</button>
         <button type="button" class="rx-tab" data-tab="moon" aria-selected="false">Moon Reactions</button>
+        <button type="button" class="rx-tab" data-tab="molecular" aria-selected="false">Molecular-Forged</button>
         <button type="button" class="rx-tab" data-tab="manufacturing" aria-selected="false">Manufacturing</button>
       </nav>
       <div class="rx-kpis">
@@ -78,7 +80,7 @@ const fmt = n => Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null;
 function setStatus(message, error=false){$('rx-market-status').textContent=message;$('rx-market-status').className='rx-status'+(error?' rx-error':'');}
-function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='moon' ? r.category==='moon' : false;}
+function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='biochemical' ? r.category==='biochemical' : activeTab==='moon' ? r.category==='moon' : activeTab==='molecular' ? r.category==='molecular' : false;}
 function filteredRecipes(){const q=$('rx-search').value.trim().toLowerCase();return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))));}
 function ownedCount(r){return (r.materials||[]).filter(m=>m.owned>0).length;}
 function render(){
@@ -107,17 +109,18 @@ async function getPrices(names){
  return priceCache;
 }
 function isGas(name){return /Fullerite-|Mykoserocin|Cytoserocin/i.test(name);}
-function unitPrice(name){const p=priceCache[name];if(!p)return null;if(isGas(name)){const mode=$('rx-gas-mode').value;return p[mode+'Price']===null||p[mode+'Price']===undefined?null:Number(p[mode+'Price']);}return p.splitPrice===null||p.splitPrice===undefined?null:Number(p.splitPrice);}
+function unitPrice(name,kind){const p=priceCache[name];if(!p)return null;const field=kind==='Output'?'sellPrice':'splitPrice';return p[field]===null||p[field]===undefined?null:Number(p[field]);}
 function qtyRuns(){return Math.max(1,Math.floor(Number($('rx-run-count').value)||1));}
 function costAndProfit(r){
  const runs=qtyRuns(), materials=r.materials||[], products=r.products||[];
  let inputCost=0,missing=[],rows=[];
- for(const m of materials){const qty=Number(m.per_run)*runs,price=unitPrice(m.name);if(price===null||!Number.isFinite(price))missing.push(m.name);else inputCost+=price*qty;rows.push({kind:'Input',name:m.name,qty,price,cost:price===null?null:price*qty,owned:Number(m.owned||0),locations:m.locations||[]});}
+ for(const m of materials){const qty=Number(m.per_run)*runs,price=unitPrice(m.name,'Input');if(price===null||!Number.isFinite(price))missing.push(m.name);else inputCost+=price*qty;rows.push({kind:'Input',name:m.name,qty,price,cost:price===null?null:price*qty,owned:Number(m.owned||0),locations:m.locations||[]});}
  let gross=0,outputTransport=0,outputMissing=[];
- for(const p of products){const price=unitPrice(p.name),qty=Number(p.quantity)*runs,info=priceCache[p.name];if(price===null||!Number.isFinite(price)){outputMissing.push(p.name);rows.push({kind:'Output',name:p.name,qty,price:null,cost:null});continue;}gross+=price*qty;if(info?.volume==null){outputMissing.push(p.name+' (volume unavailable)');}else outputTransport+=Number(info.volume)*qty*(Number($('rx-transport').value)||0);rows.push({kind:'Output',name:p.name,qty,price,cost:price*qty});}
+ for(const p of products){const price=unitPrice(p.name,'Output'),qty=Number(p.quantity)*runs,info=priceCache[p.name];if(price===null||!Number.isFinite(price)){outputMissing.push(p.name);rows.push({kind:'Output',name:p.name,qty,price:null,cost:null});continue;}gross+=price*qty;if(info?.volume==null){outputMissing.push(p.name+' (volume unavailable)');}else outputTransport+=Number(info.volume)*qty*(Number($('rx-transport').value)||0);rows.push({kind:'Output',name:p.name,qty,price,cost:price*qty});}
  const salesTax=gross*(Number($('rx-sell-tax').value||0)/100),jobTax=(inputCost)*(Number($('rx-job-tax').value||0)/100);
  const profit=missing.length||outputMissing.length?null:gross-salesTax-outputTransport-inputCost-jobTax;
- return {runs,inputCost,gross,salesTax,outputTransport,jobTax,profit,missing:[...missing,...outputMissing],rows};
+ const margin=inputCost>0&&profit!==null?(profit/inputCost)*100:null;
+ return {runs,inputCost,gross,salesTax,outputTransport,jobTax,profit,margin,missing:[...missing,...outputMissing],rows};
 }
 async function renderDetails(r,key){
  const body=$('rx-body-'+CSS.escape(key));if(!body)return;
@@ -126,14 +129,14 @@ async function renderDetails(r,key){
   const result=costAndProfit(r);
   const materialRows=(r.materials||[]).map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+fmt(m.per_run)+'</td><td>'+fmt(m.owned)+'</td><td>'+fmt(Math.floor(Number(m.owned||0)/Math.max(1,Number(m.per_run||0))))+'</td><td>'+((m.locations||[]).map(l=>esc(l.owner)+' — '+esc(l.location)+': '+fmt(l.quantity)).join('<br>')||'<span class="rx-warning">Not in cached inventory</span>')+'</td></tr>').join('');
   const calcRows=result.rows.map(row=>'<tr><td>'+row.kind+'</td><td>'+esc(row.name)+'</td><td>'+fmt(row.qty)+'</td><td>'+(row.price===null?'—':fmt(row.price))+'</td><td>'+(row.cost===null?'Unavailable':fmt(row.cost))+'</td></tr>').join('');
-  body.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Input cost</span><strong>'+fmt(result.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value</span><strong>'+fmt(result.gross)+' ISK</strong></div><div class="rx-kpi"><span>Estimated net / job</span><strong class="'+(result.profit!==null&&result.profit>=0?'rx-positive':'rx-warning')+'">'+(result.profit===null?'Unavailable':fmt(result.profit)+' ISK')+'</strong></div></div><div class="rx-inline" style="margin-bottom:10px"><span class="rx-chip">Runs: '+fmt(result.runs)+'</span><span class="rx-chip">Sales tax: '+fmt(result.salesTax)+' ISK</span><span class="rx-chip">Output transport: '+fmt(result.outputTransport)+' ISK</span><span class="rx-chip">Job tax: '+fmt(result.jobTax)+' ISK</span></div><h3 style="margin-bottom:8px">Your input inventory</h3><div class="rx-scroll" style="margin-bottom:12px"><table><thead><tr><th>Material</th><th>Per run</th><th>Owned</th><th>Owned runs</th><th>Character / location</th></tr></thead><tbody>'+materialRows+'</tbody></table></div><h3 style="margin-bottom:8px">Cost breakdown</h3><div class="rx-scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Qty</th><th>Jita unit value</th><th>Total</th></tr></thead><tbody>'+calcRows+'</tbody></table></div>'+(result.missing.length?'<div class="rx-status rx-error" style="margin-top:10px">Profit withheld because data is missing: '+result.missing.map(esc).join(', ')+'.</div>':'<div class="rx-status" style="margin-top:10px">Estimated value only; prices are Jita IV-4 ESI orders and output transport requires a known item volume.</div>');
+  body.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Input cost</span><strong>'+fmt(result.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value</span><strong>'+fmt(result.gross)+' ISK</strong></div><div class="rx-kpi"><span>Profit / loss</span><strong class="'+(result.profit!==null&&result.profit>=0?'rx-positive':'rx-warning')+'">'+(result.profit===null?'Unavailable':fmt(result.profit)+' ISK')+'</strong></div><div class="rx-kpi"><span>Margin vs input cost</span><strong class="'+(result.margin!==null&&result.margin>=0?'rx-positive':'rx-warning')+'">'+(result.margin===null?'Unavailable':fmt(result.margin)+'%')+'</strong></div></div><div class="rx-inline" style="margin-bottom:10px"><span class="rx-chip">Runs: '+fmt(result.runs)+'</span><span class="rx-chip">Sales tax: '+fmt(result.salesTax)+' ISK</span><span class="rx-chip">Output transport: '+fmt(result.outputTransport)+' ISK</span><span class="rx-chip">Job tax: '+fmt(result.jobTax)+' ISK</span></div><h3 style="margin-bottom:8px">Your input inventory</h3><div class="rx-scroll" style="margin-bottom:12px"><table><thead><tr><th>Material</th><th>Per run</th><th>Owned</th><th>Owned runs</th><th>Character / location</th></tr></thead><tbody>'+materialRows+'</tbody></table></div><h3 style="margin-bottom:8px">Cost breakdown</h3><div class="rx-scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Qty</th><th>Jita unit value</th><th>Total</th></tr></thead><tbody>'+calcRows+'</tbody></table></div>'+(result.missing.length?'<div class="rx-status rx-error" style="margin-top:10px">Profit withheld because data is missing: '+result.missing.map(esc).join(', ')+'.</div>':'<div class="rx-status" style="margin-top:10px">Estimated value only; prices are Jita IV-4 ESI orders and output transport requires a known item volume.</div>');
  }catch(e){body.innerHTML='<div class="rx-status rx-error">Could not load live prices: '+esc(e.message)+'</div>';setStatus('Market lookup failed for this recipe: '+e.message,true);}
 }
 root.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{activeTab=button.dataset.tab;root.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-selected',b===button?'true':'false')});render();}));
 $('rx-search').addEventListener('input',render);
 $('rx-clear-search').addEventListener('click',()=>{$('rx-search').value='';render();});
 $('rx-run-count').addEventListener('change',()=>{render();});
-['rx-gas-mode','rx-transport','rx-sell-tax','rx-job-tax'].forEach(id=>$(id).addEventListener('change',()=>{render();}));
+['rx-transport','rx-sell-tax','rx-job-tax'].forEach(id=>$(id).addEventListener('change',()=>{render();}));
 $('rx-inventory-search').addEventListener('input',()=>{const q=$('rx-inventory-search').value.toLowerCase();root.querySelectorAll('#rx-inventory tr[data-item]').forEach(row=>row.hidden=!row.dataset.item.includes(q));});
 root.querySelectorAll('.rx-inventory-pick').forEach(button=>button.addEventListener('click',()=>{$('rx-search').value=button.dataset.name;activeTab='gas';root.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab==='gas');b.setAttribute('aria-selected',b.dataset.tab==='gas'?'true':'false')});render();}));
 $('rx-recipe-list').addEventListener('click',e=>{const head=e.target.closest('[data-expand]');if(!head)return;const key=head.dataset.expand;if(expanded.has(key))expanded.delete(key);else expanded.add(key);render();});
@@ -147,7 +150,7 @@ $('rx-manufacturing-form').addEventListener('submit',async e=>{
   await getPrices([...(recipe.materials||[]).map(m=>m.name),...(recipe.products||[]).map(p=>p.name)]);
   const fake={materials:(recipe.materials||[]).map(m=>({name:m.name,per_run:m.quantity,owned:0,locations:[]})),products:recipe.products||[]};
   const calc=costAndProfit(fake);
-  result.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Input cost</span><strong>'+fmt(calc.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value</span><strong>'+fmt(calc.gross)+' ISK</strong></div><div class="rx-kpi"><span>Estimated net</span><strong>'+(calc.profit===null?'Unavailable':fmt(calc.profit)+' ISK')+'</strong></div></div><div class="rx-scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Unit value</th><th>Total</th></tr></thead><tbody>'+calc.rows.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+fmt(row.qty)+'</td><td>'+(row.price===null?'—':fmt(row.price))+'</td><td>'+(row.cost===null?'Unavailable':fmt(row.cost))+'</td></tr>').join('')+'</tbody></table></div><p class="rx-help">One-level manufacturing estimate; not a recursive chain. Missing prices/volumes are not assumed to be zero.</p>';
+  result.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Input cost (Jita Split)</span><strong>'+fmt(calc.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value (Jita Sell)</span><strong>'+fmt(calc.gross)+' ISK</strong></div><div class="rx-kpi"><span>Profit / loss</span><strong>'+(calc.profit===null?'Unavailable':fmt(calc.profit)+' ISK')+'</strong></div><div class="rx-kpi"><span>Margin vs input cost</span><strong>'+(calc.margin===null?'Unavailable':fmt(calc.margin)+'%')+'</strong></div></div><div class="rx-scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Unit value (split in / sell out)</th><th>Total</th></tr></thead><tbody>'+calc.rows.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+fmt(row.qty)+'</td><td>'+(row.price===null?'—':fmt(row.price))+'</td><td>'+(row.cost===null?'Unavailable':fmt(row.cost))+'</td></tr>').join('')+'</tbody></table></div><p class="rx-help">One-level manufacturing estimate; not a recursive chain. Missing prices/volumes are not assumed to be zero.</p>';
  }catch(err){result.innerHTML='<div class="rx-status rx-error">'+esc(err.message)+'</div>';}
 });
 setStatus('Recipe catalog ready. Expand a recipe to load live Jita IV-4 pricing.');
