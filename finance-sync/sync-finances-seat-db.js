@@ -180,10 +180,10 @@ async function syncCorporation(db, owner, token) {
   const missing = REQUIRED_CORP.filter(s => !scopes.includes(s));
   if (missing.length) throw new Error('Selected character lacks corporation scopes: ' + missing.join(', '));
   const corpId = Number(owner.eve_id);
-  // Division 1 is the Corp Main Wallet; division 2 is reserved for SRP.
-  // Keep the existing snapshot schema for division 1 and store division 2 separately
+  // Division 3 is the Corp Main Wallet; division 2 is reserved for SRP.
+  // Keep the existing snapshot schema for division 3 and store division 2 separately
   // in fin_app_settings so the two balances are never added together.
-  const mainDivision = 1;
+  const mainDivision = 3;
   const srpDivision = 2;
   const [wallets, journal, assets] = await Promise.all([
     esi('/corporations/' + corpId + '/wallets/', token),
