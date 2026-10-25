@@ -51,10 +51,9 @@ class EsiWalletTransactionSource implements WalletTransactionSource
             $expiresHeader = $response->header('Expires');
             if (is_string($expiresHeader) && $expiresHeader !== '') {
                 $pageExpiry = Carbon::parse($expiresHeader);
-                if ($expiresAt !== null && abs($expiresAt->diffInSeconds($pageExpiry, false)) > 5) {
-                    throw new RuntimeException('ESI wallet transaction cache expiry changed during pagination.');
+                if ($expiresAt === null || $pageExpiry->lessThan($expiresAt)) {
+                    $expiresAt = $pageExpiry;
                 }
-                $expiresAt = $pageExpiry;
             }
 
             if ($entries === []) break;
@@ -119,10 +118,6 @@ class EsiWalletTransactionSource implements WalletTransactionSource
             }
 
             $cursor = $oldestId;
-        }
-
-        if ($expiresAt !== null && $expiresAt->lessThanOrEqualTo(now()->addSeconds(5))) {
-            throw new RuntimeException('ESI wallet transaction cache expired during pagination; retry after cache refresh.');
         }
 
         $metadataRows = array_map(static fn (array $row): array => [
