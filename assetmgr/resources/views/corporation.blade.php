@@ -69,7 +69,7 @@
                         <tbody>
                         @forelse ($assets as $asset)
                             <tr>
-                                <td>{{ $asset->type_name }} <small class="text-muted">ID {{ $asset->item_id }}</small></td>
+                                <td>{{ $asset->type_name }} <small class="text-muted">ID <a href="{{ route('assetmgr.corporation.index', array_merge(request()->query(), ['corporation_id' => $corporationId, 'parent_item_id' => $asset->item_id])) }}">{{ $asset->item_id }}</a></small></td>
                                 <td>{{ number_format($asset->quantity) }}</td>
                                 <td>{{ $asset->corporation_name ?? $corporationName }}</td>
                                 <td>{{ $asset->location_name ?? $asset->location_id }}</td>
