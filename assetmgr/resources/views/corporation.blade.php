@@ -11,6 +11,28 @@
             <div class="card-body">
                 <h4>{{ $corporationName }} <small>({{ $corporationId }})</small></h4>
                 <p class="text-muted">Corporation assets are stored separately from personal character portfolios. Access is checked through SeAT's corporation policy and the configured corporation allowlist.</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Jita known sell subtotal</h4>
+                        <p><strong>{{ number_format((float) ($currentValuation->jita_total_value ?? 0), 2) }} ISK</strong></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>Regional known sell subtotal</h4>
+                        <p><strong>{{ number_format((float) ($currentValuation->regional_total_value ?? 0), 2) }} ISK</strong></p>
+                    </div>
+                </div>
+                <p class="text-muted">Asset rows: {{ number_format((int) ($currentValuation->asset_count ?? 0)) }} · Units: {{ number_format((int) ($currentValuation->quantity_sum ?? 0)) }} · Unpriced rows (Jita / regional): {{ number_format((int) ($currentValuation->jita_unpriced_count ?? 0)) }} / {{ number_format((int) ($currentValuation->regional_unpriced_count ?? 0)) }}.</p>
+                @if ($valuationHistory->isNotEmpty())
+                    <h4>Hourly valuation history</h4>
+                    <div class="table-responsive"><table class="table table-condensed table-striped">
+                        <thead><tr><th>Snapshot</th><th>Jita known subtotal</th><th>Regional known subtotal</th></tr></thead>
+                        <tbody>@foreach ($valuationHistory as $snapshot)
+                            <tr><td>{{ $snapshot->snapshot_at }}</td><td>{{ number_format((float) $snapshot->jita_total_value, 2) }} ISK</td><td>{{ number_format((float) $snapshot->regional_total_value, 2) }} ISK</td></tr>
+                        @endforeach</tbody>
+                    </table></div>
+                @else
+                    <p class="text-muted">No valuation history yet. Run php artisan assetmgr:capture-valuations after syncs and price cache updates.</p>
+                @endif
 
                 <form method="get" action="{{ route('assetmgr.corporation.index') }}" class="form-inline" style="margin-bottom: 15px;">
                     <input type="hidden" name="corporation_id" value="{{ $corporationId }}">
