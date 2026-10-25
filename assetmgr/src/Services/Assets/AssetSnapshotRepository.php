@@ -55,6 +55,7 @@ class AssetSnapshotRepository
                     'character_id' => $row['character_id'] ?? ($ownerKind === 'character' ? $ownerId : null),
                     'character_name' => $row['character_name'] ?? null,
                     'corporation_id' => $row['corporation_id'] ?? ($ownerKind === 'corporation' ? $ownerId : null),
+                    'corporation_name' => $row['corporation_name'] ?? null,
                     'item_id' => (int) $row['item_id'],
                     'type_id' => (int) $row['type_id'],
                     'type_name' => (string) ($row['type_name'] ?? ('Type ' . $row['type_id'])),
@@ -76,7 +77,7 @@ class AssetSnapshotRepository
                     $chunk,
                     ['owner_kind', 'owner_id', 'item_id'],
                     [
-                        'character_id', 'character_name', 'corporation_id', 'type_id',
+                        'character_id', 'character_name', 'corporation_id', 'corporation_name', 'type_id',
                         'type_name', 'quantity', 'location_id', 'location_name',
                         'location_flag', 'location_type', 'parent_item_id', 'regional_region_id',
                         'last_seen_at', 'updated_at',
