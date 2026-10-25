@@ -37,7 +37,7 @@ class CorporationMarketOrdersExportController extends Controller
             });
         }
 
-        return response()->streamDownload(function () use ($query): void {
+        return response()->streamDownload(function () use ($query, $corporationId): void {
             $handle = fopen('php://output', 'w');
             if ($handle === false) return;
 
