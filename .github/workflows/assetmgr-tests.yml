@@ -1,0 +1,34 @@
+name: Asset Manager package tests
+
+on:
+  push:
+    branches:
+      - feature/assetmgr-foundation
+    paths:
+      - "assetmgr/**"
+      - ".github/workflows/assetmgr-tests.yml"
+  pull_request:
+    paths:
+      - "assetmgr/**"
+      - ".github/workflows/assetmgr-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  php-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assetmgr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+      - name: Validate package metadata
+        run: composer validate --no-check-publish
+      - name: Install package dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Run unit tests
+        run: composer test
