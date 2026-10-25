@@ -7,11 +7,11 @@
 @section('full')
 <div class="row">
   @foreach([
-    ['Successful sites this month', number_format($sites)],
+    ['Successful sites this period', number_format($sites)],
     ['Average sites per day', number_format($sites / $daysElapsed, 2)],
-    ['Site revenue credit', number_format($siteRevenue, 0).' ISK'],
-    ['Character operating expenses', number_format($expenses, 0).' ISK'],
-    ['Estimated operating profit', number_format($siteRevenue - $expenses, 0).' ISK'],
+    ['Site revenue this period', number_format($siteRevenue, 0).' ISK'],
+    ['Character expenses this period', number_format($expenses, 0).' ISK'],
+    ['Estimated profit this period', number_format($siteRevenue - $expenses, 0).' ISK'],
     ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK'],
     ['Estimated assets', number_format($assetValue, 0).' ISK'],
     ['Corporation wallet', number_format($corpWallet, 0).' ISK'],
@@ -21,10 +21,10 @@
   @endforeach
 </div>
 <div class="card mb-3"><div class="card-body d-flex justify-content-between align-items-center flex-wrap">
-  <div><strong>180-day timer</strong><p class="mb-0 text-muted">Reset the countdown to 180 days when a new operating cycle begins.</p></div>
-  <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the 180-day timer to 180 days from now?')">
+  <div><strong>Financial reporting period</strong><p class="mb-0 text-muted">Period started: {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d H:i:s T') }}. Reset starts a new reporting period and restarts the 180-day countdown.</p></div>
+  <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Start a new financial reporting period? Revenue, expenses and site totals will restart from zero. Historical records will be preserved and outstanding SRP obligations will remain.')">
     @csrf
-    <button type="submit" class="btn btn-warning"><i class="fas fa-redo-alt"></i> Reset 180-day timer</button>
+    <button type="submit" class="btn btn-warning"><i class="fas fa-redo-alt"></i> Reset Financial Period</button>
   </form>
 </div></div>
 <div class="alert alert-secondary">
