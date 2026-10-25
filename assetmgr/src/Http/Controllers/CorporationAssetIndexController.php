@@ -5,6 +5,7 @@ namespace Triglavian\AssetManager\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
 use Triglavian\AssetManager\Services\Assets\AssetQuery;
 
 class CorporationAssetIndexController extends Controller
@@ -26,8 +27,26 @@ class CorporationAssetIndexController extends Controller
             'direction' => $request->query('direction', 'asc'),
         ];
 
+        $currentValuation = DB::query()
+            ->fromSub($assetQuery->corporation($corporationId)->reorder(), 'inventory')
+            ->selectRaw('COUNT(*) AS asset_count')
+            ->selectRaw('COALESCE(SUM(quantity), 0) AS quantity_sum')
+            ->selectRaw('COALESCE(SUM(CASE WHEN jita_unit_price IS NOT NULL THEN jita_unit_price * quantity ELSE 0 END), 0) AS jita_total_value')
+            ->selectRaw('COALESCE(SUM(CASE WHEN regional_unit_price IS NOT NULL THEN regional_unit_price * quantity ELSE 0 END), 0) AS regional_total_value')
+            ->selectRaw('SUM(CASE WHEN jita_unit_price IS NULL THEN 1 ELSE 0 END) AS jita_unpriced_count')
+            ->selectRaw('SUM(CASE WHEN regional_unit_price IS NULL THEN 1 ELSE 0 END) AS regional_unpriced_count')
+            ->first();
+        $valuationHistory = DB::table('assetmgr_valuation_snapshots')
+            ->where('owner_kind', 'corporation')
+            ->where('owner_id', $corporationId)
+            ->orderByDesc('snapshot_at')
+            ->limit(24)
+            ->get();
+
         return view('assetmgr::corporation', [
             'assets' => $assetQuery->corporation($corporationId, $filters)->paginate(50)->withQueryString(),
+            'currentValuation' => $currentValuation,
+            'valuationHistory' => $valuationHistory,
             'search' => (string) $filters['q'],
             'sort' => $filters['sort'],
             'direction' => $filters['direction'],
