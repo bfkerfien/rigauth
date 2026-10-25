@@ -65,7 +65,14 @@ class SyncWalletJournal implements ShouldQueue
         );
 
         try {
-            $snapshot = $source->fetchComplete($this->characterId);
+            $lastKnownId = DB::table('assetmgr_financial_records')
+                ->where('owner_kind', 'character')
+                ->where('owner_id', $this->characterId)
+                ->where('record_kind', 'wallet_journal')
+                ->orderByRaw('LENGTH(external_id) DESC')
+                ->orderByDesc('external_id')
+                ->value('external_id');
+            $snapshot = $source->fetchSince($this->characterId, $lastKnownId === null ? null : (string) $lastKnownId);
             if ($snapshot->characterId !== $this->characterId) {
                 throw new \RuntimeException('Wallet journal source returned a snapshot for a different character.');
             }
