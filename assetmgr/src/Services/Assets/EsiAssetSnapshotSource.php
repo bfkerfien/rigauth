@@ -21,7 +21,8 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
             throw new RuntimeException('Invalid owner requested for ESI asset sync.');
         }
 
-        $token = $this->tokens->accessTokenFor($ownerKind, $ownerId);
+        $requiredScope = $ownerKind === 'character' ? 'esi-assets.read_assets.v1' : 'esi-assets.read_corporation_assets.v1';
+        $token = $this->tokens->accessTokenFor($ownerKind, $ownerId, $requiredScope);
         if ($token === '') {
             throw new RuntimeException('SeAT did not provide an access token for asset sync.');
         }
