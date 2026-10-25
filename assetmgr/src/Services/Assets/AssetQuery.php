@@ -62,7 +62,8 @@ class AssetQuery
             $query->where(function (Builder $builder) use ($like): void {
                 $builder->where('assets.type_name', 'like', $like)
                     ->orWhere('assets.character_name', 'like', $like)
-                    ->orWhere('assets.location_name', 'like', $like);
+                    ->orWhere('assets.location_name', 'like', $like)
+                    ->orWhere('assets.item_id', 'like', $like);
             });
         }
 
@@ -73,6 +74,10 @@ class AssetQuery
             } else {
                 $query->where('assets.character_id', $characterId);
             }
+        }
+
+        if (! empty($filters['parent_item_id'])) {
+            $query->where('assets.parent_item_id', (int) $filters['parent_item_id']);
         }
 
         $sorts = [
@@ -145,6 +150,10 @@ class AssetQuery
                 $builder->where('assets.type_name', 'like', $like)
                     ->orWhere('assets.location_name', 'like', $like);
             });
+        }
+
+        if (! empty($filters['parent_item_id'])) {
+            $query->where('assets.parent_item_id', (int) $filters['parent_item_id']);
         }
 
         $sorts = [
