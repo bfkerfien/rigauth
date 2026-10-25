@@ -10,6 +10,10 @@ This directory is the package source under bfkerfien/rigauth/assetmgr. It has no
 4. Confirm the deployed queue driver, worker concurrency, cache backend, ESI compatibility date, and User-Agent contact.
 5. Back up the existing database and document rollback before applying migrations.
 
+## Dependency security note
+
+The current SeAT 5 dependency line uses Laravel 10, which current Composer advisory policy may block because of upstream advisories. The CI workflow bypasses advisory blocking only for its isolated compatibility test run. Never copy that CI-only override or the --no-blocking option into a production install. Review the SeAT framework upgrade path separately before production rollout.
+
 ## Package installation architecture
 
 Because the package is nested in the rigauth repository, Composer cannot install it directly as a normal GitHub package from the repository root. The deployment process must either:
