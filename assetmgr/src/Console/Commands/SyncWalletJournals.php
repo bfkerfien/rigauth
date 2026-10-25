@@ -23,7 +23,6 @@ class SyncWalletJournals extends Command
         $queued = 0;
         $skipped = 0;
         RefreshToken::query()
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', 'esi-wallet.read_character_wallet.v1')
             ->select('character_id')
             ->chunkById(250, function ($tokens) use (&$queued, &$skipped): void {
