@@ -5,7 +5,7 @@ namespace Triglavian\AssetManager\Services\Finance;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
-use Seat\Eveapi\Models\Character\CharacterInfo;
+use Illuminate\Support\Facades\DB;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
 
 class EsiWalletJournalSource implements WalletJournalSource
@@ -90,7 +90,7 @@ class EsiWalletJournalSource implements WalletJournalSource
             throw new RuntimeException('ESI wallet journal cache expired during pagination; retry after cache refresh.');
         }
 
-        $characterName = CharacterInfo::query()->where('character_id', $characterId)->value('name');
+        $characterName = DB::table('character_infos')->where('character_id', $characterId)->value('name');
         foreach ($rowsById as &$row) {
             $row['character_id'] = $characterId;
             $row['character_name'] = $characterName;
