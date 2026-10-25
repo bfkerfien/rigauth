@@ -46,6 +46,17 @@ class AssetIndexController extends Controller
             ->selectRaw('SUM(CASE WHEN regional_unit_price IS NULL OR (regional_price_expires_at IS NOT NULL AND regional_price_expires_at <= ?) OR (regional_price_expires_at IS NULL AND regional_price_updated_at < ?) THEN 1 ELSE 0 END) AS regional_unpriced_count', [$valuationNow, $staleCutoff])
             ->first();
 
+        $characterValuations = DB::query()
+            ->fromSub($assetQuery->personal($characterIds)->reorder(), 'inventory')
+            ->select(['character_id', 'character_name'])
+            ->selectRaw('COUNT(*) AS asset_count')
+            ->selectRaw('COALESCE(SUM(quantity), 0) AS quantity_sum')
+            ->selectRaw('COALESCE(SUM(CASE WHEN jita_unit_price IS NOT NULL AND (jita_price_expires_at > ? OR (jita_price_expires_at IS NULL AND jita_price_updated_at >= ?)) THEN jita_unit_price * quantity ELSE 0 END), 0) AS jita_total_value', [$valuationNow, $staleCutoff])
+            ->selectRaw('COALESCE(SUM(CASE WHEN regional_unit_price IS NOT NULL AND (regional_price_expires_at > ? OR (regional_price_expires_at IS NULL AND regional_price_updated_at >= ?)) THEN regional_unit_price * quantity ELSE 0 END), 0) AS regional_total_value', [$valuationNow, $staleCutoff])
+            ->groupBy('character_id', 'character_name')
+            ->orderBy('character_name')
+            ->get();
+
         $valuationHistory = DB::table('assetmgr_valuation_snapshots')
             ->where('owner_kind', 'character')
             ->whereIn('owner_id', $characterIds)
@@ -66,6 +77,7 @@ class AssetIndexController extends Controller
             'assets' => $assetQuery->personal($characterIds, $filters)->paginate(50)->withQueryString(),
             'syncStates' => $syncStates,
             'currentValuation' => $currentValuation,
+            'characterValuations' => $characterValuations,
             'valuationHistory' => $valuationHistory,
             'search' => (string) $filters['q'],
             'characterId' => $filters['character_id'],
