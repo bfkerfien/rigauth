@@ -5,6 +5,8 @@ namespace Seat\Web\Http\Controllers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class PotchvenFinancesController extends Controller
@@ -56,13 +58,35 @@ class PotchvenFinancesController extends Controller
             : collect();
         $siteEvents = $has('fin_site_events') ? $db->table('fin_site_events')->orderByDesc('occurred_at')->limit(20)->get() : collect();
         $daysElapsed = max(1, (int) now()->day);
-        $monthlyCountdown = max(0, 180 - (int) $start->diffInDays(now()));
+        $timerResetAt = $has('fin_app_settings')
+            ? $db->table('fin_app_settings')->where('setting_key', '180_day_timer_reset_at')->value('setting_value')
+            : null;
+        $timerResetAt = $timerResetAt ? Carbon::parse($timerResetAt) : now();
+        $monthlyCountdown = max(0, 180 - (int) $timerResetAt->diffInDays(now()));
         $siteRevenue = $sites * 45000000;
 
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
             'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown'
         ));
+    }
+
+    public function resetTimer(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        $schema = Schema::connection(DB::getDefaultConnection());
+        if (!$schema->hasTable('fin_app_settings')) {
+            $schema->create('fin_app_settings', function ($table) {
+                $table->string('setting_key', 100)->primary();
+                $table->string('setting_value', 255);
+                $table->timestamp('updated_at')->useCurrent();
+            });
+        }
+        DB::table('fin_app_settings')->updateOrInsert(
+            ['setting_key' => '180_day_timer_reset_at'],
+            ['setting_value' => now()->toDateTimeString(), 'updated_at' => now()]
+        );
+        return redirect()->route('seatcore::potchven-finances.index')->with('success', '180-day timer reset to 180 days.');
     }
 
     public function storeSite(Request $request): RedirectResponse
