@@ -7,6 +7,7 @@ return [
         'enabled' => env('SEAT_ASSETMGR_SYNC_ENABLED', false),
         'queue' => env('SEAT_ASSETMGR_QUEUE', 'default'),
         'minimum_interval_seconds' => (int) env('SEAT_ASSETMGR_MIN_SYNC_INTERVAL', 900),
+        'requests_per_minute' => (int) env('SEAT_ASSETMGR_REQUESTS_PER_MINUTE', 30),
     ],
 
     'esi' => [
