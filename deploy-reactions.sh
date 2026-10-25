@@ -56,16 +56,16 @@ routes_path, sidebar_path = map(Path, sys.argv[1:])
 routes = routes_path.read_text()
 sidebar = sidebar_path.read_text()
 
-route_line = "Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');"
+route_anchor = "include __DIR__ . '/Routes/Home.php';"
 route_addition = (
-    "// Triglavian Consortium reaction planner (read-only inventory lookup).\n"
-    "        Route::get('/reactions', 'ReactionsController@index')\n"
-    "            ->name('seatcore::reactions.index');\n\n        "
+    "\\n\\n        // Triglavian Consortium reaction planner (read-only inventory lookup).\\n"
+    "        Route::get('/reactions', 'ReactionsController@index')\\n"
+    "            ->name('seatcore::reactions.index');"
 )
 if "seatcore::reactions.index" not in routes:
-    if routes.count(route_line) != 1:
-        raise SystemExit("STOP: Could not uniquely locate the existing Fittings route in routes.php; no route edit made.")
-    routes = routes.replace(route_line, route_addition + route_line, 1)
+    if routes.count(route_anchor) != 1:
+        raise SystemExit("STOP: Could not uniquely locate the verified Home route include in routes.php; no route edit made.")
+    routes = routes.replace(route_anchor, route_anchor + route_addition, 1)
 
 sidebar_anchor = "        @can('global.superuser')"
 sidebar_addition = (
