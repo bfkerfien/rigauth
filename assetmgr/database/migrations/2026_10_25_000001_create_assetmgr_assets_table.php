@@ -21,6 +21,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('location_id')->index();
             $table->string('location_name')->nullable()->index();
             $table->string('location_flag', 64)->nullable();
+            $table->string('location_type', 32)->nullable()->index();
             $table->unsignedBigInteger('parent_item_id')->nullable()->index();
             $table->decimal('jita_unit_price', 20, 2)->nullable();
             $table->decimal('regional_unit_price', 20, 2)->nullable();
