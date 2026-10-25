@@ -29,7 +29,6 @@ class SyncCorporations extends Command
         }
 
         $tokenCharacterIds = RefreshToken::query()
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', 'esi-assets.read_corporation_assets.v1')
             ->pluck('character_id');
 
