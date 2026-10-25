@@ -12,7 +12,6 @@ The ESI source adapter fetches every page from the character or corporation asse
 ## Still required before production
 
 - Verify these model methods against the exact deployed SeAT 5 image and add integration tests.
-- Add response ETag/conditional requests as appropriate for the current ESI requirements.
 - Validate type/location/region mapping against the exact deployed SeAT SDE schema.
 - Add endpoint-specific error-limit handling and conditional ETag requests; avoid retries before ESI cache expiry where applicable.
 - Market prices use the best buy and best sell order found in the requested region. The current valuation UI uses sell prices, not buy prices or adjusted-price estimates.
