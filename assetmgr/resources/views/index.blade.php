@@ -10,6 +10,15 @@
         <div class="card card-primary">
             <div class="card-body">
                 <p class="text-muted">Personal assets are scoped to characters linked to your SeAT account. Browse, sort, and export using cached data; this page does not call ESI.</p>
+                @if (session('status'))
+                    <div class="alert alert-info">{{ session('status') }}</div>
+                @endif
+                @if (config('assetmgr.sync.enabled', false))
+                    <form method="post" action="{{ route('assetmgr.refresh') }}" style="margin-bottom: 15px;">
+                        @csrf
+                        <button type="submit" class="btn btn-primary">Refresh my linked characters</button>
+                    </form>
+                @endif
                 @if ($syncStates->isNotEmpty())
                     <div class="table-responsive">
                         <table class="table table-condensed">
