@@ -7,7 +7,7 @@
 @section('full')
 <div class="row">
   @foreach([
-    ['Successful sites this period', number_format($sites)],
+    ['Sites this period (Nani I telemetry ÷ 60)', number_format($sites)],
     ['Average sites per day', number_format($sites / $daysElapsed, 2)],
     ['Site revenue this period', number_format($siteRevenue, 0).' ISK'],
     ['Character expenses this period', number_format($expenses, 0).' ISK'],
