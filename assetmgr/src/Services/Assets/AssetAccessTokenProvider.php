@@ -9,5 +9,5 @@ interface AssetAccessTokenProvider
      * services. Implementations must not log or persist the returned token in
      * this package's tables.
      */
-    public function accessTokenFor(string $ownerKind, int $ownerId): string;
+    public function accessTokenFor(string $ownerKind, int $ownerId, ?string $requiredScope = null): string;
 }
