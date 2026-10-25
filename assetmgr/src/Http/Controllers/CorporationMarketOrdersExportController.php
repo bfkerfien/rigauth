@@ -7,7 +7,6 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Seat\Eveapi\Models\Corporation\CorporationInfo;
-use Triglavian\AssetManager\Services\Assets\CorporationAccessPolicy;
 
 class CorporationMarketOrdersExportController extends Controller
 {
