@@ -1,8 +1,8 @@
 <?php
 
-namespace Triglavian\\AssetManager;
+namespace Triglavian\AssetManager;
 
-use Illuminate\\Support\\ServiceProvider;
+use Illuminate\Support\ServiceProvider;
 
 class AssetManagerServiceProvider extends ServiceProvider
 {
