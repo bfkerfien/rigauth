@@ -35,3 +35,10 @@ The dashboard reads imported finance owners, wallet entries, site events, pendin
 ## Corporation wallet balances
 
 The dashboard displays **Corp Main Wallet (Division 3)** from the latest corporation wallet snapshot and **SRP Wallet (Division 2)** from the separate `srp_wallet_balance_isk` setting refreshed by the 15-minute sync. Both balances come from the corporation wallets ESI endpoint; the sync also reads the Division 3 journal. The second division balance is stored separately because the existing wallet snapshot schema does not record a division number. The two displayed balances are not summed together.
+
+
+## Telemetry-based site counter
+
+The dashboard's **Sites this period** counter is based on telemetry items in the corporation's **Office Hangar 1 (CorpSAG1)** at the Nani I station, not Ipowimo's personal hangar and not the count of payout-matched site events. The station ID defaults to `60011173` (Nani I — Svarog Clade Extractive Terminus). The default telemetry type IDs are `87222,87258` (Restricted and Unrestricted Hyperspace Telemetry); both can be overridden with SeAT environment variables `FIN_TELEMETRY_STATION_ID` and `FIN_TELEMETRY_TYPE_IDS` if the corporation uses a different station or telemetry item type.
+
+The displayed site count is `floor(max(0, current qualifying telemetry quantity - period baseline) / 60)`; site revenue remains that count multiplied by 45,000,000 ISK. The first dashboard activation captures the current telemetry quantity as a baseline so pre-existing items are not incorrectly counted as new sites. **Reset Financial Period** captures a fresh baseline alongside the reporting-period start. Corporation assets are synced from ESI and their raw payload retains the hangar location flag used by this filter.
