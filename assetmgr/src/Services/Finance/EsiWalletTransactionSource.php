@@ -26,7 +26,6 @@ class EsiWalletTransactionSource implements WalletTransactionSource
         $baseUrl = rtrim((string) config('assetmgr.esi.base_url', 'https://esi.evetech.net'), '/');
         $url = $baseUrl . '/characters/' . $characterId . '/wallet/transactions/';
         $cursor = null;
-        $previousCursor = null;
         $requestsFetched = 0;
         $expiresAt = null;
         $rowsById = [];
@@ -115,11 +114,10 @@ class EsiWalletTransactionSource implements WalletTransactionSource
                 if (self::compareIds($id, $oldestId) < 0) $oldestId = $id;
             }
 
-            if ($previousCursor !== null && self::compareIds($oldestId, $previousCursor) >= 0) {
+            if ($cursor !== null && self::compareIds($oldestId, $cursor) >= 0) {
                 throw new RuntimeException('ESI wallet transaction pagination made no progress.');
             }
 
-            $previousCursor = $cursor;
             $cursor = $oldestId;
         }
 
