@@ -180,21 +180,41 @@ async function syncCorporation(db, owner, token) {
   const missing = REQUIRED_CORP.filter(s => !scopes.includes(s));
   if (missing.length) throw new Error('Selected character lacks corporation scopes: ' + missing.join(', '));
   const corpId = Number(owner.eve_id);
-  const division = Math.min(7, Math.max(1, Number(process.env.FIN_CORP_WALLET_DIVISION || 1)));
+  // Division 1 is the Corp Main Wallet; division 2 is reserved for SRP.
+  // Keep the existing snapshot schema for division 1 and store division 2 separately
+  // in fin_app_settings so the two balances are never added together.
+  const mainDivision = 1;
+  const srpDivision = 2;
   const [wallets, journal, assets] = await Promise.all([
     esi('/corporations/' + corpId + '/wallets/', token),
-    pages('/corporations/' + corpId + '/wallets/' + division + '/journal/', token),
+    pages('/corporations/' + corpId + '/wallets/' + mainDivision + '/journal/', token),
     pages('/corporations/' + corpId + '/assets/', token)
   ]);
-  const wallet = Array.isArray(wallets) ? wallets.find(w => Number(w.division) === division) : null;
-  if (!wallet) throw new Error('Corporation wallet division ' + division + ' was not returned by ESI');
-  const balance = Number(wallet.balance);
-  await saveWallet(db, owner.id, balance);
+  if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
+  const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
+  const srpWallet = wallets.find(w => Number(w.division) === srpDivision);
+  if (!mainWallet) throw new Error('Corporation wallet division 1 was not returned by ESI');
+  if (!srpWallet) throw new Error('Corporation wallet division 2 was not returned by ESI');
+  await saveWallet(db, owner.id, Number(mainWallet.balance));
+  await db.execute(
+    `INSERT INTO fin_app_settings(setting_key, setting_value, updated_at)
+     VALUES('srp_wallet_balance_isk', ?, UTC_TIMESTAMP())
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)`,
+    [String(Number(srpWallet.balance))]
+  );
   await saveJournal(db, owner.id, journal);
   await saveAssets(db, owner.id, assets);
   await syncState(db, owner.id, 'corporation_wallets', null);
   await syncState(db, owner.id, 'corporation_assets', null);
-  return { corporation: owner.display_name, walletDivision: division, journalEntries: journal.length, assets: assets.length };
+  return {
+    corporation: owner.display_name,
+    corpMainWalletDivision: mainDivision,
+    corpMainWalletBalance: Number(mainWallet.balance),
+    srpWalletDivision: srpDivision,
+    srpWalletBalance: Number(srpWallet.balance),
+    journalEntries: journal.length,
+    assets: assets.length
+  };
 }
 async function reconcileSitePayouts(db, corporationOwnerId) {
   const [characters] = await db.execute(
