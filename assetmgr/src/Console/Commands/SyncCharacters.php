@@ -22,7 +22,6 @@ class SyncCharacters extends Command
         $queued = 0;
         $skipped = 0;
         RefreshToken::query()
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', 'esi-assets.read_assets.v1')
             ->select('character_id')
             ->chunkById(250, function ($tokens) use (&$queued, &$skipped): void {
