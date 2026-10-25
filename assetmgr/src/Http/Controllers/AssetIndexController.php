@@ -5,6 +5,7 @@ namespace Triglavian\AssetManager\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use RuntimeException;
 use Triglavian\AssetManager\Services\Assets\AssetQuery;
