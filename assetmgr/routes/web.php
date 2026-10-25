@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Triglavian\AssetManager\Http\Controllers\AssetExportController;
 use Triglavian\AssetManager\Http\Controllers\AssetIndexController;
+use Triglavian\AssetManager\Http\Controllers\CorporationAssetIndexController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('assetmgr')
