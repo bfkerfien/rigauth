@@ -51,6 +51,7 @@ class CorporationAssetIndexController extends Controller
             'currentValuation' => $currentValuation,
             'valuationHistory' => $valuationHistory,
             'search' => (string) $filters['q'],
+            'parentItemId' => $filters['parent_item_id'],
             'sort' => $filters['sort'],
             'direction' => $filters['direction'],
             'corporationId' => $corporationId,
