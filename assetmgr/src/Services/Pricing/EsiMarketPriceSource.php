@@ -14,7 +14,7 @@ class EsiMarketPriceSource implements MarketPriceSource
             throw new RuntimeException('Invalid region or type ID for market pricing.');
         }
 
-        $baseUrl = rtrim((string) config('assetmgr.esi.base_url', 'https://esi.evetech.net/latest'), '/');
+        $baseUrl = rtrim((string) config('assetmgr.esi.base_url', 'https://esi.evetech.net'), '/');
         $path = $baseUrl . '/markets/' . $regionId . '/orders/';
         $pageCount = null;
         $expiresAt = null;
@@ -25,6 +25,7 @@ class EsiMarketPriceSource implements MarketPriceSource
             $response = Http::withHeaders([
                 'Accept' => 'application/json',
                 'User-Agent' => (string) config('assetmgr.esi.user_agent', 'Triglavian-Asset-Manager'),
+                'X-Compatibility-Date' => (string) config('assetmgr.esi.compatibility_date', '2026-08-18'),
             ])->timeout(30)->retry(2, 500, throw: false)->get($path, [
                 'order_type' => 'all',
                 'type_id' => $typeId,
