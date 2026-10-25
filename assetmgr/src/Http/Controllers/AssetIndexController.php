@@ -29,6 +29,7 @@ class AssetIndexController extends Controller
         $filters = [
             'q' => $request->query('q', ''),
             'character_id' => $request->integer('character_id') ?: null,
+            'parent_item_id' => $request->integer('parent_item_id') ?: null,
             'sort' => $request->query('sort', 'character'),
             'direction' => $request->query('direction', 'asc'),
         ];
