@@ -8,6 +8,7 @@ class AssetManagerServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(AssetSnapshotSource::class, EsiAssetSnapshotSource::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
     }
 
