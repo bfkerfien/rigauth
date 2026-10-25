@@ -9,9 +9,8 @@ use InvalidArgumentException;
 class AssetQuery
 {
     /**
-     * Build a personal-only query scoped to verified character IDs.
-     *
-     * An empty character list intentionally produces no rows.
+     * Personal-only query, scoped to SeAT's verified linked character IDs.
+     * Prices are joined from the local cache; no ESI calls happen here.
      *
      * @param list<int> $characterIds
      */
@@ -22,45 +21,66 @@ class AssetQuery
             static fn (int $id): bool => $id > 0
         )));
 
-        $query = DB::table('assetmgr_assets')
-            ->where('owner_kind', 'character')
-            ->whereIn('owner_id', $characterIds)
+        $jitaPrices = DB::table('assetmgr_prices')
+            ->select(['type_id', 'unit_price', 'fetched_at'])
+            ->where('region_id', (int) config('assetmgr.pricing.jita_region_id', 10000002))
+            ->where('source', 'esi-orders')
+            ->where('price_basis', 'sell');
+
+        $regionalPrices = DB::table('assetmgr_prices')
+            ->select(['region_id', 'type_id', 'unit_price', 'fetched_at'])
+            ->where('source', 'esi-orders')
+            ->where('price_basis', 'sell');
+
+        $query = DB::table('assetmgr_assets as assets')
+            ->leftJoinSub($jitaPrices, 'jita_prices', static function ($join): void {
+                $join->on('assets.type_id', '=', 'jita_prices.type_id');
+            })
+            ->leftJoinSub($regionalPrices, 'regional_prices', static function ($join): void {
+                $join->on('assets.type_id', '=', 'regional_prices.type_id')
+                    ->on('assets.regional_region_id', '=', 'regional_prices.region_id');
+            })
+            ->where('assets.owner_kind', 'character')
+            ->whereIn('assets.owner_id', $characterIds)
             ->select([
-                'owner_kind', 'owner_id', 'character_id', 'character_name',
-                'corporation_id', 'type_id', 'type_name', 'quantity',
-                'location_id', 'location_name', 'location_flag', 'location_type',
-                'jita_unit_price', 'regional_unit_price', 'regional_region_id',
-                'price_updated_at', 'last_seen_at',
+                'assets.owner_kind', 'assets.owner_id', 'assets.character_id',
+                'assets.character_name', 'assets.corporation_id', 'assets.item_id',
+                'assets.type_id', 'assets.type_name', 'assets.quantity',
+                'assets.location_id', 'assets.location_name', 'assets.location_flag',
+                'assets.location_type', 'assets.regional_region_id', 'assets.last_seen_at',
+                'jita_prices.unit_price as jita_unit_price',
+                'jita_prices.fetched_at as jita_price_updated_at',
+                'regional_prices.unit_price as regional_unit_price',
+                'regional_prices.fetched_at as regional_price_updated_at',
             ]);
 
         $search = trim((string) ($filters['q'] ?? ''));
         if ($search !== '') {
-            $query->where(function (Builder $builder) use ($search): void {
-                $like = '%' . addcslashes($search, '%_\\\\') . '%';
-                $builder->where('type_name', 'like', $like)
-                    ->orWhere('character_name', 'like', $like)
-                    ->orWhere('location_name', 'like', $like);
+            $like = '%' . addcslashes($search, '%_\\\\') . '%';
+            $query->where(function (Builder $builder) use ($like): void {
+                $builder->where('assets.type_name', 'like', $like)
+                    ->orWhere('assets.character_name', 'like', $like)
+                    ->orWhere('assets.location_name', 'like', $like);
             });
         }
 
         if (! empty($filters['character_id'])) {
             $characterId = (int) $filters['character_id'];
             if (! in_array($characterId, $characterIds, true)) {
-                // Explicitly empty results for a character outside this user’s portfolio.
                 $query->whereRaw('1 = 0');
             } else {
-                $query->where('character_id', $characterId);
+                $query->where('assets.character_id', $characterId);
             }
         }
 
         $sorts = [
-            'item' => 'type_name',
-            'quantity' => 'quantity',
-            'character' => 'character_name',
-            'location' => 'location_name',
-            'jita' => 'jita_unit_price',
-            'regional' => 'regional_unit_price',
-            'last_seen' => 'last_seen_at',
+            'item' => 'assets.type_name',
+            'quantity' => 'assets.quantity',
+            'character' => 'assets.character_name',
+            'location' => 'assets.location_name',
+            'jita' => 'jita_prices.unit_price',
+            'regional' => 'regional_prices.unit_price',
+            'last_seen' => 'assets.last_seen_at',
         ];
         $sort = (string) ($filters['sort'] ?? 'character');
         if (! isset($sorts[$sort])) {
@@ -68,10 +88,8 @@ class AssetQuery
         }
 
         $direction = strtolower((string) ($filters['direction'] ?? 'asc'));
-        if (! in_array($direction, ['asc', 'desc'], true)) {
-            $direction = 'asc';
-        }
+        if (! in_array($direction, ['asc', 'desc'], true)) $direction = 'asc';
 
-        return $query->orderBy($sorts[$sort], $direction)->orderBy('type_id');
+        return $query->orderBy($sorts[$sort], $direction)->orderBy('assets.type_id');
     }
 }
