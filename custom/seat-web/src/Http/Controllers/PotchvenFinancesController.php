@@ -27,7 +27,11 @@ class PotchvenFinancesController extends Controller
         $db = DB::connection();
         $schema = $db->getSchemaBuilder();
         $has = fn (string $table) => $schema->hasTable($table);
-        $start = now()->startOfMonth();
+        $periodStartValue = $has('fin_app_settings')
+            ? $db->table('fin_app_settings')->where('setting_key', 'finance_period_start_at')->value('setting_value')
+            : null;
+        $periodStart = $periodStartValue ? Carbon::parse($periodStartValue) : now()->startOfMonth();
+        $start = $periodStart;
 
         $owners = $has('fin_owners') ? $db->table('fin_owners')->orderBy('owner_type')->orderBy('display_name')->get() : collect();
         $sites = $has('fin_site_events') ? $db->table('fin_site_events')->where('status', 'successful')->where('occurred_at', '>=', $start)->count() : 0;
@@ -63,7 +67,7 @@ class PotchvenFinancesController extends Controller
         $financeSyncErrors = $has('fin_sync_state')
             ? $db->table('fin_sync_state')->whereNotNull('last_error')->orderByDesc('id')->limit(5)->get(['resource_key', 'last_error'])
             : collect();
-        $daysElapsed = max(1, (int) now()->day);
+        $daysElapsed = max(1, (int) $periodStart->copy()->startOfDay()->diffInDays(now()->startOfDay()) + 1);
         $timerResetAt = $has('fin_app_settings')
             ? $db->table('fin_app_settings')->where('setting_key', '180_day_timer_reset_at')->value('setting_value')
             : null;
@@ -73,7 +77,7 @@ class PotchvenFinancesController extends Controller
 
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
-            'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors'
+            'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart'
         ));
     }
 
@@ -88,11 +92,15 @@ class PotchvenFinancesController extends Controller
                 $table->timestamp('updated_at')->useCurrent();
             });
         }
-        DB::table('fin_app_settings')->updateOrInsert(
-            ['setting_key' => '180_day_timer_reset_at'],
-            ['setting_value' => now()->toDateTimeString(), 'updated_at' => now()]
-        );
-        return redirect()->route('seatcore::potchven-finances.index')->with('success', '180-day timer reset to 180 days.');
+        $resetAt = now()->toDateTimeString();
+        foreach (['180_day_timer_reset_at', 'finance_period_start_at'] as $settingKey) {
+            DB::table('fin_app_settings')->updateOrInsert(
+                ['setting_key' => $settingKey],
+                ['setting_value' => $resetAt, 'updated_at' => now()]
+            );
+        }
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'New financial reporting period started. Revenue, expenses, completed sites, and the 180-day countdown now start from zero. Historical wallet and site records were preserved; outstanding SRP obligations remain payable.');
     }
 
     public function storeSite(Request $request): RedirectResponse
