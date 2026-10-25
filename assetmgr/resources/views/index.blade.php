@@ -10,6 +10,15 @@
         <div class="card card-primary">
             <div class="card-body">
                 <p class="text-muted">Personal assets are scoped to characters linked to your SeAT account. Browse, sort, and export using cached data; this page does not call ESI.</p>
+                @if (config('assetmgr.corporation_sync_enabled', false))
+                    <form method="get" action="{{ route('assetmgr.corporation.index') }}" class="form-inline" style="margin-bottom: 15px;">
+                        <div class="form-group" style="margin-right: 8px;">
+                            <label class="sr-only" for="assetmgr-corporation-id">Corporation ID</label>
+                            <input id="assetmgr-corporation-id" class="form-control" name="corporation_id" type="number" min="1" placeholder="Corporation ID">
+                        </div>
+                        <button type="submit" class="btn btn-secondary">Open corporation assets</button>
+                    </form>
+                @endif
 
                 <form method="get" action="{{ route('assetmgr.index') }}" class="form-inline" style="margin-bottom: 15px;">
                     <div class="form-group" style="margin-right: 8px;">
