@@ -41,6 +41,7 @@
                         <input id="wallet-journal-character" class="form-control" name="character_id" type="number" min="1" value="{{ $characterId }}" placeholder="Character ID">
                     </div>
                     <button type="submit" class="btn btn-primary">Apply</button>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.wallet-journal.export', request()->query()) }}">Export CSV</a>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.index') }}">Back to assets</a>
                 </form>
 
