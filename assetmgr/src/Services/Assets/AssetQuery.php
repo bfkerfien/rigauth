@@ -111,13 +111,13 @@ class AssetQuery
         }
 
         $jitaPrices = DB::table('assetmgr_prices')
-            ->select(['type_id', 'unit_price', 'fetched_at'])
+            ->select(['type_id', 'unit_price', 'fetched_at', 'source_expires_at'])
             ->where('region_id', (int) config('assetmgr.pricing.jita_region_id', 10000002))
             ->where('source', 'esi-orders')
             ->where('price_basis', 'sell');
 
         $regionalPrices = DB::table('assetmgr_prices')
-            ->select(['region_id', 'type_id', 'unit_price', 'fetched_at'])
+            ->select(['region_id', 'type_id', 'unit_price', 'fetched_at', 'source_expires_at'])
             ->where('source', 'esi-orders')
             ->where('price_basis', 'sell');
 
@@ -139,8 +139,10 @@ class AssetQuery
                 'assets.location_type', 'assets.regional_region_id', 'assets.last_seen_at',
                 'jita_prices.unit_price as jita_unit_price',
                 'jita_prices.fetched_at as jita_price_updated_at',
+                'jita_prices.source_expires_at as jita_price_expires_at',
                 'regional_prices.unit_price as regional_unit_price',
                 'regional_prices.fetched_at as regional_price_updated_at',
+                'regional_prices.source_expires_at as regional_price_expires_at',
             ]);
 
         $search = trim((string) ($filters['q'] ?? ''));
@@ -148,7 +150,8 @@ class AssetQuery
             $like = '%' . addcslashes($search, '%_\\\\\\\\') . '%';
             $query->where(function (Builder $builder) use ($like): void {
                 $builder->where('assets.type_name', 'like', $like)
-                    ->orWhere('assets.location_name', 'like', $like);
+                    ->orWhere('assets.location_name', 'like', $like)
+                    ->orWhere('assets.item_id', 'like', $like);
             });
         }
 
