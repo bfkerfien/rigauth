@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Triglavian\AssetManager\Console\Commands\SyncCharacters;
 use Triglavian\AssetManager\Console\Commands\SyncPrices;
 use Triglavian\AssetManager\Console\Commands\SyncCorporations;
+use Triglavian\AssetManager\Console\Commands\CaptureValuations;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
@@ -52,7 +53,7 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         RateLimiter::for('assetmgr-esi', static fn () => Limit::perMinute((int) config('assetmgr.sync.requests_per_minute', 30)));
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class]);
+            $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class, CaptureValuations::class]);
         }
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
