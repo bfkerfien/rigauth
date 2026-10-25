@@ -6,8 +6,9 @@
     <title>Asset Manager</title>
     <style>
         body { font-family: system-ui, sans-serif; margin: 2rem; }
-        form { display: flex; gap: .5rem; margin: 1rem 0; }
-        input { padding: .55rem; min-width: 18rem; }
+        form { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+        input, select, button { padding: .55rem; }
+        input[name="q"] { min-width: 18rem; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border-bottom: 1px solid #bbb; padding: .55rem; text-align: left; }
         th { position: sticky; top: 0; background: #222; color: #fff; }
@@ -16,18 +17,29 @@
 </head>
 <body>
     <h1>Triglavian Asset Manager</h1>
-    <p class="muted">Cached asset snapshot · Character ownership is shown for every row.</p>
+    <p class="muted">Cached asset snapshot · Character ownership is shown for every personal asset.</p>
 
     <form method="get" action="{{ route('assetmgr.index') }}">
         <input name="q" value="{{ $search }}" placeholder="Search item, character, or location">
-        <input name="character_id" type="number" value="{{ $characterId }}" placeholder="Character ID (optional)">
-        <button type="submit">Search</button>
+        <input name="character_id" type="number" min="1" value="{{ $characterId }}" placeholder="Character ID (optional)">
+        <label>Sort
+            <select name="sort">
+                @foreach (['character' => 'Character', 'item' => 'Item', 'quantity' => 'Quantity', 'location' => 'Location', 'jita' => 'Jita price', 'regional' => 'Regional price', 'last_seen' => 'Last synced'] as $key => $label)
+                    <option value="{{ $key }}" @selected($sort === $key)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </label>
+        <select name="direction" aria-label="Sort direction">
+            <option value="asc" @selected($direction === 'asc')>Ascending</option>
+            <option value="desc" @selected($direction === 'desc')>Descending</option>
+        </select>
+        <button type="submit">Apply</button>
     </form>
 
     <table>
         <thead><tr>
             <th>Item</th><th>Quantity</th><th>Character owner</th><th>Location</th>
-            <th>Jita value</th><th>Regional value</th><th>Last seen</th>
+            <th>Jita total value</th><th>Regional total value</th><th>Price updated</th><th>Last seen</th>
         </tr></thead>
         <tbody>
         @forelse ($assets as $asset)
@@ -38,14 +50,14 @@
                 <td>{{ $asset->location_name ?? $asset->location_id }}</td>
                 <td>{{ $asset->jita_unit_price === null ? '—' : number_format((float) $asset->jita_unit_price * $asset->quantity, 2) . ' ISK' }}</td>
                 <td>{{ $asset->regional_unit_price === null ? '—' : number_format((float) $asset->regional_unit_price * $asset->quantity, 2) . ' ISK' }}</td>
+                <td>{{ $asset->price_updated_at ?? '—' }}</td>
                 <td>{{ $asset->last_seen_at ?? 'Unknown' }}</td>
             </tr>
         @empty
-            <tr><td colspan="7">No cached assets found. Synchronization is not implemented in this foundation stage.</td></tr>
+            <tr><td colspan="8">No cached assets found. Sync jobs require the SeAT ESI adapter to be configured.</td></tr>
         @endforelse
         </tbody>
     </table>
-
     {{ $assets->links() }}
 </body>
 </html>
