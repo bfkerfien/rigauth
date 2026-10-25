@@ -132,6 +132,7 @@
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.export', request()->query()) }}">Export CSV</a>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.wallet-journal') }}">Wallet Journal</a>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.market-orders') }}">Market Orders</a>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.contracts') }}">Contracts</a>
                 </form>
 
                 <div class="table-responsive">
