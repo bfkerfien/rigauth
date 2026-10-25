@@ -10,13 +10,17 @@ use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
 
 class EsiCorporationWalletJournalSource implements CorporationWalletJournalSource
 {
+    public function __construct(private readonly AssetAccessTokenProvider $tokens)
+    {
+    }
+
     public function fetchSince(int $corporationId, int $division, ?string $lastKnownId = null): CorporationWalletJournalBatch
     {
         if ($corporationId < 1 || $division < 1 || $division > 7) {
             throw new RuntimeException('Invalid corporation or wallet division for journal sync.');
         }
 
-        $token = app(AssetAccessTokenProvider::class)->accessTokenFor(
+        $token = $this->tokens->accessTokenFor(
             'corporation',
             $corporationId,
             'esi-wallet.read_corporation_wallets.v1'
