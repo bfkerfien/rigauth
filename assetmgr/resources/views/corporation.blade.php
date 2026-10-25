@@ -31,6 +31,7 @@
                         <option value="desc" {{ $direction === 'desc' ? 'selected' : '' }}>Descending</option>
                     </select>
                     <button type="submit" class="btn btn-primary">Apply</button>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation.export', array_merge(request()->query(), ['corporation_id' => $corporationId])) }}">Export CSV</a>
                 </form>
 
                 <div class="table-responsive">
