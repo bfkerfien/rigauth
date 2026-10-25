@@ -14,6 +14,16 @@ class AssetQueryScopeTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('database.default', 'sqlite');
+        config()->set('database.connections.sqlite', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]);
+        DB::purge('sqlite');
+        DB::setDefaultConnection('sqlite');
+
         Schema::create('assetmgr_assets', function (Blueprint $table): void {
             $table->bigIncrements('id');
             $table->string('owner_kind');
