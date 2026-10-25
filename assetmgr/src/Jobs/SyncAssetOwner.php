@@ -6,6 +6,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Carbon;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +30,11 @@ class SyncAssetOwner implements ShouldQueue
         $this->onQueue(config('assetmgr.sync.queue', 'default'));
     }
 
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping('assetmgr:' . $this->ownerKind . ':' . $this->ownerId))->expireAfter(240)];
+    }
+
     public function backoff(): array
     {
         return [30, 120, 300];
@@ -35,6 +42,16 @@ class SyncAssetOwner implements ShouldQueue
 
     public function handle(AssetSnapshotSource $source, AssetSnapshotRepository $repository): void
     {
+        $existing = DB::table('assetmgr_sync_state')
+            ->where('owner_kind', $this->ownerKind)
+            ->where('owner_id', $this->ownerId)
+            ->where('dataset', 'assets')
+            ->first();
+
+        if ($existing?->next_eligible_at && Carbon::parse($existing->next_eligible_at)->isFuture()) {
+            return;
+        }
+
         $now = now();
         DB::table('assetmgr_sync_state')->updateOrInsert(
             ['owner_kind' => $this->ownerKind, 'owner_id' => $this->ownerId, 'dataset' => 'assets'],
@@ -59,6 +76,9 @@ class SyncAssetOwner implements ShouldQueue
                     'status' => 'success', 'last_success_at' => now(),
                     'pages_received' => $snapshot->pagesReceived,
                     'records_received' => count($snapshot->rows),
+                    'next_eligible_at' => $snapshot->sourceExpiresAt
+                        ? Carbon::parse($snapshot->sourceExpiresAt)->addSeconds(5)
+                        : now()->addSeconds((int) config('assetmgr.sync.minimum_interval_seconds', 900)),
                     'error_code' => null, 'error_message' => null, 'updated_at' => now(),
                 ]);
         } catch (Throwable $exception) {
