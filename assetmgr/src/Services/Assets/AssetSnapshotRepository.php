@@ -13,12 +13,15 @@ class AssetSnapshotRepository
      * reconciled inside one transaction so failed inserts cannot erase the last
      * good snapshot.
      *
-     * @param list<array<string, mixed>> $rows
+     * @param CompleteAssetSnapshot $snapshot
      */
     public function replaceOwnerSnapshot(string $ownerKind, int $ownerId, CompleteAssetSnapshot $snapshot): void
     {
         if (! $snapshot->allPagesFetched || $snapshot->pagesReceived < 1) {
             throw new RuntimeException('Cannot reconcile an incomplete asset snapshot.');
+        }
+        if ($snapshot->ownerKind !== $ownerKind || $snapshot->ownerId !== $ownerId) {
+            throw new RuntimeException('Snapshot owner does not match the reconciliation target.');
         }
         $rows = $snapshot->rows;
 
