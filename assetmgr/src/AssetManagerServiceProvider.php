@@ -3,6 +3,7 @@
 namespace Triglavian\AssetManager;
 
 use Illuminate\Support\ServiceProvider;
+use Triglavian\AssetManager\Console\Commands\SyncCharacters;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
@@ -20,6 +21,10 @@ class AssetManagerServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->runningInConsole()) {
+            $this->commands([SyncCharacters::class]);
+        }
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'assetmgr');
