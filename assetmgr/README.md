@@ -36,7 +36,7 @@ Defaults intentionally keep the module off:
 - `SEAT_ASSETMGR_SYNC_ENABLED=false`
 - `SEAT_ASSETMGR_QUEUE=default`
 
-Only after SeAT integration and authorization tests pass should the feature and sync be enabled. Configure `SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE` when reviewing ESI compatibility updates, and set `SEAT_ASSETMGR_USER_AGENT` to identify the app and a contact method. The Artisan command `assetmgr:sync-characters` queues eligible character syncs when both flags are enabled. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
+Only after SeAT integration and authorization tests pass should the feature and sync be enabled. Corporation sync additionally requires `SEAT_ASSETMGR_CORPORATION_SYNC_ENABLED=true` and `SEAT_ASSETMGR_CORPORATION_IDS` set to a comma-separated allowlist. Configure `SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE` when reviewing ESI compatibility updates, and set `SEAT_ASSETMGR_USER_AGENT` to identify the app and a contact method. The Artisan commands `assetmgr:sync-characters` and `assetmgr:sync-prices` queue eligible personal asset and price jobs when both main flags are enabled. `assetmgr:sync-corporations` additionally requires the corporation-sync flag and allowlist. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
 
 ## Safety rules
 
