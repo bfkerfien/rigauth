@@ -37,7 +37,9 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
         // Corporation access requires the requested scope and an appropriate role
         // on a character whose current SeAT affiliation matches this corporation.
         $requiredScope ??= 'esi-assets.read_corporation_assets.v1';
-        $requiredRoles = $requiredScope === 'esi-assets.read_corporation_assets.v1' ? ['Director'] : ['Director', 'Accountant'];
+        $requiredRoles = in_array($requiredScope, ['esi-assets.read_corporation_assets.v1', 'esi-markets.read_corporation_orders.v1'], true)
+            ? ['Director']
+            : ['Director', 'Accountant'];
         $tokens = RefreshToken::query()
             ->whereJsonContains('scopes', $requiredScope)
             ->get();
