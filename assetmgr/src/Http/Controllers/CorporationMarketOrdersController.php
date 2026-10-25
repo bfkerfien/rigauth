@@ -49,6 +49,7 @@ class CorporationMarketOrdersController extends Controller
             'side' => $side,
             'corporationId' => $corporationId,
             'corporationName' => $corporation->name ?? ('Corporation ' . $corporationId),
+            'canViewCorporationWalletJournal' => Gate::allows('corporation.assetmgr_wallet_journal_view', $corporation),
             'syncState' => $syncState,
         ]);
     }
