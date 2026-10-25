@@ -3,6 +3,8 @@
 namespace Triglavian\AssetManager;
 
 use Illuminate\Support\ServiceProvider;
+use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
+use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 
 class AssetManagerServiceProvider extends ServiceProvider
 {
