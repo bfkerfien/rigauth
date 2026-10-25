@@ -53,6 +53,7 @@ Only after the test deployment passes should these be enabled in a controlled ro
 - php artisan assetmgr:sync-prices
 - php artisan assetmgr:sync-corporations (requires corporation sync enabled and an explicit allowlist)
 - php artisan assetmgr:sync-wallet-journals (for character wallet journals with the required scope)
+- php artisan assetmgr:sync-wallet-transactions (for market transactions with the required wallet scope)
 - php artisan assetmgr:capture-valuations (stores hourly valuation snapshots)
 
 Schedule these using the installed SeAT scheduler only after checking the ESI cache expiry behavior and queue capacity. Do not poll ESI from page requests.
