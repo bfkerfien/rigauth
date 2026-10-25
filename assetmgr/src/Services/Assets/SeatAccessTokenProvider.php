@@ -9,44 +9,47 @@ use Seat\Eveapi\Models\RefreshToken;
 
 class SeatAccessTokenProvider implements AssetAccessTokenProvider
 {
-    public function accessTokenFor(string $ownerKind, int $ownerId): string
+    public function accessTokenFor(string $ownerKind, int $ownerId, ?string $requiredScope = null): string
     {
         if (! in_array($ownerKind, ['character', 'corporation'], true) || $ownerId < 1) {
             throw new RuntimeException('Invalid owner for SeAT token resolution.');
         }
 
         if ($ownerKind === 'character') {
+            $requiredScope ??= 'esi-assets.read_assets.v1';
             $tokenRecord = RefreshToken::query()->where('character_id', $ownerId)->first();
 
             if ($tokenRecord === null) {
                 throw new RuntimeException('No active SeAT refresh-token record exists for this character.');
             }
-            if (! $tokenRecord->hasScope('esi-assets.read_assets.v1')) {
+            if (! $tokenRecord->hasScope($requiredScope)) {
                 throw new RuntimeException('This character has not granted the ESI asset-read scope.');
             }
 
             return $this->currentAccessToken($tokenRecord);
         }
 
-        // Corporation assets require both the corporation scope and a Director role
+        // Corporation access requires the requested scope and an appropriate role
         // on a character whose current SeAT affiliation matches this corporation.
+        $requiredScope ??= 'esi-assets.read_corporation_assets.v1';
+        $requiredRoles = $requiredScope === 'esi-assets.read_corporation_assets.v1' ? ['Director'] : ['Director', 'Accountant'];
         $tokens = RefreshToken::query()
             ->where('expires_on', '>', now())
-            ->whereJsonContains('scopes', 'esi-assets.read_corporation_assets.v1')
+            ->whereJsonContains('scopes', $requiredScope)
             ->get();
 
         if ($tokens->isEmpty()) {
-            throw new RuntimeException('No active SeAT token has the corporation asset scope.');
+            throw new RuntimeException('No active SeAT token has the requested corporation scope.');
         }
 
         $directorIds = CharacterRole::query()
             ->where('scope', 'roles')
-            ->where('role', 'Director')
+            ->whereIn('role', $requiredRoles)
             ->whereIn('character_id', $tokens->pluck('character_id'))
             ->pluck('character_id');
 
         if ($directorIds->isEmpty()) {
-            throw new RuntimeException('No token-linked character has the Director role in SeAT.');
+            throw new RuntimeException('No token-linked character has a compatible corporation role in SeAT.');
         }
 
         $corporationDirectorIds = CharacterAffiliation::query()
@@ -59,8 +62,8 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
             ->sortByDesc('expires_on')
             ->first();
 
-        if ($tokenRecord === null || ! $tokenRecord->hasScope('esi-assets.read_corporation_assets.v1')) {
-            throw new RuntimeException('No active Director token is authorized for this corporation.');
+        if ($tokenRecord === null || ! $tokenRecord->hasScope($requiredScope)) {
+            throw new RuntimeException('No active corporation-role token is authorized for this corporation.');
         }
 
         return $this->currentAccessToken($tokenRecord);
