@@ -57,6 +57,12 @@ class PotchvenFinancesController extends Controller
                 ->get(['e.occurred_at', 'o.display_name', 'e.amount_isk', 'e.reference_type', 'e.description', 'e.is_operational_expense'])
             : collect();
         $siteEvents = $has('fin_site_events') ? $db->table('fin_site_events')->orderByDesc('occurred_at')->limit(20)->get() : collect();
+        $lastFinanceSync = $has('fin_sync_state')
+            ? $db->table('fin_sync_state')->whereNotNull('last_success_at')->max('last_success_at')
+            : null;
+        $financeSyncErrors = $has('fin_sync_state')
+            ? $db->table('fin_sync_state')->whereNotNull('last_error')->orderByDesc('id')->limit(5)->get(['resource_key', 'last_error'])
+            : collect();
         $daysElapsed = max(1, (int) now()->day);
         $timerResetAt = $has('fin_app_settings')
             ? $db->table('fin_app_settings')->where('setting_key', '180_day_timer_reset_at')->value('setting_value')
@@ -67,7 +73,7 @@ class PotchvenFinancesController extends Controller
 
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
-            'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown'
+            'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors'
         ));
     }
 
