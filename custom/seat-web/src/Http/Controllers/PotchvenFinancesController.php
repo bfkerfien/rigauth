@@ -21,6 +21,56 @@ class PotchvenFinancesController extends Controller
         abort_unless($allowed, 403);
     }
 
+
+    /**
+     * Total qualifying telemetry reports in Corporation Office Hangar 1 at Nani I.
+     * ESI's CorpSAG1 flag is corporation hangar division 1; it is independent of
+     * the wallet division used for operating expenses.
+     */
+    private function telemetryQuantity(): ?int
+    {
+        $db = DB::connection();
+        $schema = $db->getSchemaBuilder();
+        foreach (['fin_owners', 'fin_asset_snapshots', 'fin_asset_items'] as $table) {
+            if (!$schema->hasTable($table)) {
+                return null;
+            }
+        }
+
+        $stationId = (int) env('FIN_TELEMETRY_STATION_ID', 60011173);
+        $typeIds = array_values(array_unique(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('FIN_TELEMETRY_TYPE_IDS', '87222,87258'))
+        ), fn ($id) => $id > 0)));
+        if (!$stationId || !$typeIds) {
+            return null;
+        }
+
+        $ownerId = $db->table('fin_owners')
+            ->where('owner_type', 'corporation')
+            ->where('is_active', 1)
+            ->value('id');
+        if (!$ownerId) {
+            return null;
+        }
+
+        $latestCapturedAt = $db->table('fin_asset_snapshots')
+            ->where('owner_id', $ownerId)
+            ->max('captured_at');
+        if (!$latestCapturedAt) {
+            return null;
+        }
+
+        return (int) $db->table('fin_asset_items as i')
+            ->join('fin_asset_snapshots as s', 's.id', '=', 'i.snapshot_id')
+            ->where('s.owner_id', $ownerId)
+            ->where('s.captured_at', $latestCapturedAt)
+            ->where('i.location_id', $stationId)
+            ->whereIn('i.item_type_id', $typeIds)
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(i.raw_payload, '$.location_flag')) = ?", ['CorpSAG1'])
+            ->sum('i.quantity');
+    }
+
     public function index(): View
     {
         $this->authorizeFinance();
@@ -34,7 +84,22 @@ class PotchvenFinancesController extends Controller
         $start = $periodStart;
 
         $owners = $has('fin_owners') ? $db->table('fin_owners')->orderBy('owner_type')->orderBy('display_name')->get() : collect();
-        $sites = $has('fin_site_events') ? $db->table('fin_site_events')->where('status', 'successful')->where('occurred_at', '>=', $start)->count() : 0;
+        $telemetryQuantity = $this->telemetryQuantity();
+        $telemetryBaseline = $has('fin_app_settings')
+            ? $db->table('fin_app_settings')->where('setting_key', 'telemetry_baseline_quantity')->value('setting_value')
+            : null;
+        if ($telemetryQuantity !== null && $telemetryBaseline === null && $has('fin_app_settings')) {
+            // First activation starts from the current inventory, avoiding a false count
+            // of telemetry accumulated before this feature was enabled.
+            $telemetryBaseline = (string) $telemetryQuantity;
+            $db->table('fin_app_settings')->updateOrInsert(
+                ['setting_key' => 'telemetry_baseline_quantity'],
+                ['setting_value' => $telemetryBaseline, 'updated_at' => now()]
+            );
+        }
+        $sites = ($telemetryQuantity !== null && $telemetryBaseline !== null)
+            ? intdiv(max(0, $telemetryQuantity - (int) $telemetryBaseline), 60)
+            : 0;
         $expenses = 0;
         if ($has('fin_wallet_entries') && $has('fin_owners')) {
             $expenses = (float) $db->table('fin_wallet_entries as e')->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
@@ -113,14 +178,21 @@ class PotchvenFinancesController extends Controller
             });
         }
         $resetAt = now()->toDateTimeString();
+        $telemetryQuantity = $this->telemetryQuantity();
         foreach (['180_day_timer_reset_at', 'finance_period_start_at'] as $settingKey) {
             DB::table('fin_app_settings')->updateOrInsert(
                 ['setting_key' => $settingKey],
                 ['setting_value' => $resetAt, 'updated_at' => now()]
             );
         }
+        if ($telemetryQuantity !== null) {
+            DB::table('fin_app_settings')->updateOrInsert(
+                ['setting_key' => 'telemetry_baseline_quantity'],
+                ['setting_value' => (string) $telemetryQuantity, 'updated_at' => now()]
+            );
+        }
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'New financial reporting period started. Revenue, expenses, completed sites, and the 180-day countdown now start from zero. Historical wallet and site records were preserved; outstanding SRP obligations remain payable.');
+            ->with('success', 'New financial reporting period started. Telemetry site counts, revenue, expenses, and the 180-day countdown now start from zero. Historical wallet and site records were preserved; outstanding SRP obligations remain payable.');
     }
 
     public function addSiteWithoutLoot(): RedirectResponse
