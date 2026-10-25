@@ -27,6 +27,17 @@
     <button type="submit" class="btn btn-warning"><i class="fas fa-redo-alt"></i> Reset Financial Period</button>
   </form>
 </div></div>
+<div class="card mb-3"><div class="card-header"><h3 class="card-title">SRP transfers</h3></div><div class="card-body d-flex flex-wrap align-items-center">
+  <form method="POST" action="{{ route('seatcore::potchven-finances.srp.add-site-without-loot') }}" class="mr-2 mb-2" onsubmit="return confirm('Add 27,000,000 ISK to pending SRP transfer for Site Without Loot?')">
+    @csrf
+    <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Site Without Loot (+27,000,000 ISK)</button>
+  </form>
+  <form method="POST" action="{{ route('seatcore::potchven-finances.srp.transfer') }}" class="mb-2" onsubmit="return confirm('Have you completed the ISK transfer to the SRP fund? This will mark all currently pending SRP obligations as transferred in the dashboard. It will not move ISK in EVE.')">
+    @csrf
+    <button type="submit" class="btn btn-success"><i class="fas fa-check-circle"></i> Transfer to SRP</button>
+  </form>
+  <p class="text-muted small mb-0 w-100">Use “Transfer to SRP” only after the ISK has actually been sent. The dashboard records the confirmation; it cannot transfer ISK in EVE.</p>
+</div></div>
 <div class="alert alert-secondary">
   <strong>Finance data last updated:</strong>
   @if($lastFinanceSync) {{ \Carbon\Carbon::parse($lastFinanceSync)->timezone(config('app.timezone'))->format('Y-m-d H:i:s T') }} @else Never recorded @endif
