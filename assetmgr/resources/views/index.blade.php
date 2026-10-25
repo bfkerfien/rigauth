@@ -19,9 +19,24 @@
                     <div class="col-md-6">
                         <h4>Regional known sell valuation</h4>
                         <p><strong>Regional subtotal:</strong> {{ number_format((float) ($currentValuation->regional_total_value ?? 0), 2) }} ISK</p>
-                        <p class="text-muted">These are cached best-sell estimates, not guaranteed sale proceeds. Missing prices are not silently counted as zero-value items.</p>
+                        <p class="text-muted">These are cached best-sell estimates, not guaranteed sale proceeds. Expired prices are excluded from the current subtotal and missing prices are counted separately.</p>
                     </div>
                 </div>
+                @if ($characterValuations->isNotEmpty())
+                    <h4>Character subtotals</h4>
+                    <div class="table-responsive"><table class="table table-condensed table-striped">
+                        <thead><tr><th>Character owner</th><th>Asset rows</th><th>Units</th><th>Jita known subtotal</th><th>Regional known subtotal</th></tr></thead>
+                        <tbody>@foreach ($characterValuations as $characterValuation)
+                            <tr>
+                                <td>{{ $characterValuation->character_name ?? ('Character ' . $characterValuation->character_id) }}</td>
+                                <td>{{ number_format((int) $characterValuation->asset_count) }}</td>
+                                <td>{{ number_format((int) $characterValuation->quantity_sum) }}</td>
+                                <td>{{ number_format((float) $characterValuation->jita_total_value, 2) }} ISK</td>
+                                <td>{{ number_format((float) $characterValuation->regional_total_value, 2) }} ISK</td>
+                            </tr>
+                        @endforeach</tbody>
+                    </table></div>
+                @endif
 
                 @if ($valuationHistory->isNotEmpty())
                     <h4>Hourly valuation history</h4>
