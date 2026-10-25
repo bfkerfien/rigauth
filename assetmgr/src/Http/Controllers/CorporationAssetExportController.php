@@ -21,6 +21,7 @@ class CorporationAssetExportController extends Controller
         $filters = [
             'q' => $request->query('q', ''),
             'sort' => $request->query('sort', 'item'),
+            'parent_item_id' => $request->integer('parent_item_id') ?: null,
             'direction' => $request->query('direction', 'asc'),
         ];
         $query = $assetQuery->corporation($corporationId, $filters);
