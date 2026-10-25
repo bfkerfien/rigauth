@@ -62,6 +62,7 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         $this->app->bind(CorporationMarketOrderSource::class, EsiCorporationMarketOrderSource::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
         $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation.php', 'corporation');
+        $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation_market_orders.php', 'corporation');
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.sidebar.php', 'package.sidebar');
     }
 
