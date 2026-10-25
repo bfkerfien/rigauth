@@ -89,6 +89,6 @@ class EsiWalletJournalSourceTest extends TestCase
         $tokens->method('accessTokenFor')->willReturn('test-access-token');
 
         $this->expectException(\RuntimeException::class);
-        (new EsiWalletJournalSource($tokens))->fetchComplete(123);
+        (new EsiWalletJournalSource($tokens))->fetchSince(123, null);
     }
 }
