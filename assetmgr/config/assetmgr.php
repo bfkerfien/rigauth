@@ -2,6 +2,10 @@
 
 return [
     'enabled' => env('SEAT_ASSETMGR_ENABLED', false),
+    'corporation_sync_enabled' => env('SEAT_ASSETMGR_CORPORATION_SYNC_ENABLED', false),
+    'allowed_corporation_ids' => array_values(array_filter(array_map(
+        'intval', explode(',', (string) env('SEAT_ASSETMGR_CORPORATION_IDS', ''))
+    ), static fn (int $id): bool => $id > 0)),
 
     'sync' => [
         'enabled' => env('SEAT_ASSETMGR_SYNC_ENABLED', false),
