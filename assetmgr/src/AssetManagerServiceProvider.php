@@ -3,6 +3,8 @@
 namespace Triglavian\AssetManager;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
 use Triglavian\AssetManager\Console\Commands\SyncCharacters;
 use Triglavian\AssetManager\Console\Commands\SyncPrices;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
@@ -25,6 +27,8 @@ class AssetManagerServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('assetmgr-esi', static fn () => Limit::perMinute((int) config('assetmgr.sync.requests_per_minute', 30)));
+
         if ($this->app->runningInConsole()) {
             $this->commands([SyncCharacters::class, SyncPrices::class]);
         }
