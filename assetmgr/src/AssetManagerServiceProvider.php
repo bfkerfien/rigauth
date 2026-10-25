@@ -12,7 +12,6 @@ use Triglavian\AssetManager\Console\Commands\SyncCorporations;
 use Triglavian\AssetManager\Console\Commands\CaptureValuations;
 use Triglavian\AssetManager\Console\Commands\SyncWalletJournals;
 use Triglavian\AssetManager\Console\Commands\SyncWalletTransactions;
-use Triglavian\AssetManager\Console\Commands\SyncWalletTransactions;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
@@ -21,8 +20,6 @@ use Triglavian\AssetManager\Services\Pricing\MarketPriceSource;
 use Triglavian\AssetManager\Services\Pricing\EsiMarketPriceSource;
 use Triglavian\AssetManager\Services\Finance\WalletJournalSource;
 use Triglavian\AssetManager\Services\Finance\EsiWalletJournalSource;
-use Triglavian\AssetManager\Services\Finance\WalletTransactionSource;
-use Triglavian\AssetManager\Services\Finance\EsiWalletTransactionSource;
 use Triglavian\AssetManager\Services\Finance\WalletTransactionSource;
 use Triglavian\AssetManager\Services\Finance\EsiWalletTransactionSource;
 
@@ -54,7 +51,6 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         $this->app->bind(AssetAccessTokenProvider::class, SeatAccessTokenProvider::class);
         $this->app->bind(MarketPriceSource::class, EsiMarketPriceSource::class);
         $this->app->bind(WalletJournalSource::class, EsiWalletJournalSource::class);
-        $this->app->bind(WalletTransactionSource::class, EsiWalletTransactionSource::class);
         $this->app->bind(WalletTransactionSource::class, EsiWalletTransactionSource::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
         $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation.php', 'corporation');
