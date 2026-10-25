@@ -62,6 +62,7 @@ class AssetSnapshotRepository
                     'location_id' => (int) $row['location_id'],
                     'location_name' => $row['location_name'] ?? null,
                     'location_flag' => $row['location_flag'] ?? null,
+                    'location_type' => $row['location_type'] ?? null,
                     'parent_item_id' => $row['parent_item_id'] ?? null,
                     'regional_region_id' => $row['regional_region_id'] ?? null,
                     'last_seen_at' => $now,
@@ -77,7 +78,7 @@ class AssetSnapshotRepository
                     [
                         'character_id', 'character_name', 'corporation_id', 'type_id',
                         'type_name', 'quantity', 'location_id', 'location_name',
-                        'location_flag', 'parent_item_id', 'regional_region_id',
+                        'location_flag', 'location_type', 'parent_item_id', 'regional_region_id',
                         'last_seen_at', 'updated_at',
                     ]
                 );
