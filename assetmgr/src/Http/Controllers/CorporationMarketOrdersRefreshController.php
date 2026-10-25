@@ -13,10 +13,10 @@ use Triglavian\AssetManager\Services\Assets\CorporationAccessPolicy;
 
 class CorporationMarketOrdersRefreshController extends Controller
 {
-    public function __invoke(Request $request, int $corporationId, CorporationAccessPolicy $accessPolicy)
+    public function __invoke(Request $request, int $corporationId)
     {
-        abort_unless(config('assetmgr.enabled', false) && config('assetmgr.sync.enabled', false), 404);
-        abort_unless($accessPolicy->isAllowed($corporationId), 404);
+        abort_unless(config('assetmgr.enabled', false) && config('assetmgr.sync.enabled', false) && config('assetmgr.corporation_sync_enabled', false), 404);
+        abort_unless(in_array($corporationId, config('assetmgr.allowed_corporation_ids', []), true), 404);
 
         $corporation = CorporationInfo::query()->where('corporation_id', $corporationId)->first();
         abort_unless($corporation !== null, 404);
