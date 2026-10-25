@@ -44,7 +44,7 @@ class SyncCorporationMarketOrder implements ShouldQueue
 
     public function handle(CorporationMarketOrderSource $source): void
     {
-        abort_unless(in_array($this->corporationId, array_map('intval', (array) config('assetmgr.sync.corporation_ids', [])), true), 403);
+        abort_unless(config('assetmgr.corporation_sync_enabled', false) && in_array($this->corporationId, config('assetmgr.allowed_corporation_ids', []), true), 403);
 
         $state = DB::table('assetmgr_sync_state')
             ->where('owner_kind', 'corporation')
