@@ -25,7 +25,6 @@ class WalletJournalRefreshController extends Controller
 
         $eligibleIds = RefreshToken::query()
             ->whereIn('character_id', $characterIds)
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', 'esi-wallet.read_character_wallet.v1')
             ->pluck('character_id')->map(static fn ($id): int => (int) $id)->all();
 
