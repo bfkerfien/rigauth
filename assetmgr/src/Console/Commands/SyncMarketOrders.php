@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Seat\Eveapi\Models\RefreshToken;
-use Triglavian\AssetManager\Jobs\SyncMarketOrders;
+use Triglavian\AssetManager\Jobs\SyncMarketOrders as SyncMarketOrdersJob;
 
 class SyncMarketOrders extends Command
 {
@@ -39,7 +39,7 @@ class SyncMarketOrders extends Command
                         continue;
                     }
 
-                    SyncMarketOrders::dispatch($characterId);
+                    SyncMarketOrdersJob::dispatch($characterId);
                     $queued++;
                 }
             }, 'character_id');
