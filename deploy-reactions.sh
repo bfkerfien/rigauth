@@ -62,11 +62,11 @@ if "seatcore::reactions.index" not in routes:
         raise SystemExit("STOP: Could not uniquely locate the verified Home route include in routes.php; no route edit made.")
     routes = routes.replace(route_anchor, route_anchor + "\n\n        // Triglavian Consortium reaction planner (read-only inventory lookup).\n        Route::get('/reactions', 'ReactionsController@index')->name('seatcore::reactions.index');", 1)
 
-index_route = "Route::get('/reactions', 'ReactionsController@index')->name('seatcore::reactions.index');"
+index_name = "->name('seatcore::reactions.index');"
 if "seatcore::reactions.market" not in routes:
-    if routes.count(index_route) != 1:
+    if routes.count(index_name) != 1:
         raise SystemExit("STOP: Could not uniquely locate the reaction route to add the market proxy.")
-    routes = routes.replace(index_route, index_route + "\n        Route::get('/reactions/market', 'ReactionsController@market')->name('seatcore::reactions.market');", 1)
+    routes = routes.replace(index_name, index_name + "\n        Route::get('/reactions/market', 'ReactionsController@market')->name('seatcore::reactions.market');", 1)
 
 market_route = "Route::get('/reactions/market', 'ReactionsController@market')->name('seatcore::reactions.market');"
 if "seatcore::reactions.recipe" not in routes:
