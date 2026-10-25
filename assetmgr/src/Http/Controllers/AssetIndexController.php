@@ -69,6 +69,7 @@ class AssetIndexController extends Controller
             'valuationHistory' => $valuationHistory,
             'search' => (string) $filters['q'],
             'characterId' => $filters['character_id'],
+            'parentItemId' => $filters['parent_item_id'],
             'sort' => $filters['sort'],
             'direction' => $filters['direction'],
         ]);
