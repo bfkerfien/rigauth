@@ -44,7 +44,7 @@ class AssetQuery
             ->whereIn('assets.owner_id', $characterIds)
             ->select([
                 'assets.owner_kind', 'assets.owner_id', 'assets.character_id',
-                'assets.character_name', 'assets.corporation_id', 'assets.corporation_name', 'assets.item_id',
+                'assets.character_name', 'assets.corporation_id', 'assets.corporation_name', 'assets.item_id', 'assets.parent_item_id',
                 'assets.type_id', 'assets.type_name', 'assets.quantity',
                 'assets.location_id', 'assets.location_name', 'assets.location_flag',
                 'assets.location_type', 'assets.regional_region_id', 'assets.last_seen_at',
@@ -134,7 +134,7 @@ class AssetQuery
             ->select([
                 'assets.owner_kind', 'assets.owner_id', 'assets.character_id',
                 'assets.character_name', 'assets.corporation_id', 'assets.corporation_name',
-                'assets.item_id', 'assets.type_id', 'assets.type_name', 'assets.quantity',
+                'assets.item_id', 'assets.parent_item_id', 'assets.type_id', 'assets.type_name', 'assets.quantity',
                 'assets.location_id', 'assets.location_name', 'assets.location_flag',
                 'assets.location_type', 'assets.regional_region_id', 'assets.last_seen_at',
                 'jita_prices.unit_price as jita_unit_price',
