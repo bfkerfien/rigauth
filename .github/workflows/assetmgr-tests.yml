@@ -28,6 +28,8 @@ jobs:
           tools: composer:v2
       - name: Validate package metadata
         run: composer validate --no-check-publish
+      - name: Check PHP syntax before dependency installation
+        run: find src database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       # SeAT 5 currently pins Laravel 10; Composer's newer advisory blocker rejects that framework.
       # This override exists only in the ephemeral CI runner so compatibility tests can run.
       # Never copy this setting into a production SeAT Composer configuration.
