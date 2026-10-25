@@ -16,7 +16,7 @@
                 @if (config('assetmgr.sync.enabled', false))
                     <form method="post" action="{{ route('assetmgr.wallet-journal.refresh') }}" style="margin-bottom: 15px;">
                         @csrf
-                        <button type="submit" class="btn btn-primary">Refresh my linked wallet journals</button>
+                        <button type="submit" class="btn btn-primary">Refresh my linked wallet data</button>
                     </form>
                 @endif
 
