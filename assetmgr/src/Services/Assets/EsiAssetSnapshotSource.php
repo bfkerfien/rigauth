@@ -26,7 +26,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
             throw new RuntimeException('SeAT did not provide an access token for asset sync.');
         }
 
-        $baseUrl = rtrim((string) config('assetmgr.esi.base_url', 'https://esi.evetech.net/latest'), '/');
+        $baseUrl = rtrim((string) config('assetmgr.esi.base_url', 'https://esi.evetech.net'), '/');
         $path = $ownerKind === 'character'
             ? '/characters/' . $ownerId . '/assets/'
             : '/corporations/' . $ownerId . '/assets/';
@@ -34,6 +34,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
         $headers = [
             'Accept' => 'application/json',
             'User-Agent' => (string) config('assetmgr.esi.user_agent', 'Triglavian-Asset-Manager'),
+            'X-Compatibility-Date' => (string) config('assetmgr.esi.compatibility_date', '2026-08-18'),
         ];
 
         $rowsByItemId = [];
