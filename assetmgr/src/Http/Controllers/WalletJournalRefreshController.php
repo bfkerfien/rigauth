@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Seat\Eveapi\Models\RefreshToken;
 use RuntimeException;
 use Triglavian\AssetManager\Jobs\SyncWalletJournal;
+use Triglavian\AssetManager\Jobs\SyncWalletTransaction;
 use Triglavian\AssetManager\Services\Assets\CharacterPortfolioResolver;
 
 class WalletJournalRefreshController extends Controller
@@ -32,27 +33,33 @@ class WalletJournalRefreshController extends Controller
         $skipped = 0;
         foreach ($characterIds as $characterId) {
             if (! in_array((int) $characterId, $eligibleIds, true)) {
-                $skipped++;
-                continue;
-            }
-            $state = DB::table('assetmgr_sync_state')
-                ->where('owner_kind', 'character')
-                ->where('owner_id', $characterId)
-                ->where('dataset', 'wallet_journal')
-                ->first();
-
-            if ($state?->next_eligible_at && Carbon::parse($state->next_eligible_at)->isFuture()) {
-                $skipped++;
+                $skipped += 2;
                 continue;
             }
 
-            SyncWalletJournal::dispatch((int) $characterId);
-            $queued++;
+            foreach ([
+                'wallet_journal' => SyncWalletJournal::class,
+                'wallet_transactions' => SyncWalletTransaction::class,
+            ] as $dataset => $jobClass) {
+                $state = DB::table('assetmgr_sync_state')
+                    ->where('owner_kind', 'character')
+                    ->where('owner_id', $characterId)
+                    ->where('dataset', $dataset)
+                    ->first();
+
+                if ($state?->next_eligible_at && Carbon::parse($state->next_eligible_at)->isFuture()) {
+                    $skipped++;
+                    continue;
+                }
+
+                $jobClass::dispatch((int) $characterId);
+                $queued++;
+            }
         }
 
         return redirect()->route('assetmgr.wallet-journal')->with(
             'status',
-            sprintf('Queued %d linked character wallet-journal sync(s); skipped %d without wallet scope or still inside ESI cache cooldown.', $queued, $skipped)
+            sprintf('Queued %d wallet data sync(s); skipped %d without wallet scope or still inside ESI cache cooldown.', $queued, $skipped)
         );
     }
 }
