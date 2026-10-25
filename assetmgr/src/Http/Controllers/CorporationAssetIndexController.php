@@ -58,8 +58,7 @@ class CorporationAssetIndexController extends Controller
             'sort' => $filters['sort'],
             'direction' => $filters['direction'],
             'corporationId' => $corporationId,
-            'corporationName' => \Seat\Eveapi\Models\Corporation\CorporationInfo::query()
-                ->where('corporation_id', $corporationId)->value('name') ?? ('Corporation ' . $corporationId),
+            'corporationName' => $corporation->name ?? ('Corporation ' . $corporationId),
         ]);
     }
 }
