@@ -8,7 +8,10 @@ use RuntimeException;
 
 class EsiAssetSnapshotSource implements AssetSnapshotSource
 {
-    public function __construct(private readonly AssetAccessTokenProvider $tokens)
+    public function __construct(
+        private readonly AssetAccessTokenProvider $tokens,
+        private readonly AssetMetadataResolver $metadata,
+    )
     {
     }
 
@@ -75,6 +78,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
                     'type_id' => (int) $row['type_id'],
                     'location_id' => (int) $row['location_id'],
                     'location_flag' => $row['location_flag'] ?? null,
+                    'location_type' => $row['location_type'] ?? null,
                     'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
                     'parent_item_id' => ($row['location_type'] ?? null) === 'item' ? (int) $row['location_id'] : null,
                     'character_id' => $ownerKind === 'character' ? $ownerId : null,
@@ -92,7 +96,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
         return new CompleteAssetSnapshot(
             ownerKind: $ownerKind,
             ownerId: $ownerId,
-            rows: array_values($rowsByItemId),
+            rows: $this->metadata->resolve($ownerKind, $ownerId, array_values($rowsByItemId)),
             pagesReceived: $pageCount ?? 1,
             fetchedAt: now()->toIso8601String(),
             allPagesFetched: true,
