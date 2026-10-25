@@ -18,10 +18,14 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
 
         if ($ownerKind === 'character') {
             $requiredScope ??= 'esi-assets.read_assets.v1';
-            $tokenRecord = RefreshToken::query()->where('character_id', $ownerId)->first();
+            $tokenRecord = RefreshToken::query()
+                ->where('character_id', $ownerId)
+                ->whereJsonContains('scopes', $requiredScope)
+                ->orderByDesc('expires_on')
+                ->first();
 
             if ($tokenRecord === null) {
-                throw new RuntimeException('No active SeAT refresh-token record exists for this character.');
+                throw new RuntimeException('No SeAT token has the requested scope for this character.');
             }
             if (! $tokenRecord->hasScope($requiredScope)) {
                 throw new RuntimeException('This character has not granted the requested ESI scope.');
@@ -39,7 +43,7 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
             ->get();
 
         if ($tokens->isEmpty()) {
-            throw new RuntimeException('No active SeAT token has the requested corporation scope.');
+            throw new RuntimeException('No SeAT token has the requested corporation scope.');
         }
 
         $directorIds = CharacterRole::query()
@@ -63,7 +67,7 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
             ->first();
 
         if ($tokenRecord === null || ! $tokenRecord->hasScope($requiredScope)) {
-            throw new RuntimeException('No active corporation-role token is authorized for this corporation.');
+            throw new RuntimeException('No corporation-role token is authorized for this corporation.');
         }
 
         return $this->currentAccessToken($tokenRecord);
