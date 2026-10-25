@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('character_id')->nullable()->index();
             $table->string('character_name')->nullable()->index();
             $table->unsignedBigInteger('corporation_id')->nullable()->index();
+            $table->string('corporation_name')->nullable()->index();
             $table->unsignedBigInteger('item_id')->index();
             $table->unsignedBigInteger('type_id')->index();
             $table->string('type_name')->index();
