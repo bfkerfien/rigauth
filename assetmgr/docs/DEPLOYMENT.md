@@ -57,6 +57,7 @@ Only after the test deployment passes should these be enabled in a controlled ro
 - php artisan assetmgr:sync-market-orders (for active character market orders with the required market-order scope)
 - php artisan assetmgr:sync-corporation-market-orders (requires corporation sync enabled, an explicit corporation allowlist, and a Director token)
 - php artisan assetmgr:sync-corporation-wallet-journals (syncs corporation wallet divisions 1–7; requires the corporation wallet scope and a separately permissioned viewer role)
+- php artisan assetmgr:sync-contracts (for personal contracts; each character must grant esi-contracts.read_character_contracts.v1)
 - php artisan assetmgr:capture-valuations (stores hourly valuation snapshots)
 
 Schedule these using the installed SeAT scheduler only after checking the ESI cache expiry behavior and queue capacity. Do not poll ESI from page requests.
