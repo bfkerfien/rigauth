@@ -10,6 +10,34 @@ use Illuminate\View\View;
 
 class ReactionsController extends Controller
 {
+    public function market(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $names = collect(explode(',', (string) $request->query('names', '')))
+            ->map(fn ($name) => trim($name))->filter()->unique()->take(100)->values();
+        if ($names->isEmpty()) {
+            return response()->json(['error' => 'Provide at least one item name.'], 400);
+        }
+        $baseUrl = rtrim((string) config('services.gas_calculator.url', env('GAS_CALCULATOR_URL', 'https://gas.triglavianconsortium.com')), '/');
+        $response = Http::acceptJson()->timeout(45)->retry(2, 300)
+            ->get($baseUrl . '/api/market', ['names' => $names->implode(',')]);
+        return response()->json($response->json(), $response->status());
+    }
+
+    public function recipe(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $product = trim((string) $request->query('product', ''));
+        $activity = (int) $request->query('activity', 1);
+        if ($product === '' || !in_array($activity, [1, 11], true)) {
+            return response()->json(['error' => 'Provide a product and activity 1 or 11.'], 400);
+        }
+        $baseUrl = rtrim((string) config('services.gas_calculator.url', env('GAS_CALCULATOR_URL', 'https://gas.triglavianconsortium.com')), '/');
+        $response = Http::acceptJson()->timeout(30)->retry(2, 300)
+            ->get($baseUrl . '/api/recipe', ['product' => $product, 'activity' => $activity]);
+        return response()->json($response->json(), $response->status());
+    }
+
     public function index(Request $request): View
     {
         abort_unless(auth()->check(), 401);
@@ -82,6 +110,8 @@ class ReactionsController extends Controller
 
             return [
                 'product' => (string) ($recipe['product'] ?? collect($recipe['products'] ?? [])->first()['name'] ?? 'Unknown product'),
+                'category' => (string) ($recipe['category'] ?? 'gas'),
+                'type_id' => (int) ($recipe['typeId'] ?? 0),
                 'group' => (string) ($recipe['formulaGroup'] ?? $recipe['formulaName'] ?? $recipe['category'] ?? ''),
                 'materials' => $materials->all(),
                 'products' => collect($recipe['products'] ?? [])->map(fn ($product) => [
