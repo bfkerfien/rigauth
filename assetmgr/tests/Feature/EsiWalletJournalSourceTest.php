@@ -48,7 +48,7 @@ class EsiWalletJournalSourceTest extends TestCase
             ->with('character', 123, 'esi-wallet.read_character_wallet.v1')
             ->willReturn('test-access-token');
 
-        $snapshot = (new EsiWalletJournalSource($tokens))->fetchComplete(123);
+        $snapshot = (new EsiWalletJournalSource($tokens))->fetchSince(123, null);
 
         self::assertCount(2, $snapshot->rows);
         self::assertSame('Wallet Owner', $snapshot->rows[0]['character_name']);
