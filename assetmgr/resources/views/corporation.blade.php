@@ -41,6 +41,10 @@
                         <input id="assetmgr-corp-q" class="form-control" name="q" value="{{ $search }}" placeholder="Search item or location">
                     </div>
                     <div class="form-group" style="margin-right: 8px;">
+                        <label class="sr-only" for="assetmgr-corp-parent-item">Container or ship item ID</label>
+                        <input id="assetmgr-corp-parent-item" class="form-control" name="parent_item_id" type="number" min="1" value="{{ $parentItemId }}" placeholder="Parent item ID">
+                    </div>
+                    <div class="form-group" style="margin-right: 8px;">
                         <label class="sr-only" for="assetmgr-corp-sort">Sort</label>
                         <select id="assetmgr-corp-sort" class="form-control" name="sort">
                             @foreach (['item' => 'Item', 'quantity' => 'Quantity', 'location' => 'Location', 'jita' => 'Jita sell price', 'regional' => 'Regional sell price', 'last_seen' => 'Last synced'] as $key => $label)
@@ -65,7 +69,7 @@
                         <tbody>
                         @forelse ($assets as $asset)
                             <tr>
-                                <td>{{ $asset->type_name }}</td>
+                                <td>{{ $asset->type_name }} <small class="text-muted">ID {{ $asset->item_id }}</small></td>
                                 <td>{{ number_format($asset->quantity) }}</td>
                                 <td>{{ $asset->corporation_name ?? $corporationName }}</td>
                                 <td>{{ $asset->location_name ?? $asset->location_id }}</td>
