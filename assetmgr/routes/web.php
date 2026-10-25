@@ -9,5 +9,6 @@ Route::middleware(['web', 'auth'])
     ->name('assetmgr.')
     ->group(function (): void {
         Route::get('/export.csv', AssetExportController::class)->name('export');
+        Route::get('/corporations', CorporationAssetIndexController::class)->name('corporation.index');
         Route::get('/', AssetIndexController::class)->name('index');
     });
