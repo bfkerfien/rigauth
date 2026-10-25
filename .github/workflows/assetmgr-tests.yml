@@ -1,0 +1,38 @@
+name: Asset Manager package tests
+
+on:
+  push:
+    branches:
+      - feature/assetmgr-foundation
+    paths:
+      - "assetmgr/**"
+      - ".github/workflows/assetmgr-tests.yml"
+  pull_request:
+    paths:
+      - "assetmgr/**"
+      - ".github/workflows/assetmgr-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  php-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: assetmgr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+      - name: Validate package metadata
+        run: composer validate --no-check-publish
+      - name: Check PHP syntax before dependency installation
+        run: find src database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      # SeAT 5 currently pins Laravel 10; the test runner bypasses Composer's advisory blocking
+      # only for this isolated compatibility run. Never use --no-blocking for production installs.
+      - name: Install package dependencies for SeAT 5 compatibility tests
+        run: composer install --no-interaction --prefer-dist --no-blocking
+      - name: Run unit tests
+        run: composer test
