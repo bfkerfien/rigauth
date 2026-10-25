@@ -79,8 +79,9 @@ class SyncWalletTransaction implements ShouldQueue
                 throw new RuntimeException('Wallet transaction source returned a snapshot for a different character.');
             }
 
-            $nextEligibleAt = $snapshot->sourceExpiresAt
-                ? Carbon::parse($snapshot->sourceExpiresAt)->addSeconds(5)
+            $expiry = $snapshot->sourceExpiresAt ? Carbon::parse($snapshot->sourceExpiresAt) : null;
+            $nextEligibleAt = $expiry && $expiry->isFuture()
+                ? $expiry->addSeconds(5)
                 : now()->addSeconds((int) config('assetmgr.sync.minimum_interval_seconds', 900));
 
             DB::transaction(function () use ($snapshot, $nextEligibleAt): void {
