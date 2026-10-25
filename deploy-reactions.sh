@@ -4,7 +4,6 @@ set -Eeuo pipefail
 REPO="/opt/rigauth"
 SEAT_DIR="/opt/seat-docker"
 WEB="$SEAT_DIR/packages/eveseat/web"
-PATCH="$REPO/patches/0005-reaction-planner.patch"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-reactions-backup-$STAMP"
 SUCCESS=0
@@ -31,7 +30,7 @@ if [[ -n "$(git status --porcelain)" ]]; then echo "STOP: Local Git changes exis
 git fetch origin
 [[ "$(git branch --show-current)" == "market/seat-integration" ]] || git switch market/seat-integration
 git pull --ff-only origin market/seat-integration
-for f in "$PATCH" "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php"; do
+for f in "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php"; do
   [[ -f "$f" ]] || { echo "STOP: Required source file missing: $f"; exit 1; }
 done
 [[ -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || { echo "STOP: SeAT web source files not found."; exit 1; }
@@ -47,14 +46,46 @@ for rel in "${FILES[@]}"; do
 done
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
-if sudo git -C "$WEB" apply --recount --reverse --check "$PATCH" >/dev/null 2>&1; then
- echo "Reaction route/sidebar patch already applied."
-elif sudo git -C "$WEB" apply --recount --check "$PATCH"; then
- sudo git -C "$WEB" apply --recount "$PATCH"
-else
- echo "STOP: Reaction patch does not apply cleanly; restoring without making deployment changes."
- exit 1
-fi
+
+# Patch against stable, verified route/sidebar anchors instead of brittle line-number hunks.
+sudo python3 - "$WEB/src/Http/routes.php" "$WEB/src/resources/views/includes/sidebar.blade.php" <<'PY'
+from pathlib import Path
+import sys
+
+routes_path, sidebar_path = map(Path, sys.argv[1:])
+routes = routes_path.read_text()
+sidebar = sidebar_path.read_text()
+
+route_line = "Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');"
+route_addition = (
+    "// Triglavian Consortium reaction planner (read-only inventory lookup).\n"
+    "        Route::get('/reactions', 'ReactionsController@index')\n"
+    "            ->name('seatcore::reactions.index');\n\n        "
+)
+if "seatcore::reactions.index" not in routes:
+    if routes.count(route_line) != 1:
+        raise SystemExit("STOP: Could not uniquely locate the existing Fittings route in routes.php; no route edit made.")
+    routes = routes.replace(route_line, route_addition + route_line, 1)
+
+sidebar_anchor = "        @can('global.superuser')"
+sidebar_addition = (
+    "        <li class=\"nav-item\">\n"
+    "          <a href=\"{{ route('seatcore::reactions.index') }}\" class=\"nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}\">\n"
+    "            <i class=\"nav-icon fas fa-flask\"></i>\n"
+    "            <p>Reactions</p>\n"
+    "          </a>\n"
+    "        </li>\n"
+)
+if "route('seatcore::reactions.index')" not in sidebar:
+    if sidebar.count(sidebar_anchor) != 1:
+        raise SystemExit("STOP: Could not uniquely locate the sidebar admin boundary; no sidebar edit made.")
+    sidebar = sidebar.replace(sidebar_anchor, sidebar_addition + sidebar_anchor, 1)
+
+routes_path.write_text(routes)
+sidebar_path.write_text(sidebar)
+print("Reaction route and sidebar link inserted (or already present).")
+PY
+
 sudo install -D -m 0644 "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$WEB/src/Http/Controllers/ReactionsController.php"
 sudo install -D -m 0644 "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php" "$WEB/src/resources/views/reactions/index.blade.php"
 echo "Clearing Laravel caches..."
