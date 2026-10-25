@@ -92,7 +92,7 @@ async function syncCharacter(db, o, token) {
 }
 async function syncCorporation(db, o, token) {
   const id = await ownerId(db, o);
-  const div = Math.min(7,Math.max(1,Number(process.env.FIN_CORP_WALLET_DIVISION || 1)));
+  const div = Math.min(7,Math.max(1,Number(process.env.FIN_CORP_WALLET_DIVISION || 3)));
   const [balance, journal, assets] = await Promise.all([
     esi('/corporations/' + o.eveId + '/wallets/' + div + '/',token),
     pages('/corporations/' + o.eveId + '/wallets/' + div + '/journal/',token),
