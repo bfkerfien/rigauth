@@ -14,13 +14,13 @@ class SyncCorporationMarketOrders extends Command
 
     public function handle(): int
     {
-        if (! config('assetmgr.enabled', false) || ! config('assetmgr.sync.enabled', false)) {
+        if (! config('assetmgr.enabled', false) || ! config('assetmgr.sync.enabled', false) || ! config('assetmgr.corporation_sync_enabled', false)) {
             $this->error('Asset Manager or synchronization is disabled in configuration.');
             return self::FAILURE;
         }
 
         $corporationIds = array_values(array_unique(array_filter(
-            array_map('intval', (array) config('assetmgr.sync.corporation_ids', [])),
+            array_map('intval', (array) config('assetmgr.allowed_corporation_ids', [])),
             static fn (int $id): bool => $id > 0
         )));
         if ($corporationIds === []) {
