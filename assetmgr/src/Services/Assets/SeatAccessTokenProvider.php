@@ -23,7 +23,7 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
                 throw new RuntimeException('No active SeAT refresh-token record exists for this character.');
             }
             if (! $tokenRecord->hasScope($requiredScope)) {
-                throw new RuntimeException('This character has not granted the ESI asset-read scope.');
+                throw new RuntimeException('This character has not granted the requested ESI scope.');
             }
 
             return $this->currentAccessToken($tokenRecord);
