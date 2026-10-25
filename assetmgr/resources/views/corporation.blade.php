@@ -58,6 +58,9 @@
                     </select>
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation.export', array_merge(request()->query(), ['corporation_id' => $corporationId])) }}">Export CSV</a>
+                    @if ($canViewCorporationMarketOrders)
+                        <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-market-orders', ['corporationId' => $corporationId]) }}">Corporation Market Orders</a>
+                    @endif
                 </form>
 
                 <div class="table-responsive">
