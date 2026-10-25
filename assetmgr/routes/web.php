@@ -17,6 +17,9 @@ use Triglavian\AssetManager\Http\Controllers\MarketOrdersRefreshController;
 use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersController;
 use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersExportController;
 use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersRefreshController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersExportController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersRefreshController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('assetmgr')
@@ -32,6 +35,9 @@ Route::middleware(['web', 'auth'])
         Route::get('/wallet-transactions', WalletTransactionsController::class)->name('wallet-transactions');
         Route::get('/wallet-journal', WalletJournalController::class)->name('wallet-journal');
         Route::get('/export.csv', AssetExportController::class)->name('export');
+        Route::post('/corporations/{corporationId}/market-orders/refresh', CorporationMarketOrdersRefreshController::class)->middleware('throttle:5,1')->name('corporation-market-orders.refresh');
+        Route::get('/corporations/{corporationId}/market-orders/export.csv', CorporationMarketOrdersExportController::class)->name('corporation-market-orders.export');
+        Route::get('/corporations/{corporationId}/market-orders', CorporationMarketOrdersController::class)->name('corporation-market-orders');
         Route::get('/corporations/export.csv', CorporationAssetExportController::class)->name('corporation.export');
         Route::get('/corporations', CorporationAssetIndexController::class)->name('corporation.index');
         Route::get('/', AssetIndexController::class)->name('index');
