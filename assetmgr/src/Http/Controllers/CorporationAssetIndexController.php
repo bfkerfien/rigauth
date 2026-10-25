@@ -60,6 +60,7 @@ class CorporationAssetIndexController extends Controller
             'corporationId' => $corporationId,
             'corporationName' => $corporation->name ?? ('Corporation ' . $corporationId),
             'canViewCorporationMarketOrders' => Gate::allows('corporation.assetmgr_market_orders_view', $corporation),
+            'canViewCorporationWalletJournal' => Gate::allows('corporation.assetmgr_wallet_journal_view', $corporation),
         ]);
     }
 }
