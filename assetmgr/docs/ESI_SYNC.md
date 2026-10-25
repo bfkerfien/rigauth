@@ -1,11 +1,17 @@
 # ESI asset sync contract
 
-The first ESI source adapter now fetches every page from the character or corporation assets endpoint, validates required item/type/location IDs, checks that the reported page count stays stable, and rejects a response whose reported cache expiry has elapsed during the fetch. It does not store access tokens.
+The ESI source adapter fetches every page from the character or corporation asset endpoint, validates required item/type/location IDs, checks that the reported page count stays stable, and rejects a response whose reported cache expiry has elapsed during the fetch. It does not store access tokens.
 
-## Still required before the job can run
+## SeAT integration
 
-- Implement `AssetAccessTokenProvider` using the installed SeAT version's token retrieval/refresh services. Do not implement a second token store.
-- Ensure personal-character sync is dispatched only for characters related to the current SeAT user, and corporation sync only after explicit SeAT permission checks.
+- Personal character IDs resolve through SeAT 5's `associatedCharacterIds()` relationship method; names are never used as an ownership key.
+- Character access tokens are read from SeAT's existing `RefreshToken` model and are never copied into asset-manager tables.
+- Expired tokens fail closed; SeAT remains responsible for token refresh.
+- Corporation asset token resolution remains intentionally disabled until it can select a token with the required corporation asset scope and verify the character's corporation role.
+
+## Still required before production
+
+- Verify these model methods against the exact deployed SeAT 5 image and add integration tests.
 - Add ESI compatibility-date and response ETag/conditional requests as appropriate for the current ESI requirements.
 - Map item type IDs and location IDs to names through SeAT's existing SDE/universe tables.
 - Add endpoint-specific rate/error-limit handling and avoid retrying before ESI cache expiry where applicable.
