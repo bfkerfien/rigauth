@@ -45,7 +45,7 @@ class CorporationWalletJournalController extends Controller
         $syncStates = DB::table('assetmgr_sync_state')
             ->where('owner_kind', 'corporation')
             ->where('owner_id', $corporationId)
-            ->where('dataset', 'like', 'corp_wallet_journal_%')
+            ->whereIn('dataset', array_map(static fn (int $division): string => 'corp_wallet_journal_' . $division, range(1, 7)))
             ->orderBy('dataset')
             ->get();
 
@@ -55,6 +55,7 @@ class CorporationWalletJournalController extends Controller
             'division' => $division,
             'corporationId' => $corporationId,
             'corporationName' => $corporation->name ?? ('Corporation ' . $corporationId),
+            'canViewCorporationMarketOrders' => Gate::allows('corporation.assetmgr_market_orders_view', $corporation),
             'syncStates' => $syncStates,
         ]);
     }
