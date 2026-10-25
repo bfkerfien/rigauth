@@ -14,6 +14,8 @@ Early development branch: `feature/assetmgr-foundation`. **Do not deploy or enab
 - Search, sort and pagination operate on the local database.
 - Queue job contract with per-owner overlap protection, retry/backoff, sync status and ESI cache cooldown.
 - ESI page fetcher checks page counts and cache expiry, deduplicates repeated item IDs and validates required identifiers.
+- Type names and known station/system/structure names and region IDs resolve through SeAT's SDE/universe models.
+- Background price jobs cache best buy and best sell orders for Jita and the inventory's local regions; browsing reads that cache and flags stale prices.
 - Snapshot reconciliation stages and upserts a complete snapshot transactionally; failed or incomplete fetches retain the previous good inventory.
 - PHPUnit unit tests and a GitHub Actions workflow are included.
 
