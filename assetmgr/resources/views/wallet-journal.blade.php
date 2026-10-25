@@ -42,6 +42,7 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.wallet-journal.export', request()->query()) }}">Export CSV</a>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.wallet-transactions') }}">Wallet Transactions</a>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.index') }}">Back to assets</a>
                 </form>
 
