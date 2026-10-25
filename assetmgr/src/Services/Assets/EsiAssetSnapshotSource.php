@@ -33,7 +33,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
             'User-Agent' => (string) config('assetmgr.esi.user_agent', 'Triglavian-Asset-Manager'),
         ];
 
-        $rows = [];
+        $rowsByItemId = [];
         $pageCount = null;
         $expiresAt = null;
 
@@ -70,7 +70,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
                 if (! is_array($row) || ! isset($row['item_id'], $row['type_id'], $row['location_id'])) {
                     throw new RuntimeException('ESI returned an asset without required identifiers.');
                 }
-                $rows[] = [
+                $rowsByItemId[(string) $row['item_id']] = [
                     'item_id' => (int) $row['item_id'],
                     'type_id' => (int) $row['type_id'],
                     'location_id' => (int) $row['location_id'],
@@ -92,10 +92,11 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
         return new CompleteAssetSnapshot(
             ownerKind: $ownerKind,
             ownerId: $ownerId,
-            rows: $rows,
+            rows: array_values($rowsByItemId),
             pagesReceived: $pageCount ?? 1,
             fetchedAt: now()->toIso8601String(),
             allPagesFetched: true,
+            sourceExpiresAt: $expiresAt?->toIso8601String(),
         );
     }
 }
