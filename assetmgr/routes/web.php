@@ -14,6 +14,9 @@ use Triglavian\AssetManager\Http\Controllers\WalletTransactionsExportController;
 use Triglavian\AssetManager\Http\Controllers\MarketOrdersController;
 use Triglavian\AssetManager\Http\Controllers\MarketOrdersExportController;
 use Triglavian\AssetManager\Http\Controllers\MarketOrdersRefreshController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersExportController;
+use Triglavian\AssetManager\Http\Controllers\CorporationMarketOrdersRefreshController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('assetmgr')
