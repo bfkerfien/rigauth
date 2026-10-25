@@ -68,6 +68,13 @@ class PotchvenFinancesController extends Controller
                 'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
             )->join('fin_owners as o', 'o.id', '=', 's.owner_id')->where('o.owner_type', 'corporation')->sum('s.balance_isk');
         }
+        // The sync worker stores corporation wallet division 2 separately because the
+        // legacy wallet-snapshot table does not identify which division each balance belongs to.
+        $srpWallet = 0;
+        if ($has('fin_app_settings')) {
+            $srpWallet = (float) ($db->table('fin_app_settings')
+                ->where('setting_key', 'srp_wallet_balance_isk')->value('setting_value') ?? 0);
+        }
         $entries = ($has('fin_wallet_entries') && $has('fin_owners'))
             ? $db->table('fin_wallet_entries as e')->join('fin_owners as o', 'o.id', '=', 'e.owner_id')->orderByDesc('e.occurred_at')->limit(30)
                 ->get(['e.occurred_at', 'o.display_name', 'e.amount_isk', 'e.reference_type', 'e.description', 'e.is_operational_expense'])
@@ -89,7 +96,7 @@ class PotchvenFinancesController extends Controller
 
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
-            'corpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart'
+            'corpWallet', 'srpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart'
         ));
     }
 
