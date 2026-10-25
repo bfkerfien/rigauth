@@ -14,7 +14,8 @@
     ['Estimated profit this period', number_format($siteRevenue - $expenses, 0).' ISK'],
     ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK'],
     ['Estimated assets', number_format($assetValue, 0).' ISK'],
-    ['Corporation wallet', number_format($corpWallet, 0).' ISK'],
+    ['Corp Main Wallet (Division 1)', number_format($corpWallet, 0).' ISK'],
+    ['SRP Wallet (Division 2)', number_format($srpWallet, 0).' ISK'],
     ['180-day counter', number_format($monthlyCountdown).' days remaining'],
   ] as $metric)
     <div class="col-md-4 col-sm-6"><div class="small-box bg-info"><div class="inner"><h4>{{ $metric[1] }}</h4><p>{{ $metric[0] }}</p></div></div></div>
