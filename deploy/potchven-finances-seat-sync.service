@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh Potchven finance data in SeAT
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -n /run/lock/potchven-finances-seat-sync.lock /usr/bin/bash /opt/rigauth/run-finances-seat-sync.sh
