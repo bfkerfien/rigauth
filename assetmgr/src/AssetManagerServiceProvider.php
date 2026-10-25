@@ -51,7 +51,7 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
         RateLimiter::for('assetmgr-esi', static fn () => Limit::perMinute((int) config('assetmgr.sync.requests_per_minute', 30)));
 
         if ($this->app->runningInConsole()) {
-            $this->commands([SyncCharacters::class, SyncPrices::class]);
+            $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class]);
         }
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
