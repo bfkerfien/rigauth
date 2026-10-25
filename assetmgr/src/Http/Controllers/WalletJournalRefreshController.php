@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Seat\Eveapi\Models\RefreshToken;
 use RuntimeException;
 use Triglavian\AssetManager\Jobs\SyncWalletJournal;
 use Triglavian\AssetManager\Services\Assets\CharacterPortfolioResolver;
