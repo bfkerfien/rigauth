@@ -5,6 +5,7 @@ namespace Triglavian\AssetManager\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
+use Seat\Eveapi\Models\Corporation\CorporationInfo;
 use Triglavian\AssetManager\Services\Assets\AssetQuery;
 
 class CorporationAssetExportController extends Controller
@@ -16,7 +17,9 @@ class CorporationAssetExportController extends Controller
         $corporationId = $request->integer('corporation_id');
         $allowedCorporations = config('assetmgr.allowed_corporation_ids', []);
         abort_unless($corporationId > 0 && in_array($corporationId, $allowedCorporations, true), 404);
-        Gate::authorize('corporation.assetmgr_view', $corporationId);
+        $corporation = CorporationInfo::query()->where('corporation_id', $corporationId)->first();
+        abort_unless($corporation !== null, 404);
+        Gate::authorize('corporation.assetmgr_view', $corporation);
 
         $filters = [
             'q' => $request->query('q', ''),
