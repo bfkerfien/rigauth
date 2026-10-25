@@ -57,6 +57,9 @@ class RefreshMarketPrice implements ShouldQueue
 
         try {
             $snapshot = $source->fetch($this->regionId, $this->typeId);
+            $cacheExpiry = $snapshot->sourceExpiresAt ?? now()->addSeconds(
+                (int) config('assetmgr.pricing.stale_after_seconds', 3600)
+            )->toIso8601String();
             foreach (['buy' => $snapshot->bestBuy, 'sell' => $snapshot->bestSell] as $basis => $value) {
                 $prices->store([
                     'type_id' => $snapshot->typeId,
@@ -64,7 +67,7 @@ class RefreshMarketPrice implements ShouldQueue
                     'source' => 'esi-orders',
                     'price_basis' => $basis,
                     'unit_price' => $value,
-                    'source_expires_at' => $snapshot->sourceExpiresAt,
+                    'source_expires_at' => $cacheExpiry,
                     'fetched_at' => $snapshot->fetchedAt,
                 ]);
             }
