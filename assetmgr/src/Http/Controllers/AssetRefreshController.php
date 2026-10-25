@@ -22,9 +22,19 @@ class AssetRefreshController extends Controller
             abort(503, 'Asset Manager is not yet connected to SeAT character ownership.');
         }
 
+        $eligibleIds = RefreshToken::query()
+            ->whereIn('character_id', $characterIds)
+            ->where('expires_on', '>', now())
+            ->whereJsonContains('scopes', 'esi-assets.read_assets.v1')
+            ->pluck('character_id')->map(static fn ($id): int => (int) $id)->all();
+
         $queued = 0;
         $skipped = 0;
         foreach ($characterIds as $characterId) {
+            if (! in_array((int) $characterId, $eligibleIds, true)) {
+                $skipped++;
+                continue;
+            }
             $state = DB::table('assetmgr_sync_state')
                 ->where('owner_kind', 'character')
                 ->where('owner_id', $characterId)
@@ -42,7 +52,7 @@ class AssetRefreshController extends Controller
 
         return redirect()->route('assetmgr.index')->with(
             'status',
-            sprintf('Queued %d linked character sync(s); skipped %d still inside ESI cache cooldown.', $queued, $skipped)
+            sprintf('Queued %d linked character sync(s); skipped %d without scope or still inside ESI cache cooldown.', $queued, $skipped)
         );
     }
 }
