@@ -18,8 +18,13 @@ class CaptureValuations extends Command
         }
 
         $snapshotAt = now()->startOfHour();
+        $syncedOwners = DB::table('assetmgr_sync_state')
+            ->where('dataset', 'assets')
+            ->where('status', 'success')
+            ->select(['owner_kind', 'owner_id']);
         $owners = DB::table('assetmgr_assets')
             ->select(['owner_kind', 'owner_id'])
+            ->union($syncedOwners)
             ->distinct()
             ->orderBy('owner_kind')
             ->orderBy('owner_id')
