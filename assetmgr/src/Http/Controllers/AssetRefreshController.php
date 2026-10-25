@@ -25,7 +25,6 @@ class AssetRefreshController extends Controller
 
         $eligibleIds = RefreshToken::query()
             ->whereIn('character_id', $characterIds)
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', 'esi-assets.read_assets.v1')
             ->pluck('character_id')->map(static fn ($id): int => (int) $id)->all();
 
