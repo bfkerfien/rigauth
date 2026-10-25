@@ -61,6 +61,9 @@
                     @if ($canViewCorporationMarketOrders)
                         <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-market-orders', ['corporationId' => $corporationId]) }}">Corporation Market Orders</a>
                     @endif
+                    @if ($canViewCorporationWalletJournal)
+                        <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-wallet-journal', ['corporationId' => $corporationId]) }}">Corporation Wallet Journal</a>
+                    @endif
                 </form>
 
                 <div class="table-responsive">
