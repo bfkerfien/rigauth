@@ -4,56 +4,40 @@ namespace Triglavian\AssetManager\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use RuntimeException;
+use Triglavian\AssetManager\Services\Assets\AssetQuery;
+use Triglavian\AssetManager\Services\Assets\CharacterPortfolioResolver;
 
 class AssetIndexController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request, CharacterPortfolioResolver $portfolioResolver, AssetQuery $assetQuery): View
     {
         abort_unless(config('assetmgr.enabled', false), 404);
 
-        /*
-         * This initial query is deliberately local-only. The SeAT user-to-
-         * character mapping and permission scopes must be wired to the actual
-         * installed SeAT models before production use.
-         */
-        $query = DB::table('assetmgr_assets')
-            ->orderBy('character_name')
-            ->orderBy('type_name')
-            ->select([
-                'owner_kind',
-                'owner_id',
-                'character_id',
-                'character_name',
-                'type_id',
-                'type_name',
-                'quantity',
-                'location_id',
-                'location_name',
-                'jita_unit_price',
-                'regional_unit_price',
-                'last_seen_at',
+        try {
+            $characterIds = $portfolioResolver->characterIdsFor($request->user());
+        } catch (RuntimeException $exception) {
+            Log::warning('Asset Manager character portfolio integration is not configured.', [
+                'exception' => get_class($exception),
             ]);
-
-        $characterId = $request->integer('character_id');
-        if ($characterId > 0) {
-            $query->where('character_id', $characterId);
+            abort(503, 'Asset Manager is not yet connected to SeAT character ownership.');
         }
 
-        $search = trim((string) $request->query('q', ''));
-        if ($search !== '') {
-            $query->where(function ($builder) use ($search): void {
-                $builder->where('type_name', 'like', '%' . addcslashes($search, '%_') . '%')
-                    ->orWhere('character_name', 'like', '%' . addcslashes($search, '%_') . '%')
-                    ->orWhere('location_name', 'like', '%' . addcslashes($search, '%_') . '%');
-            });
-        }
+        $filters = [
+            'q' => $request->query('q', ''),
+            'character_id' => $request->integer('character_id') ?: null,
+            'sort' => $request->query('sort', 'character'),
+            'direction' => $request->query('direction', 'asc'),
+        ];
 
         return view('assetmgr::index', [
-            'assets' => $query->paginate(50)->withQueryString(),
-            'search' => $search,
-            'characterId' => $characterId ?: null,
+            'assets' => $assetQuery->personal($characterIds, $filters)->paginate(50)->withQueryString(),
+            'search' => (string) $filters['q'],
+            'characterId' => $filters['character_id'],
+            'sort' => $filters['sort'],
+            'direction' => $filters['direction'],
         ]);
     }
 }
