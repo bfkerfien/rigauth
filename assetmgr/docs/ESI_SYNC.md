@@ -7,7 +7,7 @@ The ESI source adapter fetches every page from the character or corporation asse
 - Personal character IDs resolve through SeAT 5's `associatedCharacterIds()` relationship method; names are never used as an ownership key.
 - Character access tokens are read from SeAT's existing `RefreshToken` model and are never copied into asset-manager tables.
 - Expired tokens fail closed; SeAT remains responsible for token refresh.
-- Corporation asset token resolution remains intentionally disabled until it can select a token with the required corporation asset scope and verify the character's corporation role.
+- Corporation token selection requires both `esi-assets.read_corporation_assets.v1` and a SeAT `CharacterRole` record with `role=Director`, `scope=roles`, plus matching `CharacterAffiliation`.
 
 ## Still required before production
 
