@@ -34,6 +34,7 @@
             <option value="desc" @selected($direction === 'desc')>Descending</option>
         </select>
         <button type="submit">Apply</button>
+        <a href="{{ route('assetmgr.export', request()->query()) }}">Export CSV</a>
     </form>
 
     <table>
