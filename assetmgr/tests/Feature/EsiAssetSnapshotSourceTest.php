@@ -19,7 +19,7 @@ class EsiAssetSnapshotSourceTest extends TestCase
     private function source(): EsiAssetSnapshotSource
     {
         $tokens = $this->createMock(AssetAccessTokenProvider::class);
-        $tokens->method('accessTokenFor')->with('character', 123)->willReturn('test-access-token');
+        $tokens->method('accessTokenFor')->with('character', 123, 'esi-assets.read_assets.v1')->willReturn('test-access-token');
 
         $metadata = $this->createMock(AssetMetadataResolver::class);
         $metadata->method('resolve')->willReturnCallback(
