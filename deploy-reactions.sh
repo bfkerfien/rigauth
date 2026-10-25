@@ -60,7 +60,9 @@ route_anchor = "include __DIR__ . '/Routes/Home.php';"
 route_addition = (
     "\n\n        // Triglavian Consortium reaction planner (read-only inventory lookup).\n"
     "        Route::get('/reactions', 'ReactionsController@index')\n"
-    "            ->name('seatcore::reactions.index');"
+    "            ->name('seatcore::reactions.index');\\n"
+    "        Route::get('/reactions/market', 'ReactionsController@market')->name('seatcore::reactions.market');\\n"
+    "        Route::get('/reactions/recipe', 'ReactionsController@recipe')->name('seatcore::reactions.recipe');"
 )
 if "seatcore::reactions.index" not in routes:
     if routes.count(route_anchor) != 1:
