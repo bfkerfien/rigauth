@@ -7,8 +7,8 @@
 @section('full')
 <div class="row">
     <div class="col-md-12">
-        <div class="box box-primary">
-            <div class="box-body">
+        <div class="card card-primary">
+            <div class="card-body">
                 <p class="text-muted">Personal assets are scoped to characters linked to your SeAT account. Browse, sort, and export using cached data; this page does not call ESI.</p>
 
                 <form method="get" action="{{ route('assetmgr.index') }}" class="form-inline" style="margin-bottom: 15px;">
@@ -36,7 +36,7 @@
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary">Apply</button>
-                    <a class="btn btn-default" style="margin-left: 8px;" href="{{ route('assetmgr.export', request()->query()) }}">Export CSV</a>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.export', request()->query()) }}">Export CSV</a>
                 </form>
 
                 <div class="table-responsive">
