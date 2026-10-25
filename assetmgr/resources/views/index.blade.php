@@ -9,6 +9,42 @@
     <div class="col-md-12">
         <div class="card card-primary">
             <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Current known sell valuation</h4>
+                        <p><strong>Jita:</strong> {{ number_format((float) ($currentValuation->jita_total_value ?? 0), 2) }} ISK</p>
+                        <p><strong>Asset rows:</strong> {{ number_format((int) ($currentValuation->asset_count ?? 0)) }} · <strong>Units:</strong> {{ number_format((int) ($currentValuation->quantity_sum ?? 0)) }}</p>
+                        <p class="text-muted">Unpriced rows — Jita: {{ number_format((int) ($currentValuation->jita_unpriced_count ?? 0)) }}; regional: {{ number_format((int) ($currentValuation->regional_unpriced_count ?? 0)) }}.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>Regional known sell valuation</h4>
+                        <p><strong>Regional subtotal:</strong> {{ number_format((float) ($currentValuation->regional_total_value ?? 0), 2) }} ISK</p>
+                        <p class="text-muted">These are cached best-sell estimates, not guaranteed sale proceeds. Missing prices are not silently counted as zero-value items.</p>
+                    </div>
+                </div>
+
+                @if ($valuationHistory->isNotEmpty())
+                    <h4>Hourly valuation history</h4>
+                    <div class="table-responsive">
+                        <table class="table table-condensed table-striped">
+                            <thead><tr><th>Snapshot</th><th>Jita known subtotal</th><th>Regional known subtotal</th><th>Unpriced rows (Jita / regional)</th></tr></thead>
+                            <tbody>
+                            @foreach ($valuationHistory as $snapshot)
+                                <tr>
+                                    <td>{{ $snapshot->snapshot_at }}</td>
+                                    <td>{{ number_format((float) $snapshot->jita_total_value, 2) }} ISK</td>
+                                    <td>{{ number_format((float) $snapshot->regional_total_value, 2) }} ISK</td>
+                                    <td>{{ number_format((int) $snapshot->jita_unpriced_count) }} / {{ number_format((int) $snapshot->regional_unpriced_count) }}</td>
+                                </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="text-muted">No valuation history yet. After asset and price syncs, run <code>php artisan assetmgr:capture-valuations</code> to store the hourly snapshot.</p>
+                @endif
+            </div>
+            <div class="card-body">
                 <p class="text-muted">Personal assets are scoped to characters linked to your SeAT account. Browse, sort, and export using cached data; this page does not call ESI.</p>
                 @if (session('status'))
                     <div class="alert alert-info">{{ session('status') }}</div>
