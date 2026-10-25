@@ -17,6 +17,13 @@ return new class extends Migration {
             $table->string('external_id', 64);
             $table->timestamp('record_at')->nullable()->index();
             $table->string('reference_type', 100)->nullable()->index();
+            $table->unsignedBigInteger('type_id')->nullable()->index();
+            $table->string('type_name')->nullable();
+            $table->unsignedBigInteger('location_id')->nullable()->index();
+            $table->string('location_name')->nullable();
+            $table->unsignedBigInteger('quantity')->nullable();
+            $table->decimal('unit_price', 30, 2)->nullable();
+            $table->boolean('is_buy')->nullable();
             $table->unsignedBigInteger('first_party_id')->nullable()->index();
             $table->unsignedBigInteger('second_party_id')->nullable()->index();
             $table->decimal('amount', 30, 2)->nullable();
