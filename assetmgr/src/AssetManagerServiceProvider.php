@@ -2,7 +2,7 @@
 
 namespace Triglavian\AssetManager;
 
-use Illuminate\Support\ServiceProvider;
+use Seat\Services\AbstractSeatPlugin;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Triglavian\AssetManager\Console\Commands\SyncCharacters;
@@ -14,14 +14,35 @@ use Triglavian\AssetManager\Services\Assets\SeatAccessTokenProvider;
 use Triglavian\AssetManager\Services\Pricing\MarketPriceSource;
 use Triglavian\AssetManager\Services\Pricing\EsiMarketPriceSource;
 
-class AssetManagerServiceProvider extends ServiceProvider
+class AssetManagerServiceProvider extends AbstractSeatPlugin
 {
+    public function getName(): string
+    {
+        return 'Triglavian Asset Manager';
+    }
+
+    public function getPackageRepositoryUrl(): string
+    {
+        return 'https://github.com/bfkerfien/rigauth/tree/main/assetmgr';
+    }
+
+    public function getPackagistPackageName(): string
+    {
+        return 'seat-asset-manager';
+    }
+
+    public function getPackagistVendorName(): string
+    {
+        return 'triglavian';
+    }
+
     public function register(): void
     {
         $this->app->bind(AssetSnapshotSource::class, EsiAssetSnapshotSource::class);
         $this->app->bind(AssetAccessTokenProvider::class, SeatAccessTokenProvider::class);
         $this->app->bind(MarketPriceSource::class, EsiMarketPriceSource::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
+        $this->registerPermissions(__DIR__ . '/../config/Permissions/corporation.php', 'corporation');
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.sidebar.php', 'package.sidebar');
     }
 
@@ -36,6 +57,7 @@ class AssetManagerServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'assetmgr');
+        $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'assetmgr');
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
