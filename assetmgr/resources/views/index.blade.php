@@ -130,6 +130,7 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.export', request()->query()) }}">Export CSV</a>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.wallet-journal') }}">Wallet Journal</a>
                 </form>
 
                 <div class="table-responsive">
