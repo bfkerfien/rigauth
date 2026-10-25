@@ -1,24 +1,17 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
-index 0a3f7a90..c5eac1f2 100644
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -48,6 +48,10 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
-         // just include it
+@@ -1,1 +1,5 @@
          include __DIR__ . '/Routes/Home.php';
- 
++
 +        // Triglavian Consortium reaction planner (read-only inventory lookup).
 +        Route::get('/reactions', 'ReactionsController@index')
 +            ->name('seatcore::reactions.index');
-+
-         // Support Routes
-         Route::group([
+
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
-index bf07b76c..e9c1e9a4 100644
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -29,6 +29,13 @@
-       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
- 
+@@ -1,1 +1,8 @@
 +        <li class="nav-item">
 +          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
 +            <i class="nav-icon fas fa-flask"></i>
@@ -27,5 +20,3 @@ index bf07b76c..e9c1e9a4 100644
 +        </li>
 +
          @foreach($menu as $entry)
- 
-           {{-- determine if we should pop a treeview --}}
