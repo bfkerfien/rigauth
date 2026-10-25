@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\\Support\\Facades\\Route;
-use Triglavian\\AssetManager\\Http\\Controllers\\AssetIndexController;
+use Illuminate\Support\Facades\Route;
+use Triglavian\AssetManager\Http\Controllers\AssetIndexController;
 
 /*
  * SeAT-specific middleware and permission identifiers must be confirmed against
