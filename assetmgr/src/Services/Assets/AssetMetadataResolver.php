@@ -25,6 +25,9 @@ class AssetMetadataResolver
         $characterName = $ownerKind === 'character'
             ? CharacterInfo::query()->where('character_id', $ownerId)->value('name')
             : null;
+        $corporationName = $ownerKind === 'corporation'
+            ? CorporationInfo::query()->where('corporation_id', $ownerId)->value('name')
+            : null;
 
         $stationIds = $systemIds = $structureIds = [];
         foreach ($rows as $row) {
@@ -77,6 +80,7 @@ class AssetMetadataResolver
             $locationType = $row['location_type'] ?? null;
             $row['type_name'] = $typeNames[$typeId] ?? ('Type ' . $typeId);
             $row['character_name'] = $ownerKind === 'character' ? $characterName : null;
+            $row['corporation_name'] = $ownerKind === 'corporation' ? $corporationName : null;
             $row['location_name'] = match ($locationType) {
                 'station' => $stationNames[$locationId] ?? ('Station ' . $locationId),
                 'solar_system' => $systemNames[$locationId] ?? ('System ' . $locationId),
