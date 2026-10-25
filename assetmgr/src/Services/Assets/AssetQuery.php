@@ -28,7 +28,7 @@ class AssetQuery
             ->select([
                 'owner_kind', 'owner_id', 'character_id', 'character_name',
                 'corporation_id', 'type_id', 'type_name', 'quantity',
-                'location_id', 'location_name', 'location_flag',
+                'location_id', 'location_name', 'location_flag', 'location_type',
                 'jita_unit_price', 'regional_unit_price', 'regional_region_id',
                 'price_updated_at', 'last_seen_at',
             ]);
