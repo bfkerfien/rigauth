@@ -68,8 +68,9 @@ class PotchvenFinancesController extends Controller
                 'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
             )->join('fin_owners as o', 'o.id', '=', 's.owner_id')->where('o.owner_type', 'corporation')->sum('s.balance_isk');
         }
-        // The sync worker stores corporation wallet division 2 separately because the
-        // legacy wallet-snapshot table does not identify which division each balance belongs to.
+        // The latest corporation wallet snapshot stores Division 3 (Corp Main Wallet).
+        // The sync worker stores Division 2 (SRP Wallet) separately because the legacy
+        // wallet-snapshot table does not identify which division each balance belongs to.
         $srpWallet = 0;
         if ($has('fin_app_settings')) {
             $srpWallet = (float) ($db->table('fin_app_settings')
