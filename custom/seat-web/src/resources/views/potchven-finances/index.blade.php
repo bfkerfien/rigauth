@@ -27,6 +27,14 @@
     <button type="submit" class="btn btn-warning"><i class="fas fa-redo-alt"></i> Reset 180-day timer</button>
   </form>
 </div></div>
+<div class="alert alert-secondary">
+  <strong>Finance data last updated:</strong>
+  @if($lastFinanceSync) {{ \Carbon\Carbon::parse($lastFinanceSync)->timezone(config('app.timezone'))->format('Y-m-d H:i:s T') }} @else Never recorded @endif
+  <span class="ml-2">Automatic sync runs every 15 minutes.</span>
+</div>
+@foreach($financeSyncErrors as $syncError)
+  <div class="alert alert-warning"><strong>Sync issue ({{ $syncError->resource_key }}):</strong> {{ $syncError->last_error }}</div>
+@endforeach
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if(session('info'))<div class="alert alert-info">{{ session('info') }}</div>@endif
 @if(!$owners->count())
