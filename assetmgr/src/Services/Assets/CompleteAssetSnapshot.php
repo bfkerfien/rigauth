@@ -14,6 +14,7 @@ final class CompleteAssetSnapshot
         public readonly int $pagesReceived,
         public readonly string $fetchedAt,
         public readonly bool $allPagesFetched,
+        public readonly ?string $sourceExpiresAt = null,
     ) {
         if (! in_array($ownerKind, ['character', 'corporation'], true) || $ownerId < 1) {
             throw new InvalidArgumentException('Snapshot owner is invalid.');
