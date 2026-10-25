@@ -11,8 +11,9 @@ return [
     ],
 
     'esi' => [
-        'base_url' => env('SEAT_ASSETMGR_ESI_BASE_URL', 'https://esi.evetech.net/latest'),
+        'base_url' => env('SEAT_ASSETMGR_ESI_BASE_URL', 'https://esi.evetech.net'),
         'user_agent' => env('SEAT_ASSETMGR_USER_AGENT', 'Triglavian-Asset-Manager'),
+        'compatibility_date' => env('SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE', '2026-08-18'),
     ],
 
     'pricing' => [
