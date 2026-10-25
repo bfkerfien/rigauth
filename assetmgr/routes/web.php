@@ -9,6 +9,8 @@ use Triglavian\AssetManager\Http\Controllers\CorporationAssetExportController;
 use Triglavian\AssetManager\Http\Controllers\WalletJournalController;
 use Triglavian\AssetManager\Http\Controllers\WalletJournalRefreshController;
 use Triglavian\AssetManager\Http\Controllers\WalletJournalExportController;
+use Triglavian\AssetManager\Http\Controllers\WalletTransactionsController;
+use Triglavian\AssetManager\Http\Controllers\WalletTransactionsExportController;
 
 Route::middleware(['web', 'auth'])
     ->prefix('assetmgr')
@@ -17,6 +19,8 @@ Route::middleware(['web', 'auth'])
         Route::post('/refresh', AssetRefreshController::class)->middleware('throttle:5,1')->name('refresh');
         Route::post('/wallet-journal/refresh', WalletJournalRefreshController::class)->middleware('throttle:5,1')->name('wallet-journal.refresh');
         Route::get('/wallet-journal/export.csv', WalletJournalExportController::class)->name('wallet-journal.export');
+        Route::get('/wallet-transactions/export.csv', WalletTransactionsExportController::class)->name('wallet-transactions.export');
+        Route::get('/wallet-transactions', WalletTransactionsController::class)->name('wallet-transactions');
         Route::get('/wallet-journal', WalletJournalController::class)->name('wallet-journal');
         Route::get('/export.csv', AssetExportController::class)->name('export');
         Route::get('/corporations/export.csv', CorporationAssetExportController::class)->name('corporation.export');
