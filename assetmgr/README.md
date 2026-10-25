@@ -36,7 +36,7 @@ Defaults intentionally keep the module off:
 - `SEAT_ASSETMGR_SYNC_ENABLED=false`
 - `SEAT_ASSETMGR_QUEUE=default`
 
-Only after SeAT integration and authorization tests pass should the feature and sync be enabled. The Artisan command `assetmgr:sync-characters` queues eligible character syncs when both flags are enabled. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
+Only after SeAT integration and authorization tests pass should the feature and sync be enabled. Configure `SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE` when reviewing ESI compatibility updates, and set `SEAT_ASSETMGR_USER_AGENT` to identify the app and a contact method. The Artisan command `assetmgr:sync-characters` queues eligible character syncs when both flags are enabled. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
 
 ## Safety rules
 
@@ -50,7 +50,7 @@ Only after SeAT integration and authorization tests pass should the feature and 
 
 ## ESI notes
 
-ESI uses `page` and the `X-Pages` response header for pagination. ESI responses are cache-backed and expose an `Expires` header; the source adapter rejects cache expiry/page-count inconsistencies instead of reconciling a possibly mixed snapshot.
+ESI requests use the compatibility-date header, `page` and the `X-Pages` response header for pagination. ESI responses are cache-backed and expose an `Expires` header; the source adapter rejects cache expiry/page-count inconsistencies instead of reconciling a possibly mixed snapshot.
 
 Official references:
 - [ESI pagination](https://developers.eveonline.com/docs/services/esi/pagination/x-pages/)
