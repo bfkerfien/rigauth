@@ -1,8 +1,8 @@
 <?php
 
-namespace Triglavian\\AssetManager\\Services\\Assets;
+namespace Triglavian\AssetManager\Services\Assets;
 
-use Illuminate\\Support\\Facades\\DB;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class AssetSnapshotRepository
