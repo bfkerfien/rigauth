@@ -7,6 +7,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Triglavian\AssetManager\Console\Commands\SyncCharacters;
 use Triglavian\AssetManager\Console\Commands\SyncPrices;
+use Triglavian\AssetManager\Console\Commands\SyncCorporations;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
