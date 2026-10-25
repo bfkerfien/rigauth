@@ -13,8 +13,9 @@ The ESI source adapter fetches every page from the character or corporation asse
 
 - Verify these model methods against the exact deployed SeAT 5 image and add integration tests.
 - Add ESI compatibility-date and response ETag/conditional requests as appropriate for the current ESI requirements.
-- Map item type IDs and location IDs to names through SeAT's existing SDE/universe tables.
-- Add endpoint-specific rate/error-limit handling and avoid retrying before ESI cache expiry where applicable.
+- Validate type/location/region mapping against the exact deployed SeAT SDE schema.
+- Add endpoint-specific error-limit handling and conditional ETag requests; avoid retries before ESI cache expiry where applicable.
+- Market prices use the best buy and best sell order found in the requested region. The current valuation UI uses sell prices, not buy prices or adjusted-price estimates.
 - Add integration tests against mocked HTTP responses for multi-page data, page-count changes, 401/403, 5xx, empty inventory, and expiry during pagination.
 
 ESI paginates with the `X-Pages` response header and a `page` query parameter. Responses also expose cache expiry; don't hammer an endpoint before that expiry. See the official EVE Developer documentation linked in the project README.
