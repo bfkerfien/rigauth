@@ -67,7 +67,7 @@ class SyncWalletJournal implements ShouldQueue
         try {
             $snapshot = $source->fetchComplete($this->characterId);
             if ($snapshot->characterId !== $this->characterId) {
-                throw new \\RuntimeException('Wallet journal source returned a snapshot for a different character.');
+                throw new \RuntimeException('Wallet journal source returned a snapshot for a different character.');
             }
             $nextEligibleAt = $snapshot->sourceExpiresAt
                 ? Carbon::parse($snapshot->sourceExpiresAt)->addSeconds(5)
