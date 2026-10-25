@@ -5,6 +5,7 @@ namespace Triglavian\AssetManager\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
+use Seat\Eveapi\Models\Corporation\CorporationInfo;
 use Illuminate\Support\Facades\DB;
 use Triglavian\AssetManager\Services\Assets\AssetQuery;
 
@@ -19,7 +20,9 @@ class CorporationAssetIndexController extends Controller
         abort_unless($corporationId > 0 && in_array($corporationId, $allowedCorporations, true), 404);
 
         // SeAT's corporation policy enforces CEO/Director or delegated corporation permission.
-        Gate::authorize('corporation.assetmgr_view', $corporationId);
+        $corporation = CorporationInfo::query()->where('corporation_id', $corporationId)->first();
+        abort_unless($corporation !== null, 404);
+        Gate::authorize('corporation.assetmgr_view', $corporation);
 
         $filters = [
             'q' => $request->query('q', ''),
