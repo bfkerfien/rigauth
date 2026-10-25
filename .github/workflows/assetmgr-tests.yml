@@ -30,12 +30,9 @@ jobs:
         run: composer validate --no-check-publish
       - name: Check PHP syntax before dependency installation
         run: find src database routes tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      # SeAT 5 currently pins Laravel 10; Composer's newer advisory blocker rejects that framework.
-      # This override exists only in the ephemeral CI runner so compatibility tests can run.
-      # Never copy this setting into a production SeAT Composer configuration.
-      - name: Permit SeAT 5 dependency resolution in test runner only
-        run: composer config policy.advisories.block false
-      - name: Install package dependencies
-        run: composer install --no-interaction --prefer-dist
+      # SeAT 5 currently pins Laravel 10; the test runner bypasses Composer's advisory blocking
+      # only for this isolated compatibility run. Never use --no-blocking for production installs.
+      - name: Install package dependencies for SeAT 5 compatibility tests
+        run: composer install --no-interaction --prefer-dist --no-blocking
       - name: Run unit tests
         run: composer test
