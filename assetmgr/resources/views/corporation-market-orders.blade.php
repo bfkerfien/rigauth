@@ -42,7 +42,7 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-market-orders.export', ['corporationId' => $corporationId] + request()->query()) }}">Export CSV</a>
-                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-assets', ['corporationId' => $corporationId]) }}">Corporation Assets</a>
+                    <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation.index', ['corporation_id' => $corporationId]) }}">Corporation Assets</a>
                 </form>
 
                 <div class="table-responsive">
