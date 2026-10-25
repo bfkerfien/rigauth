@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule Potchven finance refresh into SeAT every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15:00
+Persistent=true
+Unit=potchven-finances-seat-sync.service
+
+[Install]
+WantedBy=timers.target
