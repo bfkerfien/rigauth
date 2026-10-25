@@ -22,10 +22,10 @@ final class CompleteAssetSnapshot
             throw new InvalidArgumentException('Incomplete asset snapshots cannot be committed.');
         }
         foreach ($rows as $row) {
-            if (! isset($row['type_id'], $row['location_id'])) {
-                throw new InvalidArgumentException('Snapshot row is missing required ESI identifiers.');
+            if (! isset($row['item_id'], $row['type_id'], $row['location_id'])) {
+                throw new InvalidArgumentException('Snapshot row is missing required item, type, or location identifiers.');
             }
-            if ((int) $row['type_id'] < 1 || (int) $row['location_id'] < 1) {
+            if ((int) $row['item_id'] < 1 || (int) $row['type_id'] < 1 || (int) $row['location_id'] < 1) {
                 throw new InvalidArgumentException('Snapshot row contains invalid ESI identifiers.');
             }
         }
