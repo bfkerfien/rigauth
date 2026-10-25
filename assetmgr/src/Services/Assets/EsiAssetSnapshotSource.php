@@ -76,7 +76,7 @@ class EsiAssetSnapshotSource implements AssetSnapshotSource
                     'location_id' => (int) $row['location_id'],
                     'location_flag' => $row['location_flag'] ?? null,
                     'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
-                    'parent_item_id' => $row['location_type'] === 'item' ? (int) $row['location_id'] : null,
+                    'parent_item_id' => ($row['location_type'] ?? null) === 'item' ? (int) $row['location_id'] : null,
                     'character_id' => $ownerKind === 'character' ? $ownerId : null,
                     'corporation_id' => $ownerKind === 'corporation' ? $ownerId : null,
                 ];
