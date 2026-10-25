@@ -27,7 +27,7 @@ class PotchvenFinancesController extends Controller
      * ESI's CorpSAG1 flag is corporation hangar division 1; it is independent of
      * the wallet division used for operating expenses.
      */
-    private function telemetryQuantity(): ?int
+    private function telemetryQuantity($atOrBefore = null): ?int
     {
         $db = DB::connection();
         $schema = $db->getSchemaBuilder();
@@ -54,9 +54,11 @@ class PotchvenFinancesController extends Controller
             return null;
         }
 
-        $latestCapturedAt = $db->table('fin_asset_snapshots')
-            ->where('owner_id', $ownerId)
-            ->max('captured_at');
+        $snapshotQuery = $db->table('fin_asset_snapshots')->where('owner_id', $ownerId);
+        if ($atOrBefore !== null) {
+            $snapshotQuery->where('captured_at', '<=', $atOrBefore);
+        }
+        $latestCapturedAt = $snapshotQuery->max('captured_at');
         if (!$latestCapturedAt) {
             return null;
         }
@@ -89,9 +91,11 @@ class PotchvenFinancesController extends Controller
             ? $db->table('fin_app_settings')->where('setting_key', 'telemetry_baseline_quantity')->value('setting_value')
             : null;
         if ($telemetryQuantity !== null && $telemetryBaseline === null && $has('fin_app_settings')) {
-            // First activation starts from the current inventory, avoiding a false count
-            // of telemetry accumulated before this feature was enabled.
-            $telemetryBaseline = (string) $telemetryQuantity;
+            // Prefer the latest saved inventory snapshot at or before period start so
+            // telemetry already earned this period is retained. If none exists, start
+            // from current inventory to avoid counting older items as new sites.
+            $baselineQuantity = $this->telemetryQuantity($periodStart) ?? $telemetryQuantity;
+            $telemetryBaseline = (string) $baselineQuantity;
             $db->table('fin_app_settings')->updateOrInsert(
                 ['setting_key' => 'telemetry_baseline_quantity'],
                 ['setting_value' => $telemetryBaseline, 'updated_at' => now()]
