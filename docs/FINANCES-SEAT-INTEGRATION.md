@@ -34,4 +34,4 @@ The dashboard reads imported finance owners, wallet entries, site events, pendin
 
 ## Corporation wallet balances
 
-The dashboard displays **Corp Main Wallet (Division 1)** from the latest corporation wallet snapshot and **SRP Wallet (Division 2)** from the separate `srp_wallet_balance_isk` setting refreshed by the 15-minute sync. Both balances come from the corporation wallets ESI endpoint; the sync also reads the Division 1 journal. The second division balance is stored separately because the existing wallet snapshot schema does not record a division number. The two displayed balances are not summed together.
+The dashboard displays **Corp Main Wallet (Division 3)** from the latest corporation wallet snapshot and **SRP Wallet (Division 2)** from the separate `srp_wallet_balance_isk` setting refreshed by the 15-minute sync. Both balances come from the corporation wallets ESI endpoint; the sync also reads the Division 3 journal. The second division balance is stored separately because the existing wallet snapshot schema does not record a division number. The two displayed balances are not summed together.
