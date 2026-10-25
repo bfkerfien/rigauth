@@ -15,8 +15,13 @@ class AssetSnapshotRepository
      *
      * @param list<array<string, mixed>> $rows
      */
-    public function replaceOwnerSnapshot(string $ownerKind, int $ownerId, array $rows): void
+    public function replaceOwnerSnapshot(string $ownerKind, int $ownerId, CompleteAssetSnapshot $snapshot): void
     {
+        if (! $snapshot->allPagesFetched || $snapshot->pagesReceived < 1) {
+            throw new RuntimeException('Cannot reconcile an incomplete asset snapshot.');
+        }
+        $rows = $snapshot->rows;
+
         if (! in_array($ownerKind, ['character', 'corporation'], true) || $ownerId < 1) {
             throw new RuntimeException('Invalid asset snapshot owner.');
         }
