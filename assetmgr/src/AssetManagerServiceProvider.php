@@ -15,6 +15,7 @@ class AssetManagerServiceProvider extends ServiceProvider
         $this->app->bind(AssetSnapshotSource::class, EsiAssetSnapshotSource::class);
         $this->app->bind(AssetAccessTokenProvider::class, SeatAccessTokenProvider::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
+        $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.sidebar.php', 'package.sidebar');
     }
 
     public function boot(): void
