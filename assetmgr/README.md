@@ -4,7 +4,7 @@ Native SeAT asset-management package source maintained inside the `rigauth/asset
 
 ## Status
 
-Early development branch: `feature/assetmgr-foundation`. **Do not deploy or enable yet.** The personal-character ownership integration uses SeAT 5's `associatedCharacterIds()` relationship and existing refresh-token model, but must be verified against the exact running image. Corporation asset access, type/location resolution, pricing ingestion and production-level tests remain incomplete.
+Active development branch: `feature/assetmgr-complete`. **Do not deploy or enable yet.** This source now includes personal and corporation inventory, cached market pricing/valuations, character wallet journals and transactions, personal/corporation market orders, corporation wallet journals, and a character contract explorer. SeAT authorization, schemas, scopes, and installation must still be verified against the exact running image.
 
 ## Current foundation
 
@@ -23,10 +23,9 @@ Early development branch: `feature/assetmgr-foundation`. **Do not deploy or enab
 
 1. Verify the package against the exact deployed SeAT/PHP/Laravel version and run CI.
 2. Finish corporation token selection and separate corporation permissions.
-3. Resolve type/location names from SeAT's SDE/universe tables.
-4. Add Jita/regional market data ingestion and inventory valuation/history.
-5. Add ship fitting/container views, corporation logistics, export and financial/industry modules.
-6. Test installation and rollback in a disposable environment before any production change.
+3. Complete corporation contract sync and industry-job tracking.
+4. Add deeper ship fitting/container views and financial rollups.
+5. Verify all scopes, SeAT role checks, migrations, package discovery and rollback against the exact running image in a disposable environment.
 
 ## Configuration
 
@@ -36,7 +35,7 @@ Defaults intentionally keep the module off:
 - `SEAT_ASSETMGR_SYNC_ENABLED=false`
 - `SEAT_ASSETMGR_QUEUE=default`
 
-Only after SeAT integration and authorization tests pass should the feature and sync be enabled. Corporation sync additionally requires `SEAT_ASSETMGR_CORPORATION_SYNC_ENABLED=true` and `SEAT_ASSETMGR_CORPORATION_IDS` set to a comma-separated allowlist. Configure `SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE` when reviewing ESI compatibility updates, and set `SEAT_ASSETMGR_USER_AGENT` to identify the app and a contact method. The Artisan commands `assetmgr:sync-characters` and `assetmgr:sync-prices` queue eligible personal asset and price jobs when both main flags are enabled. `assetmgr:sync-corporations` additionally requires the corporation-sync flag and allowlist. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
+Only after SeAT integration and authorization tests pass should the feature and sync be enabled. Corporation sync additionally requires `SEAT_ASSETMGR_CORPORATION_SYNC_ENABLED=true` and `SEAT_ASSETMGR_CORPORATION_IDS` set to a comma-separated allowlist. Configure `SEAT_ASSETMGR_ESI_COMPATIBILITY_DATE` when reviewing ESI compatibility updates, and set `SEAT_ASSETMGR_USER_AGENT` to identify the app and a contact method. The Artisan commands `assetmgr:sync-characters`, `assetmgr:sync-prices`, `assetmgr:sync-contracts`, `assetmgr:sync-wallet-journals`, `assetmgr:sync-wallet-transactions`, and `assetmgr:sync-market-orders` queue eligible personal-data jobs when both main flags are enabled. `assetmgr:sync-corporations` additionally requires the corporation-sync flag and allowlist. It must be scheduled at a cadence compatible with ESI cache expiry; the job also enforces a per-character cooldown.
 
 ## Safety rules
 
