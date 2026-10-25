@@ -108,11 +108,20 @@ class ReactionsController extends Controller
                 'quantity' => max(0, $material['per_run'] * ($runs + 1) - $material['owned']),
             ])->filter(fn ($material) => $material['quantity'] > 0)->values()->all();
 
+            $formulaGroup = (string) ($recipe['formulaGroup'] ?? $recipe['formulaName'] ?? '');
+            $category = match (true) {
+                str_contains(mb_strtolower($formulaGroup), 'biochemical'),
+                str_contains(mb_strtolower($formulaGroup), 'booster') => 'biochemical',
+                str_contains(mb_strtolower($formulaGroup), 'molecular-forged') => 'molecular',
+                str_contains(mb_strtolower($formulaGroup), 'moon composite') => 'moon',
+                default => (string) ($recipe['category'] ?? 'gas'),
+            };
+
             return [
                 'product' => (string) ($recipe['product'] ?? collect($recipe['products'] ?? [])->first()['name'] ?? 'Unknown product'),
-                'category' => (string) ($recipe['category'] ?? 'gas'),
+                'category' => $category,
                 'type_id' => (int) ($recipe['typeId'] ?? 0),
-                'group' => (string) ($recipe['formulaGroup'] ?? $recipe['formulaName'] ?? $recipe['category'] ?? ''),
+                'group' => $formulaGroup ?: (string) ($recipe['category'] ?? ''),
                 'materials' => $materials->all(),
                 'products' => collect($recipe['products'] ?? [])->map(fn ($product) => [
                     'name' => $product['name'] ?? 'Unknown product',
