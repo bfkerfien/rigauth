@@ -22,7 +22,7 @@ Defaults: source container `potchven-finances-db-1`, target container `seat-dock
 
 ## Current scope
 
-The dashboard reads imported finance owners, wallet entries, site events, pending SRP obligations, wallet snapshots, and asset snapshots. It can manually record a successful site using the established three-payout/45,000,000 ISK revenue-credit convention. The original Node application's EVE SSO token-refresh and ESI wallet/assets synchronization routes have **not yet been ported** into SeAT's ESI token system, so live synchronization remains follow-up work.
+The dashboard reads imported finance owners, wallet entries, site events, pending SRP obligations, wallet snapshots, and asset snapshots. The **Reset Financial Period** action sets a new reporting-period start and restarts the 180-day countdown. Site counts, revenue credits, character operating expenses, estimated profit, and average sites per day are calculated from that period start. Historical wallet and site records are retained, current wallet/assets remain current balances, and outstanding SRP obligations are carried forward. Before the first manual reset, period totals default to the current calendar month. The dashboard can manually record a successful site using the established three-payout/45,000,000 ISK revenue-credit convention. The original Node application's EVE SSO token-refresh and ESI wallet/assets synchronization routes have **not yet been ported** into SeAT's ESI token system, so live synchronization remains follow-up work.
 
 ## Access verification
 
