@@ -39,7 +39,7 @@
     <table>
         <thead><tr>
             <th>Item</th><th>Quantity</th><th>Character owner</th><th>Location</th>
-            <th>Jita total value</th><th>Regional total value</th><th>Price updated</th><th>Last seen</th>
+            <th>Jita sell total</th><th>Regional sell total</th><th>Price cache timestamps</th><th>Last seen</th>
         </tr></thead>
         <tbody>
         @forelse ($assets as $asset)
@@ -50,7 +50,14 @@
                 <td>{{ $asset->location_name ?? $asset->location_id }}</td>
                 <td>{{ $asset->jita_unit_price === null ? '—' : number_format((float) $asset->jita_unit_price * $asset->quantity, 2) . ' ISK' }}</td>
                 <td>{{ $asset->regional_unit_price === null ? '—' : number_format((float) $asset->regional_unit_price * $asset->quantity, 2) . ' ISK' }}</td>
-                <td>{{ $asset->price_updated_at ?? '—' }}</td>
+                <td>
+                    <div>Jita: {{ $asset->jita_price_updated_at ?? '—' }}
+                        @if ($asset->jita_price_updated_at && \\Illuminate\\Support\\Carbon::parse($asset->jita_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()) <strong>(stale)</strong> @endif
+                    </div>
+                    <div>Region: {{ $asset->regional_price_updated_at ?? '—' }}
+                        @if ($asset->regional_price_updated_at && \\Illuminate\\Support\\Carbon::parse($asset->regional_price_updated_at)->addSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600))->isPast()) <strong>(stale)</strong> @endif
+                    </div>
+                </td>
                 <td>{{ $asset->last_seen_at ?? 'Unknown' }}</td>
             </tr>
         @empty
