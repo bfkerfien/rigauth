@@ -41,7 +41,19 @@ class PotchvenFinancesController extends Controller
                 ->where('o.owner_type', 'character')->where('e.is_operational_expense', 1)->where('e.amount_isk', '<', 0)
                 ->where('e.occurred_at', '>=', $start)->sum(DB::raw('-e.amount_isk'));
         }
-        $pendingSrp = $has('fin_srp_obligations') ? (float) $db->table('fin_srp_obligations')->where('status', 'pending_transfer')->sum('amount_isk') : 0;
+        $lastSrpTransfer = $has('fin_app_settings')
+            ? $db->table('fin_app_settings')->where('setting_key', 'srp_last_transfer_at')->value('setting_value')
+            : null;
+        $pendingSrp = 0;
+        if ($has('fin_srp_obligations') && $has('fin_site_events')) {
+            $pendingQuery = $db->table('fin_srp_obligations as o')
+                ->join('fin_site_events as s', 's.id', '=', 'o.site_event_id')
+                ->where('o.status', 'pending_transfer');
+            if ($lastSrpTransfer) {
+                $pendingQuery->where('s.occurred_at', '>', $lastSrpTransfer);
+            }
+            $pendingSrp = (float) $pendingQuery->sum('o.amount_isk');
+        }
         $assetValue = 0;
         if ($has('fin_asset_snapshots')) {
             $assetValue = (float) $db->table('fin_asset_snapshots as s')->joinSub(
@@ -101,6 +113,53 @@ class PotchvenFinancesController extends Controller
         }
         return redirect()->route('seatcore::potchven-finances.index')
             ->with('success', 'New financial reporting period started. Revenue, expenses, completed sites, and the 180-day countdown now start from zero. Historical wallet and site records were preserved; outstanding SRP obligations remain payable.');
+    }
+
+    public function addSiteWithoutLoot(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        abort_unless(Schema::hasTable('fin_site_events') && Schema::hasTable('fin_srp_obligations'), 500, 'Finance site and SRP tables are not available.');
+
+        DB::transaction(function () {
+            $now = now();
+            $note = 'Site Without Loot — manually added 27,000,000 ISK SRP transfer obligation.';
+            $siteId = DB::table('fin_site_events')->insertGetId([
+                'occurred_at' => $now,
+                'status' => 'needs_review',
+                'payout_count' => 0,
+                'total_payout_isk' => 0,
+                'revenue_credit_isk' => 0,
+                'source' => 'manual',
+                'review_note' => $note,
+            ]);
+            DB::table('fin_srp_obligations')->insert([
+                'site_event_id' => $siteId,
+                'amount_isk' => 27000000,
+                'status' => 'pending_transfer',
+                'note' => $note,
+            ]);
+        });
+
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'Added 27,000,000 ISK to pending SRP transfer for Site Without Loot.');
+    }
+
+    public function transferToSrp(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        abort_unless(Schema::hasTable('fin_app_settings') && Schema::hasTable('fin_srp_obligations') && Schema::hasTable('fin_site_events'), 500, 'Finance SRP tables are not available.');
+
+        $transferAt = now()->toDateTimeString();
+        DB::transaction(function () use ($transferAt) {
+            DB::table('fin_srp_obligations')->where('status', 'pending_transfer')->update(['status' => 'transferred']);
+            DB::table('fin_app_settings')->updateOrInsert(
+                ['setting_key' => 'srp_last_transfer_at'],
+                ['setting_value' => $transferAt, 'updated_at' => now()]
+            );
+        });
+
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'Pending SRP obligations marked as transferred. This records the transfer in the dashboard; it does not move ISK in EVE. Any new SRP obligations created after this time will appear as pending.');
     }
 
     public function storeSite(Request $request): RedirectResponse
