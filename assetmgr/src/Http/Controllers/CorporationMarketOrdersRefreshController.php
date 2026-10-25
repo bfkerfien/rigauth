@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Seat\Eveapi\Models\Corporation\CorporationInfo;
 use Triglavian\AssetManager\Jobs\SyncCorporationMarketOrder;
-use Triglavian\AssetManager\Services\Assets\CorporationAccessPolicy;
 
 class CorporationMarketOrdersRefreshController extends Controller
 {
