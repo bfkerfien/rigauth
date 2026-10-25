@@ -13,6 +13,10 @@ return new class extends Migration {
             $table->unsignedBigInteger('owner_id');
             $table->unsignedBigInteger('character_id')->nullable()->index();
             $table->string('character_name')->nullable();
+            $table->unsignedBigInteger('corporation_id')->nullable()->index();
+            $table->string('corporation_name')->nullable();
+            $table->unsignedBigInteger('issued_by')->nullable()->index();
+            $table->unsignedTinyInteger('wallet_division')->nullable();
             $table->string('order_id', 64);
             $table->unsignedBigInteger('type_id')->index();
             $table->string('type_name')->nullable();
