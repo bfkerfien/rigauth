@@ -10,6 +10,26 @@
         <div class="card card-primary">
             <div class="card-body">
                 <p class="text-muted">Personal assets are scoped to characters linked to your SeAT account. Browse, sort, and export using cached data; this page does not call ESI.</p>
+                @if ($syncStates->isNotEmpty())
+                    <div class="table-responsive">
+                        <table class="table table-condensed">
+                            <thead><tr><th>Character ID</th><th>Sync status</th><th>Last successful sync</th><th>Next eligible sync</th></tr></thead>
+                            <tbody>
+                            @foreach ($syncStates as $state)
+                                <tr>
+                                    <td>{{ $state->owner_id }}</td>
+                                    <td>{{ ucfirst($state->status) }}</td>
+                                    <td>{{ $state->last_success_at ?? 'Never completed' }}</td>
+                                    <td>{{ $state->next_eligible_at ?? 'Eligible now' }}</td>
+                                </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="text-muted">No sync history yet. After package installation, enable sync and run <code>php artisan assetmgr:sync-characters</code>.</p>
+                @endif
+
                 @if (config('assetmgr.corporation_sync_enabled', false))
                     <form method="get" action="{{ route('assetmgr.corporation.index') }}" class="form-inline" style="margin-bottom: 15px;">
                         <div class="form-group" style="margin-right: 8px;">
