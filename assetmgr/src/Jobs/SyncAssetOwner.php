@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Support\Carbon;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ class SyncAssetOwner implements ShouldQueue
 
     public function middleware(): array
     {
-        return [(new WithoutOverlapping('assetmgr:' . $this->ownerKind . ':' . $this->ownerId))->expireAfter(240)];
+        return [new RateLimited('assetmgr-esi'), (new WithoutOverlapping('assetmgr:' . $this->ownerKind . ':' . $this->ownerId))->expireAfter(240)];
     }
 
     public function backoff(): array
