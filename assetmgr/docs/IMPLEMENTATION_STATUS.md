@@ -15,8 +15,8 @@ This branch contains an early Stage 1 scaffold for the SeAT Asset Manager:
 Do not deploy or enable this package yet:
 - The actual SeAT user-to-character relationship is not yet wired. The resolver intentionally fails closed until this is implemented against the exact installed SeAT models.
 - The SeAT-specific permission middleware, navigation integration and corporation permissions are not yet wired.
-- The ESI adapter that gets the appropriate SeAT token and fetches all pages is not implemented or bound in the service container.
-- Type/location name resolution and Jita/regional market price ingestion are not implemented.
+- The ESI adapter is implemented for personal character assets, but must be verified against the exact deployed SeAT image and tested with real scopes/tokens.
+- Type/location name resolution and background Jita/regional market price ingestion are implemented but have not yet passed CI or integration testing.
 - Automated PHP/feature tests have not yet run against the deployed SeAT/Laravel/PHP versions.
 - Composer constraints and package-discovery behavior must be checked against the exact running SeAT 5 image before installation.
 
