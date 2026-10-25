@@ -57,6 +57,26 @@ class EsiWalletJournalSourceTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_incremental_sync_stops_when_a_page_overlaps_the_latest_stored_id(): void
+    {
+        $expiry = gmdate('D, d M Y H:i:s', time() + 600) . ' GMT';
+        $sequence = Http::sequence()
+            ->push([
+                ['id' => 200, 'date' => '2026-10-24T10:00:00Z', 'ref_type' => 'market_transaction', 'amount' => -100, 'balance' => 900],
+                ['id' => 199, 'date' => '2026-10-24T09:59:00Z', 'ref_type' => 'market_transaction', 'amount' => -50, 'balance' => 1000],
+            ], 200, ['X-Pages' => '10', 'Expires' => $expiry]);
+        Http::fake(['*' => $sequence]);
+
+        $tokens = $this->createMock(AssetAccessTokenProvider::class);
+        $tokens->method('accessTokenFor')->willReturn('test-access-token');
+
+        $snapshot = (new EsiWalletJournalSource($tokens))->fetchSince(123, '199');
+
+        self::assertCount(2, $snapshot->rows);
+        self::assertSame(1, $snapshot->pagesReceived);
+        Http::assertSentCount(1);
+    }
+
     public function test_it_rejects_wallet_journal_page_count_changes(): void
     {
         $expiry = gmdate('D, d M Y H:i:s', time() + 600) . ' GMT';
