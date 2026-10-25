@@ -6,6 +6,7 @@ use RuntimeException;
 use Seat\Eveapi\Models\Character\CharacterAffiliation;
 use Seat\Eveapi\Models\Character\CharacterRole;
 use Seat\Eveapi\Models\RefreshToken;
+use Seat\Eveapi\Jobs\Token\RefreshAccessToken;
 
 class SeatAccessTokenProvider implements AssetAccessTokenProvider
 {
@@ -34,7 +35,6 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
         $requiredScope ??= 'esi-assets.read_corporation_assets.v1';
         $requiredRoles = $requiredScope === 'esi-assets.read_corporation_assets.v1' ? ['Director'] : ['Director', 'Accountant'];
         $tokens = RefreshToken::query()
-            ->where('expires_on', '>', now())
             ->whereJsonContains('scopes', $requiredScope)
             ->get();
 
@@ -71,9 +71,13 @@ class SeatAccessTokenProvider implements AssetAccessTokenProvider
 
     private function currentAccessToken(RefreshToken $tokenRecord): string
     {
-        // SeAT owns refresh-token rotation; this package never stores tokens.
+        // Use SeAT's own refresh-token job; never implement or store token rotation here.
+        if ($tokenRecord->isExpired()) {
+            RefreshAccessToken::dispatchSync($tokenRecord);
+            $tokenRecord->refresh();
+        }
         $accessToken = $tokenRecord->getAccessToken();
-        if ($accessToken === '') {
+        if ($accessToken === '' || $tokenRecord->isExpired()) {
             throw new RuntimeException('The SeAT access token is expired or unavailable; refresh this character in SeAT.');
         }
 
