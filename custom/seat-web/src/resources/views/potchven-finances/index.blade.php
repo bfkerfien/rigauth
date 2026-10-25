@@ -20,6 +20,13 @@
     <div class="col-md-4 col-sm-6"><div class="small-box bg-info"><div class="inner"><h4>{{ $metric[1] }}</h4><p>{{ $metric[0] }}</p></div></div></div>
   @endforeach
 </div>
+<div class="card mb-3"><div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+  <div><strong>180-day timer</strong><p class="mb-0 text-muted">Reset the countdown to 180 days when a new operating cycle begins.</p></div>
+  <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the 180-day timer to 180 days from now?')">
+    @csrf
+    <button type="submit" class="btn btn-warning"><i class="fas fa-redo-alt"></i> Reset 180-day timer</button>
+  </form>
+</div></div>
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if(session('info'))<div class="alert alert-info">{{ session('info') }}</div>@endif
 @if(!$owners->count())
