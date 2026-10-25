@@ -1,8 +1,8 @@
 <?php
 
-namespace Triglavian\\AssetManager\\Services\\Assets;
+namespace Triglavian\AssetManager\Services\Assets;
 
-use Illuminate\\Contracts\\Auth\\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use RuntimeException;
 
 class CharacterPortfolioResolver
