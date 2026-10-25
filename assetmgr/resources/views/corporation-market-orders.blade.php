@@ -43,6 +43,9 @@
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-market-orders.export', ['corporationId' => $corporationId] + request()->query()) }}">Export CSV</a>
                     <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation.index', ['corporation_id' => $corporationId]) }}">Corporation Assets</a>
+                    @if ($canViewCorporationWalletJournal)
+                        <a class="btn btn-secondary" style="margin-left: 8px;" href="{{ route('assetmgr.corporation-wallet-journal', ['corporationId' => $corporationId]) }}">Corporation Wallet Journal</a>
+                    @endif
                 </form>
 
                 <div class="table-responsive">
