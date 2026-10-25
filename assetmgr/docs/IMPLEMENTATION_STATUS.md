@@ -13,9 +13,9 @@ This branch contains an early Stage 1 scaffold for the SeAT Asset Manager:
 ## Critical integration blockers
 
 Do not deploy or enable this package yet:
-- The actual SeAT user-to-character relationship is not yet wired. The resolver intentionally fails closed until this is implemented against the exact installed SeAT models.
+- The personal portfolio resolver now uses SeAT 5's `associatedCharacterIds()` relationship; verify it against the exact installed image.
 - The SeAT-native sidebar and corporation permission are wired, but must be verified against the installed SeAT image and role/permission behavior.
-- The ESI adapter is implemented for personal character assets, but must be verified against the exact deployed SeAT image and tested with real scopes/tokens.
+- Character and allowlisted corporation ESI adapters are implemented; verify the token models, scopes, and corporation-role checks against the exact deployed SeAT image.
 - Type/location name resolution and background Jita/regional market price ingestion are implemented but have not yet passed CI or integration testing.
 - Automated PHP/feature tests have not yet run against the deployed SeAT/Laravel/PHP versions.
 - Composer constraints and package-discovery behavior must be checked against the exact running SeAT 5 image before installation.
