@@ -5,12 +5,15 @@ namespace Triglavian\AssetManager;
 use Illuminate\Support\ServiceProvider;
 use Triglavian\AssetManager\Services\Assets\AssetSnapshotSource;
 use Triglavian\AssetManager\Services\Assets\EsiAssetSnapshotSource;
+use Triglavian\AssetManager\Services\Assets\AssetAccessTokenProvider;
+use Triglavian\AssetManager\Services\Assets\SeatAccessTokenProvider;
 
 class AssetManagerServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->bind(AssetSnapshotSource::class, EsiAssetSnapshotSource::class);
+        $this->app->bind(AssetAccessTokenProvider::class, SeatAccessTokenProvider::class);
         $this->mergeConfigFrom(__DIR__ . '/../config/assetmgr.php', 'assetmgr');
     }
 
