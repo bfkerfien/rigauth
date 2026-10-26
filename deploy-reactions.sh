@@ -27,8 +27,10 @@ trap rollback EXIT
 cd "$REPO"
 [[ -d .git ]] || { echo "STOP: $REPO is not a Git checkout."; exit 1; }
 if [[ -n "$(git status --porcelain)" ]]; then echo "STOP: Local Git changes exist; commit or back them up first."; git status --short; exit 1; fi
-git fetch origin
+# This repository is public; fetch anonymously and never require a server-side GitHub login.
+git remote set-url origin https://github.com/bfkerfien/rigauth.git
 [[ "$(git branch --show-current)" == "market/seat-integration" ]] || git switch market/seat-integration
+git fetch origin
 git pull --ff-only origin market/seat-integration
 for f in "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php"; do
   [[ -f "$f" ]] || { echo "STOP: Required source file missing: $f"; exit 1; }
