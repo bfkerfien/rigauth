@@ -20,7 +20,7 @@ The deploy script copies the worker and installs a runner. It does not restart o
 ## What it syncs
 
 - Three active character owners: wallet balances, wallet journals, and assets.
-- Corporation owner (default EVE ID 98843282): wallet division 1 balance and journal, plus corporation assets. It uses one of the three character credentials that has both corporate wallet and asset scopes.
+- Corporation owner (default EVE ID 98843282): wallet division 1 balance and journal, plus corporation assets filtered to `location_flag = CorpSAG3` (Hangar Division 3) across all corporation locations returned by ESI. Items in other hangar divisions are excluded from the finance asset snapshots. The sync logs both the total corporation assets scanned and the Hangar 3 item count. It uses one of the three character credentials that has both corporate wallet and asset scopes.
 - Rotated SSO refresh tokens are encrypted with the existing AES-256-GCM key and saved back into SeAT's `fin_oauth_credentials` row immediately after refresh.
 - Wallet journals are upserted; wallet and asset snapshots are retained as history.
 
