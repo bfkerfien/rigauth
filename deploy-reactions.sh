@@ -36,7 +36,15 @@ done
 # Capture the verified recipe catalog before changing the live SeAT files.
 CATALOG_TMP="$(mktemp)"
 trap 'rm -f "$CATALOG_TMP"; rollback' EXIT
-curl -fsS --max-time 30 'https://gas.triglavianconsortium.com/api/reactions?category=all' -o "$CATALOG_TMP"
+if curl -fsS --max-time 30 'https://gas.triglavianconsortium.com/api/reactions?category=all' -o "$CATALOG_TMP"; then
+  echo "Fetched reaction catalog from the legacy service for initial/local refresh."
+elif sudo test -s "$WEB/data/reactions.json"; then
+  echo "Legacy catalog endpoint unavailable; reusing the already-installed local catalog."
+  sudo cp "$WEB/data/reactions.json" "$CATALOG_TMP"
+else
+  echo "STOP: Cannot fetch the initial catalog and no local catalog exists; no live files changed."
+  exit 1
+fi
 python3 - "$CATALOG_TMP" <<'PY'
 import json, sys
 from pathlib import Path
