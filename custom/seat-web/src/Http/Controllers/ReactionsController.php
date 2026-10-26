@@ -13,12 +13,22 @@ class ReactionsController extends Controller
 {
     private function catalog(): array
     {
-        $path = base_path('data/reactions.json');
-        if (!is_file($path)) {
-            return [];
+        // The catalog is installed inside the SeAT web package, not Laravel's application root.
+        $candidates = [
+            dirname(__DIR__, 3) . '/data/reactions.json',
+            base_path('packages/eveseat/web/data/reactions.json'),
+            base_path('data/reactions.json'),
+        ];
+        foreach ($candidates as $path) {
+            if (!is_file($path) || !is_readable($path)) {
+                continue;
+            }
+            $data = json_decode((string) file_get_contents($path), true);
+            if (is_array($data) && is_array($data['products'] ?? null) && count($data['products']) === 120) {
+                return $data['products'];
+            }
         }
-        $data = json_decode((string) file_get_contents($path), true);
-        return is_array($data) && is_array($data['products'] ?? null) ? $data['products'] : [];
+        return [];
     }
 
     public function market(Request $request)
