@@ -63,7 +63,7 @@
       </div>
       <div id="rx-recipe-list"></div>
       <section class="rx-panel" id="rx-manufacturing-panel" hidden>
-        <h2>Manufacturing chain lookup</h2><p class="rx-help">Look up a capital component or other manufactured item using the same blueprint source as the standalone calculator.</p>
+        <h2>Manufacturing chain lookup</h2><p class="rx-help">Look up a capital component or other manufactured item using SeAT’s local EVE blueprint data.</p>
         <form id="rx-manufacturing-form" class="rx-inline"><input id="rx-manufacturing-product" placeholder="e.g. Capital Armor Plates" style="flex:1;min-width:220px"><button type="submit">Load recipe</button></form>
         <div id="rx-manufacturing-result" style="margin-top:12px"></div>
       </section>
