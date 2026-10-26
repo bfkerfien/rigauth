@@ -63,13 +63,27 @@ class PotchvenFinancesController extends Controller
             return null;
         }
 
+        // Corporation hangar items are often located inside an OfficeFolder item.
+        // In that case the telemetry item's location_id is the folder's item_id,
+        // while the folder's location_id is the station ID. Match both direct
+        // station placement and the office-folder parent relationship.
         return (int) $db->table('fin_asset_items as i')
             ->join('fin_asset_snapshots as s', 's.id', '=', 'i.snapshot_id')
             ->where('s.owner_id', $ownerId)
             ->where('s.captured_at', $latestCapturedAt)
-            ->where('i.location_id', $stationId)
             ->whereIn('i.item_type_id', $typeIds)
             ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(i.raw_payload, '$.location_flag')) = ?", ['CorpSAG1'])
+            ->where(function ($query) use ($stationId) {
+                $query->where('i.location_id', $stationId)
+                    ->orWhereExists(function ($parent) use ($stationId) {
+                        $parent->select(DB::raw('1'))
+                            ->from('fin_asset_items as folder')
+                            ->whereColumn('folder.snapshot_id', 'i.snapshot_id')
+                            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(folder.raw_payload, '$.item_id')) AS UNSIGNED) = i.location_id")
+                            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(folder.raw_payload, '$.location_flag')) = ?", ['OfficeFolder'])
+                            ->where('folder.location_id', $stationId);
+                    });
+            })
             ->sum('i.quantity');
     }
 
