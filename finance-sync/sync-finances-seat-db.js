@@ -124,7 +124,9 @@ async function saveJournal(db, ownerId, entries) {
       VALUES (?, 'journal', ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE amount_isk = VALUES(amount_isk),
         raw_payload = VALUES(raw_payload), description = VALUES(description),
-        reference_type = VALUES(reference_type), occurred_at = VALUES(occurred_at)
+        reference_type = VALUES(reference_type), occurred_at = VALUES(occurred_at),
+        is_operational_expense = VALUES(is_operational_expense),
+        expense_category = VALUES(expense_category)
     `, [
       ownerId, String(entry.id), new Date(entry.date), entry.ref_type || null, amount,
       entry.description || '', amount < 0 && String(entry.ref_type || '').toLowerCase() !== 'player_donation' ? 1 : 0,
