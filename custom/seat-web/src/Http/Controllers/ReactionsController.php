@@ -1,13 +1,13 @@
 <?php
 
-namespace Seat\\Web\\Http\\Controllers;
+namespace Seat\Web\Http\Controllers;
 
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\Cache;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Http;
-use Illuminate\\Support\\Facades\\Schema;
-use Illuminate\\View\\View;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 class ReactionsController extends Controller
 {
@@ -64,7 +64,7 @@ class ReactionsController extends Controller
                         if (!is_array($batch) || !$batch) break;
                         $orders = array_merge($orders, $batch);
                         if (count($batch) < 1000) break;
-                    } catch (\\Throwable $e) {
+                    } catch (\Throwable $e) {
                         break;
                     }
                 }
