@@ -185,11 +185,14 @@ async function syncCorporation(db, owner, token) {
   // in fin_app_settings so the two balances are never added together.
   const mainDivision = 3;
   const srpDivision = 2;
-  const [wallets, journal, assets] = await Promise.all([
+  const [wallets, journal, allAssets] = await Promise.all([
     esi('/corporations/' + corpId + '/wallets/', token),
     pages('/corporations/' + corpId + '/wallets/' + mainDivision + '/journal/', token),
+    // ESI returns corporation assets across all accessible offices/structures.
+    // CorpSAG3 is Hangar Division 3; filter by division, not by a single location.
     pages('/corporations/' + corpId + '/assets/', token)
   ]);
+  const assets = allAssets.filter(asset => String(asset.location_flag || '') === 'CorpSAG3');
   if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
   const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
   const srpWallet = wallets.find(w => Number(w.division) === srpDivision);
@@ -213,7 +216,9 @@ async function syncCorporation(db, owner, token) {
     srpWalletDivision: srpDivision,
     srpWalletBalance: Number(srpWallet.balance),
     journalEntries: journal.length,
-    assets: assets.length
+    assets: assets.length,
+    corporationAssetsScanned: allAssets.length,
+    hangar3Assets: assets.length
   };
 }
 async function reconcileSitePayouts(db, corporationOwnerId) {
