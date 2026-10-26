@@ -1,11 +1,11 @@
 <?php
 
-namespace Seat\\Web\\Http\\Controllers;
+namespace Seat\Web\Http\Controllers;
 
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
-use Illuminate\\View\\View;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
 class PlanetaryController extends Controller
 {
@@ -60,7 +60,7 @@ class PlanetaryController extends Controller
                     ];
                 }
                 if (!$recipes) $recipeError = 'No P2/P3/P4 recipes were found in the local planetary schematic tables. Verify the installed EVE SDE version and table names.';
-            } catch (\\Throwable $e) {
+            } catch (\Throwable $e) {
                 report($e);
                 $recipeError = 'The local planetary schematic data could not be read. Check the SeAT database schema and application logs.';
             }
@@ -79,7 +79,7 @@ class PlanetaryController extends Controller
         if (str_contains($value, 'advanced commodity') || str_contains($value, 'advanced commodities')) return 'P4';
         if (str_contains($value, 'specialized commodity') || str_contains($value, 'specialized commodities')) return 'P3';
         if (str_contains($value, 'refined commodity') || str_contains($value, 'refined commodities')) return 'P2';
-        if (preg_match('/\\b(p[234])\\b/i', $group, $match)) return strtoupper($match[1]);
+        if (preg_match('/\b(p[234])\b/i', $group, $match)) return strtoupper($match[1]);
         return '';
     }
 }
