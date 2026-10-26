@@ -8,7 +8,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-reactions-backup-$STAMP"
 SUCCESS=0
 ROLLBACK_ENABLED=0
-FILES=("src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/Http/Controllers/ReactionsController.php" "src/resources/views/reactions/index.blade.php")
+FILES=("src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/Http/Controllers/ReactionsController.php" "src/resources/views/reactions/index.blade.php" "data/reactions.json")
 rollback() {
   rc=$?
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
@@ -33,6 +33,19 @@ git pull --ff-only origin market/seat-integration
 for f in "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php"; do
   [[ -f "$f" ]] || { echo "STOP: Required source file missing: $f"; exit 1; }
 done
+# Capture the verified recipe catalog before changing the live SeAT files.
+CATALOG_TMP="$(mktemp)"
+trap 'rm -f "$CATALOG_TMP"; rollback' EXIT
+curl -fsS --max-time 30 'https://gas.triglavianconsortium.com/api/reactions?category=all' -o "$CATALOG_TMP"
+python3 - "$CATALOG_TMP" <<'PY'
+import json, sys
+from pathlib import Path
+data = json.loads(Path(sys.argv[1]).read_text())
+recipes = data.get("products", [])
+if len(recipes) != 120 or not all(r.get("materials") and r.get("products") for r in recipes):
+    raise SystemExit(f"STOP: Reaction catalog validation failed (found {len(recipes)} recipes); no live files changed.")
+print(f"Validated local reaction catalog: {len(recipes)} recipes")
+PY
 [[ -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || { echo "STOP: SeAT web source files not found."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || { echo "STOP: SeAT front service is not running."; exit 1; }
 MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' seat-docker-front-1)"
@@ -95,6 +108,7 @@ PY
 
 sudo install -D -m 0644 "$REPO/custom/seat-web/src/Http/Controllers/ReactionsController.php" "$WEB/src/Http/Controllers/ReactionsController.php"
 sudo install -D -m 0644 "$REPO/custom/seat-web/src/resources/views/reactions/index.blade.php" "$WEB/src/resources/views/reactions/index.blade.php"
+sudo install -D -m 0644 "$CATALOG_TMP" "$WEB/data/reactions.json"
 echo "Clearing Laravel caches..."
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
