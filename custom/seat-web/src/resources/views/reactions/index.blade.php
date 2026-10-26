@@ -15,12 +15,12 @@
 #rx-app .rx-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}#rx-app .rx-kpi{background:#0a1219;border:1px solid var(--rx-line);border-radius:8px;padding:10px;min-width:0}#rx-app .rx-kpi span{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--rx-muted);display:block}#rx-app .rx-kpi strong{font-size:17px;display:block;overflow-wrap:anywhere}
 #rx-app .rx-scroll{overflow:auto;border:1px solid var(--rx-line);border-radius:7px}#rx-app table{border-collapse:collapse;width:100%;min-width:530px;margin:0;background:transparent}#rx-app th,#rx-app td{text-align:left;padding:8px;border-bottom:1px solid #20303b;font-size:11px;color:var(--rx-text);vertical-align:top}#rx-app th{background:#0a1219;color:var(--rx-muted)}#rx-app tr:last-child td{border-bottom:0}
 #rx-app .rx-pill{display:inline-block;border:1px solid var(--rx-line);border-radius:99px;padding:2px 7px;color:var(--rx-muted);font-size:10px}#rx-app .rx-positive{color:var(--rx-cyan)}#rx-app .rx-warning{color:var(--rx-orange)}#rx-app .rx-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#rx-app .rx-between{justify-content:space-between}
-#rx-app .rx-recipe{background:linear-gradient(145deg,#111c26,#0b1219);border:1px solid var(--rx-line);border-radius:9px;margin-bottom:10px;overflow:hidden}#rx-app .rx-recipe-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;cursor:pointer}#rx-app .rx-recipe-head:hover{background:#13222d}#rx-app .rx-recipe-body{padding:12px;border-top:1px solid var(--rx-line)}#rx-app .rx-recipe-body[hidden]{display:none}#rx-app .rx-chip{background:#0a1219;border:1px solid var(--rx-line);padding:4px 7px;border-radius:6px;font-size:10px;color:var(--rx-muted)}#rx-app .rx-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#rx-app .rx-empty{padding:18px;color:var(--rx-muted);border:1px dashed var(--rx-line);border-radius:8px;text-align:center}
+#rx-app .rx-recipe{background:linear-gradient(145deg,#111c26,#0b1219);border:1px solid var(--rx-line);border-radius:9px;margin-bottom:10px;overflow:hidden}#rx-app .rx-recipe-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;cursor:pointer}#rx-app .rx-recipe-head:hover{background:#13222d}#rx-app .rx-recipe-body{padding:12px;border-top:1px solid var(--rx-line)}#rx-app .rx-recipe-body[hidden]{display:none}#rx-app .rx-chip{background:#0a1219;border:1px solid var(--rx-line);padding:4px 7px;border-radius:6px;font-size:10px;color:var(--rx-muted)}#rx-app .rx-settings-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}#rx-app .rx-empty{padding:18px;color:var(--rx-muted);border:1px dashed var(--rx-line);border-radius:8px;text-align:center}
 @media(max-width:1050px){#rx-app .rx-layout{grid-template-columns:1fr}#rx-app .rx-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){#rx-app{padding:10px}#rx-app .rx-hero{display:block}#rx-app .rx-kpis,#rx-app .rx-settings-grid{grid-template-columns:1fr}#rx-app .rx-tabs{display:grid;grid-template-columns:1fr}#rx-app .rx-tab{width:100%}#rx-app .rx-recipe-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div id="rx-app">
-  <header class="rx-hero"><div><div class="rx-eyebrow">Triglavian Consortium · New Eden industry</div><h1>Reaction Planner</h1><div class="rx-muted">Live Jita pricing, reaction profitability and your SeAT character inventory in one place.</div></div><div class="rx-inline"><span class="rx-pill">SeAT native</span><a href="https://gas.triglavianconsortium.com" target="_blank" rel="noopener" class="rx-pill">Standalone calculator ↗</a></div></header>
-  @if($recipeError)<div class="rx-status rx-error">{{ $recipeError }} <a href="https://gas.triglavianconsortium.com" target="_blank" rel="noopener">Open standalone calculator</a></div>@endif
+  <header class="rx-hero"><div><div class="rx-eyebrow">Triglavian Consortium · New Eden industry</div><h1>Reaction Planner</h1><div class="rx-muted">Live Jita pricing, reaction profitability and your SeAT character inventory in one place.</div></div><div class="rx-inline"><span class="rx-pill">SeAT native</span><span class="rx-pill">Inventory-aware</span></div></header>
+  @if($recipeError)<div class="rx-status rx-error">{{ $recipeError }}</div>@endif
   @if($inventoryError)<div class="rx-status">{{ $inventoryError }}</div>@endif
   <div id="rx-market-status" class="rx-status">Recipe catalog loaded. Market prices load when you open a recipe.</div>
   <div class="rx-layout">
@@ -33,7 +33,7 @@
         <div class="rx-settings-grid">
           <div class="rx-field"><label for="rx-transport">Transport ISK/m³</label><input id="rx-transport" type="number" min="0" value="500"></div>
           <div class="rx-field"><label for="rx-sell-tax">Sales tax %</label><input id="rx-sell-tax" type="number" min="0" max="100" step=".01" value="4.37"></div>
-          <div class="rx-field"><label for="rx-job-tax">Job tax %</label><input id="rx-job-tax" type="number" min="0" step=".01" value="0"></div>
+          <div class="rx-field"><label for="rx-job-tax">Job tax %</label><input id="rx-job-tax" type="number" min="0" step=".01" value="0"></div><div class="rx-field"><label for="rx-fuel-per-run">Fuel blocks / run</label><input id="rx-fuel-per-run" type="number" min="0" step="1" value="1"></div>
         </div>
         <p class="rx-help">Inputs are costed at Jita Split; reacted products are valued at Jita Sell. Defaults: 500 ISK/m³ transport and 4.37% sales tax. Missing prices stay unavailable rather than being treated as zero.</p>
         <button id="rx-clear-search" type="button" style="width:100%">Clear search</button>
@@ -108,7 +108,7 @@ async function getPrices(names){
  }
  return priceCache;
 }
-function isGas(name){return /Fullerite-|Mykoserocin|Cytoserocin/i.test(name);}
+function isGas(name){return /Fullerite-|Mykoserocin|Cytoserocin|Polymer/i.test(name);}
 function unitPrice(name,kind){const p=priceCache[name];if(!p)return null;const field=kind==='Output'?'sellPrice':'splitPrice';return p[field]===null||p[field]===undefined?null:Number(p[field]);}
 function qtyRuns(){return Math.max(1,Math.floor(Number($('rx-run-count').value)||1));}
 function costAndProfit(r){
@@ -136,7 +136,7 @@ root.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('cli
 $('rx-search').addEventListener('input',render);
 $('rx-clear-search').addEventListener('click',()=>{$('rx-search').value='';render();});
 $('rx-run-count').addEventListener('change',()=>{render();});
-['rx-transport','rx-sell-tax','rx-job-tax'].forEach(id=>$(id).addEventListener('change',()=>{render();}));
+['rx-transport','rx-sell-tax','rx-job-tax','rx-fuel-per-run'].forEach(id=>$(id).addEventListener('change',()=>{render();}));
 $('rx-inventory-search').addEventListener('input',()=>{const q=$('rx-inventory-search').value.toLowerCase();root.querySelectorAll('#rx-inventory tr[data-item]').forEach(row=>row.hidden=!row.dataset.item.includes(q));});
 root.querySelectorAll('.rx-inventory-pick').forEach(button=>button.addEventListener('click',()=>{$('rx-search').value=button.dataset.name;activeTab='gas';root.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab==='gas');b.setAttribute('aria-selected',b.dataset.tab==='gas'?'true':'false')});render();}));
 $('rx-recipe-list').addEventListener('click',e=>{const head=e.target.closest('[data-expand]');if(!head)return;const key=head.dataset.expand;if(expanded.has(key))expanded.delete(key);else expanded.add(key);render();});
@@ -153,8 +153,59 @@ $('rx-manufacturing-form').addEventListener('submit',async e=>{
   result.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Input cost (Jita Split)</span><strong>'+fmt(calc.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value (Jita Sell)</span><strong>'+fmt(calc.gross)+' ISK</strong></div><div class="rx-kpi"><span>Profit / loss</span><strong>'+(calc.profit===null?'Unavailable':fmt(calc.profit)+' ISK')+'</strong></div><div class="rx-kpi"><span>Margin vs input cost</span><strong>'+(calc.margin===null?'Unavailable':fmt(calc.margin)+'%')+'</strong></div></div><div class="rx-scroll"><table><thead><tr><th>Item</th><th>Qty</th><th>Unit value (split in / sell out)</th><th>Total</th></tr></thead><tbody>'+calc.rows.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+fmt(row.qty)+'</td><td>'+(row.price===null?'—':fmt(row.price))+'</td><td>'+(row.cost===null?'Unavailable':fmt(row.cost))+'</td></tr>').join('')+'</tbody></table></div><p class="rx-help">One-level manufacturing estimate; not a recursive chain. Missing prices/volumes are not assumed to be zero.</p>';
  }catch(err){result.innerHTML='<div class="rx-status rx-error">'+esc(err.message)+'</div>';}
 });
-setStatus('Recipe catalog ready. Expand a recipe to load live Jita IV-4 pricing.');
+
+/* Reaction leaderboard and inventory-aware operating materials */
+function prevalentMaterial(r){
+ const candidates=(r.materials||[]).filter(m=>isGas(m.name)&&Number(m.per_run)>0);
+ candidates.sort((a,b)=>Number(b.per_run)-Number(a.per_run)||a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+ return candidates[0]||null;
+}
+function prevalentRuns(r){const m=prevalentMaterial(r);return m?Math.floor(Number(m.owned||0)/Number(m.per_run)):0;}
+function completeRuns(r){const ms=r.materials||[];return ms.length?Math.min(...ms.map(m=>Number(m.per_run)>0?Math.floor(Number(m.owned||0)/Number(m.per_run)):Infinity)):0;}
+function fuelBlocksPerRun(){return Math.max(0,Math.floor(Number($('rx-fuel-per-run').value)||0));}
+function fuelStock(){return inventory.filter(i=>/fuel block/i.test(i.name)).reduce((n,i)=>n+Number(i.quantity||0),0);}
+function perRunProfit(r){
+ let input=0,output=0;
+ for(const m of (r.materials||[])){const p=unitPrice(m.name,'Input');if(p===null||!Number.isFinite(p))return null;input+=p*Number(m.per_run||0);}
+ for(const p of (r.products||[])){const price=unitPrice(p.name,'Output');if(price===null||!Number.isFinite(price))return null;output+=price*Number(p.quantity||0);}
+ return output-output*(Number($('rx-sell-tax').value||0)/100)-input-input*(Number($('rx-job-tax').value||0)/100);
+}
+function filteredRecipes(){
+ const q=$('rx-search').value.trim().toLowerCase();
+ return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))))
+ .sort((a,b)=>{const pa=perRunProfit(a),pb=perRunProfit(b);if(pa===null&&pb===null)return a.product.localeCompare(b.product);if(pa===null)return 1;if(pb===null)return -1;return pb-pa||a.product.localeCompare(b.product);});
+}
+function render(){
+ const list=filteredRecipes();
+ $('rx-count').textContent=fmt(list.length);
+ $('rx-owned-count').textContent=fmt(list.filter(r=>(r.materials||[]).some(m=>m.owned>0)).length);
+ $('rx-manufacturing-panel').hidden=activeTab!=='manufacturing';
+ if(activeTab==='manufacturing'){$('rx-recipe-list').innerHTML='';return;}
+ if(!list.length){$('rx-recipe-list').innerHTML='<div class="rx-empty">No recipes match this tab and search.</div>';return;}
+ const ranked=list.filter(r=>perRunProfit(r)!==null).slice(0,8), max=Math.max(1,...ranked.map(r=>Math.abs(perRunProfit(r))));
+ const chart='<section class="rx-panel"><h2>Net profit per run · Top reactions</h2><div style="display:grid;gap:7px">'+ranked.map((r,i)=>'<div style="display:grid;grid-template-columns:minmax(110px,1fr) 2fr auto;gap:8px;align-items:center"><span style="font-size:11px;overflow-wrap:anywhere">'+(i+1)+'. '+esc(r.product)+'</span><span style="height:10px;background:#0a1219;border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:'+Math.max(1,Math.abs(perRunProfit(r))/max*100)+'%;background:'+(perRunProfit(r)>=0?'#65d9f5':'#ffb36a')+'"></span></span><strong style="font-size:11px">'+fmt(perRunProfit(r))+' ISK</strong></div>').join('')+'</div><p class="rx-help">Ranked by estimated net ISK per run after input cost, sales tax and job tax. Unpriced recipes appear after priced recipes.</p></section>';
+ const cards=list.map((r,i)=>{
+  const key=String(r.type_id||r.product)+'-'+i, open=expanded.has(key), gas=prevalentMaterial(r), gasRuns=prevalentRuns(r), runs=completeRuns(r), profit=perRunProfit(r);
+  return '<article class="rx-recipe" data-key="'+esc(key)+'"><div class="rx-recipe-head" role="button" tabindex="0" data-expand="'+esc(key)+'"><div><h3>'+(i+1)+'. '+esc(r.product)+'</h3><div class="rx-help">'+esc(r.group||'Reaction formula')+' · '+(r.materials||[]).length+' input types'+(gas?' · Prevalent: '+esc(gas.name):'')+'</div></div><div class="rx-inline"><span class="rx-pill">'+fmt(gasRuns)+' prevalent-gas runs</span><span class="rx-pill">'+fmt(runs)+' complete runs</span><span class="rx-pill '+(profit!==null&&profit>=0?'rx-positive':'rx-warning')+'">'+(profit===null?'Profit unpriced':fmt(profit)+' ISK / run')+'</span><span class="rx-pill">'+(open?'Hide details':'Expand details')+'</span></div></div><div class="rx-recipe-body" '+(open?'':'hidden')+' id="rx-body-'+esc(key)+'"><div class="rx-status">Loading material and market details…</div></div></article>';
+ }).join('');
+ $('rx-recipe-list').innerHTML=chart+cards;
+ list.forEach((r,i)=>{const key=String(r.type_id||r.product)+'-'+i;if(expanded.has(key))renderDetails(r,key);});
+}
+async function renderDetails(r,key){
+ const body=$('rx-body-'+CSS.escape(key));if(!body)return;
+ try{
+  await getPrices([...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]);
+  const runs=completeRuns(r), requestedRuns=prevalentRuns(r), gas=prevalentMaterial(r), fuelNeeded=requestedRuns*fuelBlocksPerRun(), fuelOwned=fuelStock(), fuelShortfall=Math.max(0,fuelNeeded-fuelOwned);
+  const calc=costAndProfit(r), result={...calc,runs,requestedRuns,gas,fuelNeeded,fuelOwned,fuelShortfall};
+  const materialRows=(r.materials||[]).map(m=>'<tr><td>'+esc(m.name)+(gas&&m.name===gas.name?' <span class="rx-pill">Prevalent gas</span>':'')+'</td><td>'+fmt(m.per_run)+'</td><td>'+fmt(m.owned)+'</td><td>'+fmt(Math.floor(Number(m.owned||0)/Math.max(1,Number(m.per_run||0))))+'</td><td>'+fmt(Number(m.per_run||0)*requestedRuns)+'</td><td>'+Math.max(0,Number(m.per_run||0)*requestedRuns-Number(m.owned||0))+'</td><td>'+((m.locations||[]).map(l=>esc(l.owner)+' — '+esc(l.location)+': '+fmt(l.quantity)).join('<br>')||'<span class="rx-warning">Not in cached inventory</span>')+'</td></tr>').join('');
+  const calcRows=result.rows.map(row=>'<tr><td>'+row.kind+'</td><td>'+esc(row.name)+'</td><td>'+fmt(row.qty)+'</td><td>'+(row.price===null?'—':fmt(row.price))+'</td><td>'+(row.cost===null?'Unavailable':fmt(row.cost))+'</td></tr>').join('');
+  body.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Prevalent gas</span><strong>'+ (gas?esc(gas.name):'Not identified')+'</strong></div><div class="rx-kpi"><span>Runs supported by prevalent gas</span><strong>'+fmt(requestedRuns)+'</strong></div><div class="rx-kpi"><span>Complete runs from all recipe inputs</span><strong>'+fmt(runs)+'</strong></div><div class="rx-kpi"><span>Fuel blocks required for prevalent-gas runs</span><strong>'+fmt(fuelNeeded)+'</strong></div><div class="rx-kpi"><span>Fuel blocks in tracked inventory</span><strong>'+fmt(fuelOwned)+'</strong></div><div class="rx-kpi"><span>Additional fuel blocks needed</span><strong class="'+(fuelShortfall?'rx-warning':'rx-positive')+'">'+fmt(fuelShortfall)+'</strong></div><div class="rx-kpi"><span>Input cost</span><strong>'+fmt(result.inputCost)+' ISK</strong></div><div class="rx-kpi"><span>Output value</span><strong>'+fmt(result.gross)+' ISK</strong></div><div class="rx-kpi"><span>Net profit / loss</span><strong class="'+(result.profit!==null&&result.profit>=0?'rx-positive':'rx-warning')+'">'+(result.profit===null?'Unavailable':fmt(result.profit)+' ISK')+'</strong></div><div class="rx-kpi"><span>Sales tax</span><strong>'+fmt(result.salesTax)+' ISK</strong></div></div><h3 style="margin:12px 0 8px">Materials required for the prevalent-gas run count</h3><div class="rx-scroll" style="margin-bottom:12px"><table><thead><tr><th>Material</th><th>Per run</th><th>Owned</th><th>Owned runs</th><th>Needed</th><th>Shortfall</th><th>Character / location</th></tr></thead><tbody>'+materialRows+'</tbody></table></div><div class="rx-status '+(fuelShortfall?'rx-error':'')+'">Fuel-block estimate uses '+fmt(fuelBlocksPerRun())+' block(s) per run. Change “Fuel blocks / run” to match the operating setup. Recipe inputs limit complete runs to '+fmt(runs)+'.</div><h3 style="margin:12px 0 8px">Cost breakdown</h3><div class="rx-scroll"><table><thead><tr><th>Type</th><th>Item</th><th>Qty</th><th>Jita unit value</th><th>Total</th></tr></thead><tbody>'+calcRows+'</tbody></table></div>'+(result.missing.length?'<div class="rx-status rx-error" style="margin-top:10px">Profit withheld because prices are missing: '+result.missing.map(esc).join(', ')+'.</div>':'');
+ }catch(e){body.innerHTML='<div class="rx-status rx-error">Could not load live prices: '+esc(e.message)+'</div>';setStatus('Market lookup failed: '+e.message,true);}
+}
+
+setStatus('Loading Jita prices to rank all reactions by net profit…');
 render();
+(async()=>{try{await getPrices(recipes.flatMap(r=>[...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]));setStatus('Priced reactions ranked by net profit per run.');render();}catch(e){setStatus('Some market prices unavailable; unpriced reactions remain at the bottom. '+e.message,true);render();}})();
 })();
 </script>
 @endsection
