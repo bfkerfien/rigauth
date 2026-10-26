@@ -352,6 +352,13 @@ async function main() {
     }
     const corpAuth = refreshed.find(r => REQUIRED_CORP.every(s => r.scopes.includes(s)));
     if (!corpAuth) throw new Error('None of the three characters has both corporation wallet and asset scopes');
+    console.log(JSON.stringify({
+      diagnostic: 'corporation_asset_authorization',
+      selectedCharacter: corpAuth.owner.display_name,
+      selectedCharacterEveId: Number(corpAuth.owner.eve_id),
+      targetCorporationEveId: Number(corporation.eve_id),
+      requiredCorpScopesPresent: REQUIRED_CORP.every(s => corpAuth.scopes.includes(s))
+    }));
     const corpResult = await syncCorporation(db, corporation, corpAuth.token);
     console.log(JSON.stringify({ ok: true, ...corpResult }));
     const reconciliation = await reconcileSitePayouts(db, corporation.id);
