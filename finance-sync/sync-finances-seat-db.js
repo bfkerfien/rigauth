@@ -195,6 +195,14 @@ async function syncCorporation(db, owner, token) {
     // CorpSAG3 is Hangar Division 3; filter by division, not by a single location.
     pages('/corporations/' + corpId + '/assets/', token)
   ]);
+  const assetFlagCounts = {};
+  const assetLocationTypeCounts = {};
+  for (const asset of allAssets) {
+    const flag = String(asset.location_flag || '(missing)');
+    const locationType = String(asset.location_type || '(missing)');
+    assetFlagCounts[flag] = (assetFlagCounts[flag] || 0) + 1;
+    assetLocationTypeCounts[locationType] = (assetLocationTypeCounts[locationType] || 0) + 1;
+  }
   const assets = allAssets.filter(asset => String(asset.location_flag || '') === 'CorpSAG3');
   if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
   const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
@@ -221,7 +229,10 @@ async function syncCorporation(db, owner, token) {
     journalEntries: journal.length,
     assets: assets.length,
     corporationAssetsScanned: allAssets.length,
-    hangar3Assets: assets.length
+    hangar3Assets: assets.length,
+    assetFlagCounts,
+    assetLocationTypeCounts,
+    assetSamples: allAssets.slice(0, 6).map(asset => ({ type_id: asset.type_id, location_flag: asset.location_flag || null, location_type: asset.location_type || null, location_id: asset.location_id || null }))
   };
 }
 async function reconcileSitePayouts(db, corporationOwnerId) {
