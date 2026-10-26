@@ -15,9 +15,14 @@ cd rigauth
 sudo bash ./restore-seat-source.sh /opt/seat-source
 ```
 
-The restore script exits without changing anything if its destination already exists. It applies the tracked customizations in `patches/`: the character portrait and name move to the top right beside Sign Out, the Fittings section and shopping-list tabs are added, and a superuser-only Admin Setup page manages designated T2 stations and fittings. Supporting controller, view, route, and migration files are kept in `custom/seat-web/` and copied into the reconstructed web package. The SSO bridge also adds `/triglavian/sso/authorize` for the Market fitting manager; it requires an authenticated SeAT superuser and signs a short-lived assertion for the single configured callback. The package autoload override is saved at `seat-docker/packages/override.json`.
+The restore script exits without changing anything if its destination already exists. It applies the tracked customizations in `patches/`: the character portrait and name move to the top right beside Sign Out, the Fittings section and shopping-list tabs are added, and a superuser-only Admin Setup page manages designated T2 stations and fittings. Supporting controller, view, route, and migration files are kept in `custom/seat-web/` and copied into the reconstructed web package. The package autoload override is saved at `seat-docker/packages/override.json`.
+
+## Market section
+
+The `market/seat-integration` branch adds a native `/market` page inside SeAT with Shame List, Under 30, 18 Percent, and Doctrine Health tabs. It uses SeAT's authenticated session directly and restricts access to SeAT superusers and a SeAT role titled `Marketeers`.
+
+Market reuses the existing `fit_` collector snapshot and fitting/doctrine tables in SeAT's configured database to avoid duplicating existing data. Any future Market-only tables must use the `mkt_` prefix and must also live in SeAT's configured database. See `docs/MARKET-SEAT-INTEGRATION.md` for tab behavior and verification steps.
+
+`SEAT_SSO_SETUP.md` documents the legacy bridge used by the former standalone Market UI. It is not needed by the integrated Market pages. EVE SSO used by the collector to retrieve ESI market data is a separate concern.
 
 Do not commit a server `.env` file or generated credentials here. Keep deployment secrets on each server.
-
-
-See [`SEAT_SSO_SETUP.md`](./SEAT_SSO_SETUP.md) for configuring the SeAT-to-Market SSO bridge. The shared signing secret belongs only in server environment files, never in this repository.

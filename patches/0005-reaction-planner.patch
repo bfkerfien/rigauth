@@ -1,0 +1,32 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -51,6 +51,10 @@
+         // The home route does not need any prefixes
+         // and or namespacing modifications, so we will
+         // just include it
+         include __DIR__ . '/Routes/Home.php';
++
++        // Triglavian Consortium reaction planner (read-only inventory lookup).
++        Route::get('/reactions', 'ReactionsController@index')
++            ->name('seatcore::reactions.index');
+ 
+         // Pilot-facing fittings page.
+         Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');
+
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -35,6 +35,14 @@
+             <i class="nav-icon fas fa-ship"></i>
+             <p>Fittings</p>
+           </a>
+         </li>
++        <li class="nav-item">
++          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
++            <i class="nav-icon fas fa-flask"></i>
++            <p>Reactions</p>
++          </a>
++        </li>
+         @can('global.superuser')
+         <li class="nav-item">

@@ -1,0 +1,29 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -61,5 +61,6 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+-        // Signed SSO bridge for the Triglavian Market app.
+-        include __DIR__ . '/Routes/TriglavianSso.php';
+-
++        // Native Market pages use SeAT's authenticated session.
++        // Do not expose the legacy standalone Market SSO bridge for this integration.
++        include __DIR__ . '/Routes/Market.php';
++
+         // Support Routes
+         Route::group([
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -40,4 +40,12 @@
+         </li>
+         @endcan
+ 
++        @php
++          $marketUser = auth()->user();
++          $marketRoleAccess = $marketUser && method_exists($marketUser, 'roles') && $marketUser->roles()->where('title', 'Marketeers')->exists();
++        @endphp
++        @if($marketUser && ($marketUser->can('global.superuser') || $marketRoleAccess))
++        <li class="nav-item"><a href="{{ route('seatcore::market.index') }}" class="nav-link {{ Request::segment(1)==='market'?'active':null }}"><i class="nav-icon fas fa-chart-line"></i><p>Market</p></a></li>
++        @endif
++
+         @foreach($menu as $entry)
