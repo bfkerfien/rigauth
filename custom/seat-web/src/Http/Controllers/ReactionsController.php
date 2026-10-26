@@ -55,40 +55,64 @@ class ReactionsController extends Controller
         }
 
         $prices = [];
+        $uncached = [];
         foreach ($names as $name) {
             $typeId = $idsByName[mb_strtolower($name)] ?? null;
             if (!$typeId) {
                 $prices[$name] = ['typeId' => null, 'buyPrice' => null, 'sellPrice' => null, 'splitPrice' => null, 'volume' => null, 'source' => 'Item type not found in local EVE data'];
                 continue;
             }
-            $prices[$name] = Cache::remember('reaction.jita.price.'.$typeId, 300, function () use ($typeId) {
-                $orders = [];
-                for ($page = 1; $page <= 5; $page++) {
-                    try {
-                        $response = Http::acceptJson()->timeout(12)->withHeaders(['User-Agent' => 'Triglavian-Consortium-SeAT-Reactions'])
+            $cached = Cache::get('reaction.jita.price.'.$typeId);
+            if (is_array($cached)) {
+                $prices[$name] = $cached;
+            } else {
+                $uncached[$typeId] = $typeId;
+            }
+        }
+
+        // Fetch up to ten item types concurrently instead of waiting for each type's ESI
+        // requests serially. This keeps initial leaderboard loading responsive.
+        foreach (array_chunk(array_values($uncached), 10) as $typeBatch) {
+            $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($typeBatch) {
+                $requests = [];
+                foreach ($typeBatch as $typeId) {
+                    for ($page = 1; $page <= 5; $page++) {
+                        $key = $typeId.'_'.$page;
+                        $requests[$key] = $pool->as($key)->acceptJson()->timeout(10)
+                            ->withHeaders(['User-Agent' => 'Triglavian-Consortium-SeAT-Reactions'])
                             ->get('https://esi.evetech.net/latest/markets/10000002/orders/', [
                                 'order_type' => 'all', 'type_id' => $typeId, 'page' => $page,
                             ]);
-                        if (!$response->successful()) break;
-                        $batch = $response->json();
-                        if (!is_array($batch) || !$batch) break;
-                        $orders = array_merge($orders, $batch);
-                        if (count($batch) < 1000) break;
-                    } catch (\Throwable $e) {
-                        break;
                     }
+                }
+                return $requests;
+            });
+
+            foreach ($typeBatch as $typeId) {
+                $orders = [];
+                for ($page = 1; $page <= 5; $page++) {
+                    $response = $responses[$typeId.'_'.$page] ?? null;
+                    if (!$response || !$response->successful()) break;
+                    $batch = $response->json();
+                    if (!is_array($batch) || !$batch) break;
+                    $orders = array_merge($orders, $batch);
+                    if (count($batch) < 1000) break;
                 }
                 $station = 60003760;
                 $buy = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && !empty($o['is_buy_order']))->max('price');
                 $sell = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && empty($o['is_buy_order']))->min('price');
-                return [
+                $value = [
                     'typeId' => $typeId, 'buyPrice' => $buy, 'sellPrice' => $sell,
                     'splitPrice' => $buy !== null && $sell !== null ? ($buy + $sell) / 2 : null,
                     'volume' => null, 'volumeFetched' => false,
                     'price' => $sell, 'source' => 'ESI Jita IV-4 CNAP orders',
                     'updatedAt' => now()->timestamp * 1000,
                 ];
-            });
+                Cache::put('reaction.jita.price.'.$typeId, $value, 300);
+                foreach ($names as $name) {
+                    if (($idsByName[mb_strtolower($name)] ?? null) === $typeId) $prices[$name] = $value;
+                }
+            }
         }
         return response()->json([
             'hub' => 'jita', 'hubName' => 'Jita IV-4 CNAP', 'regionId' => 10000002,
