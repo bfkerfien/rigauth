@@ -203,7 +203,18 @@ async function syncCorporation(db, owner, token) {
     assetFlagCounts[flag] = (assetFlagCounts[flag] || 0) + 1;
     assetLocationTypeCounts[locationType] = (assetLocationTypeCounts[locationType] || 0) + 1;
   }
-  const assets = allAssets.filter(asset => String(asset.location_flag || '') === 'CorpSAG3');
+  // Sync CorpSAG3 across all corporation locations for the asset inventory.
+  // Also retain telemetry items in CorpSAG1 at Nani I (station 60011173), which
+  // drives the separate Sites This Period metric in the SeAT finance dashboard.
+  const telemetryStationId = 60011173;
+  const telemetryTypeIds = new Set([87222, 87258]);
+  const assets = allAssets.filter(asset => {
+    const flag = String(asset.location_flag || '');
+    if (flag === 'CorpSAG3') return true;
+    return flag === 'CorpSAG1'
+      && Number(asset.location_id) === telemetryStationId
+      && telemetryTypeIds.has(Number(asset.type_id));
+  });
   if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
   const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
   const srpWallet = wallets.find(w => Number(w.division) === srpDivision);
