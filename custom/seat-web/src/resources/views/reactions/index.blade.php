@@ -123,7 +123,7 @@ function costAndProfit(r){
  return {runs,inputCost,gross,salesTax,outputTransport,jobTax,profit,margin,missing:[...missing,...outputMissing],rows};
 }
 async function renderDetails(r,key){
- const body=$('rx-body-'+CSS.escape(key));if(!body)return;
+ const body=$('rx-body-'+key);if(!body)return;
  try{
   await getPrices([...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]);
   const result=costAndProfit(r);
@@ -192,7 +192,7 @@ function render(){
  list.forEach((r,i)=>{const key=String(r.type_id||r.product)+'-'+i;if(expanded.has(key))renderDetails(r,key);});
 }
 async function renderDetails(r,key){
- const body=$('rx-body-'+CSS.escape(key));if(!body)return;
+ const body=$('rx-body-'+key);if(!body)return;
  try{
   await getPrices([...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]);
   const runs=completeRuns(r), requestedRuns=prevalentRuns(r), gas=prevalentMaterial(r), fuelNeeded=requestedRuns*fuelBlocksPerRun(), fuelOwned=fuelStock(), fuelShortfall=Math.max(0,fuelNeeded-fuelOwned);
