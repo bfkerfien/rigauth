@@ -127,8 +127,9 @@ async function saveJournal(db, ownerId, entries) {
         reference_type = VALUES(reference_type), occurred_at = VALUES(occurred_at)
     `, [
       ownerId, String(entry.id), new Date(entry.date), entry.ref_type || null, amount,
-      entry.description || '', amount < 0 ? 1 : 0,
-      amount < 0 ? (entry.ref_type || 'uncategorized') : null, JSON.stringify(entry)
+      entry.description || '', amount < 0 && String(entry.ref_type || '').toLowerCase() !== 'player_donation' ? 1 : 0,
+      amount < 0 && String(entry.ref_type || '').toLowerCase() !== 'player_donation'
+        ? (entry.ref_type || 'uncategorized') : null, JSON.stringify(entry)
     ]);
   }
 }
