@@ -40,11 +40,14 @@ CATALOG_TMP="$(mktemp)"
 trap 'rm -f "$CATALOG_TMP"; rollback' EXIT
 if curl -fsS --max-time 30 'https://gas.triglavianconsortium.com/api/reactions?category=all' -o "$CATALOG_TMP"; then
   echo "Fetched reaction catalog from the legacy service for initial/local refresh."
+elif [[ -s "$REPO/custom/seat-web/data/reactions.json" ]]; then
+  echo "Legacy catalog endpoint unavailable; using the validated catalog stored in the repository."
+  cp "$REPO/custom/seat-web/data/reactions.json" "$CATALOG_TMP"
 elif sudo test -s "$WEB/data/reactions.json"; then
   echo "Legacy catalog endpoint unavailable; reusing the already-installed local catalog."
   sudo cp "$WEB/data/reactions.json" "$CATALOG_TMP"
 else
-  echo "STOP: Cannot fetch the initial catalog and no local catalog exists; no live files changed."
+  echo "STOP: Cannot fetch catalog and no repository/live local catalog exists; no live files changed."
   exit 1
 fi
 python3 - "$CATALOG_TMP" <<'PY'
