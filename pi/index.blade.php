@@ -1,0 +1,73 @@
+@extends('web::layouts.grids.12')
+@section('title', 'Planetary Industry')
+@section('page_header', 'Planetary Industry')
+@section('page_description', 'Triglavian Consortium · PI profitability and colony attention')
+
+@section('full')
+<style>
+#pi{color:#e8f0f5;background:radial-gradient(ellipse at top,#122330,#070c11 62%);border:1px solid #263744;border-radius:10px;padding:16px;font:14px/1.5 system-ui,sans-serif}
+#pi *{box-sizing:border-box}#pi h1{font-size:28px;margin:3px 0 8px;color:#e8f0f5}#pi h2{font-size:17px;margin:0 0 10px;color:#e8f0f5}#pi .muted{color:#9aadb9}#pi .eyebrow{font-size:10px;letter-spacing:.15em;color:#65d9f5;font-weight:800}#pi button,#pi input,#pi select{font:inherit;border-radius:5px;padding:9px;border:1px solid #354b59;background:#0a1219;color:#e8f0f5}#pi button{cursor:pointer;color:#65d9f5;border-color:#286074}#pi .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:15px 0}#pi .tabs button{flex:1;min-width:100px;color:#9aadb9}#pi .tabs button.active{background:#123342;color:#65d9f5;border-color:#65d9f5}#pi .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px}#pi label{display:grid;gap:5px;font-size:11px;color:#9aadb9}#pi .status,#pi .panel,#pi .recipe{border:1px solid #263744;border-radius:8px;padding:12px;margin:0 0 10px;background:#0d161e}#pi .status{font-size:11px;overflow-wrap:anywhere}#pi .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}#pi .kpi{padding:10px;border:1px solid #263744;border-radius:7px;background:#091118}#pi .kpi span{display:block;color:#9aadb9;font-size:9px;text-transform:uppercase}#pi .kpi strong{display:block;font-size:16px;overflow-wrap:anywhere}#pi .recipe-head{display:flex;justify-content:space-between;gap:12px;cursor:pointer;align-items:center}#pi .recipe-body{border-top:1px solid #263744;margin-top:10px;padding-top:10px}#pi .recipe-body[hidden],#pi .hidden{display:none!important}#pi .pill{font-size:10px;border:1px solid #263744;padding:2px 7px;border-radius:20px;color:#9aadb9}#pi .positive{color:#65d9f5}#pi .warning{color:#ffb36a}#pi .help{font-size:11px;color:#9aadb9}#pi .scroll{overflow:auto;border:1px solid #263744;border-radius:6px}#pi table{width:100%;min-width:560px;border-collapse:collapse}#pi th,#pi td{padding:8px;text-align:left;font-size:11px;border-bottom:1px solid #20303b;color:#e8f0f5}#pi th{color:#9aadb9;background:#091118}#pi .row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}#pi .row>*{flex:1}#pi .row button{flex:0 0 auto}#pi .empty{text-align:center;padding:18px;border:1px dashed #263744;color:#9aadb9;border-radius:7px}
+@media(max-width:650px){#pi{padding:9px}#pi .grid,#pi .kpis{grid-template-columns:1fr}#pi .recipe-head{align-items:flex-start;flex-direction:column}}
+</style>
+<div id="pi">
+  <div class="eyebrow">TRIGLAVIAN CONSORTIUM · NEW EDEN INDUSTRY</div>
+  <h1>Planetary Industry</h1>
+  <p class="muted">P2, P3 and P4 profitability rankings, expandable schematic details, and a colony attention tracker.</p>
+  @if($recipeError)<div class="status warning">{{ $recipeError }}</div>@endif
+  <div id="pi-market-status" class="status">Loading local planetary schematics and Jita IV-4 prices…</div>
+  <div class="tabs" role="tablist">
+    <button class="active" data-tab="P2" aria-selected="true">P2 · Refined</button>
+    <button data-tab="P3" aria-selected="false">P3 · Specialized</button>
+    <button data-tab="P4" aria-selected="false">P4 · Advanced</button>
+    <button data-tab="status" aria-selected="false">Status · Colonies</button>
+  </div>
+  <section id="pi-profit">
+    <div class="grid">
+      <label>Sell fee / tax (%)<input id="pi-fee" type="number" min="0" max="100" step=".01" value="4.37"></label>
+      <label>Modeled customs tax (%)<input id="pi-tax" type="number" min="0" max="100" step=".1" value="5"></label>
+      <label>Search commodity / input<input id="pi-search" type="search" placeholder="Search recipes…"></label>
+    </div>
+    <div class="kpis"><div class="kpi"><span>Recipes in tier</span><strong id="pi-count">0</strong></div><div class="kpi"><span>Complete prices</span><strong id="pi-priced">0</strong></div><div class="kpi"><span>Best net / batch</span><strong id="pi-best">—</strong></div></div>
+    <p class="help">Inputs use the midpoint of Jita IV-4 best buy and sell; output uses Jita sell, less the entered sell fee and modeled customs tax. Unpriced recipes are shown but not treated as zero-cost. Market prices are estimates, not guaranteed proceeds.</p>
+    <div id="pi-recipes"></div>
+  </section>
+  <section id="pi-status" class="hidden">
+    <div class="panel">
+      <h2>Colony attention tracker</h2>
+      <p class="help">Version 1 lets you track each character's planets and next extractor reset. Schedule data is saved in this browser. The countdown is based on the reset time you enter; it is not a live ESI extractor timer.</p>
+      <div class="grid">
+        <label>Character<input id="pi-character" placeholder="Character name"></label>
+        <label>Planet / label<input id="pi-planet" placeholder="Planet or custom label"></label>
+        <label>Next extractor reset<input id="pi-reset" type="datetime-local"></label>
+      </div>
+      <div class="grid">
+        <label>Cycle length<select id="pi-cycle"><option value="1">1 hour</option><option value="2">2 hours</option><option value="4">4 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option><option value="96">96 hours</option></select></label>
+        <label style="grid-column:span 2">Notes / action needed<input id="pi-note" placeholder="Restart extraction, empty storage…"></label>
+      </div>
+      <button id="pi-add" type="button">Add colony</button>
+    </div>
+    <div class="kpis"><div class="kpi"><span>Tracked colonies</span><strong id="pi-colony-count">0</strong></div><div class="kpi"><span>Due within 24 hours</span><strong id="pi-due-count">0</strong></div><div class="kpi"><span>Overdue</span><strong id="pi-overdue-count">0</strong></div></div>
+    <div id="pi-colonies"></div>
+  </section>
+</div>
+<script>
+(function(){
+'use strict';
+const recipes={!! $recipeJson !!}, marketUrl=@json(route('seatcore::reactions.market')), prices={};
+const fmt=n=>Number(n).toLocaleString(undefined,{maximumFractionDigits:2});
+const isk=n=>n===null||!Number.isFinite(n)?'—':fmt(n)+' ISK';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let tier='P2';
+function getTierRecipes(){const q=document.getElementById('pi-search').value.trim().toLowerCase();return recipes.filter(r=>r.tier===tier&&(!q||r.name.toLowerCase().includes(q)||r.materials.some(m=>m.name.toLowerCase().includes(q)))).map(r=>{const fee=Math.min(100,Math.max(0,Number(document.getElementById('pi-fee').value)||0))/100,tax=Math.min(100,Math.max(0,Number(document.getElementById('pi-tax').value)||0))/100,output=prices[r.name]||{},materials=r.materials.map(m=>({...m,price:prices[m.name]?.splitPrice??null})),missing=materials.some(m=>m.price===null)||output.sellPrice==null,cost=materials.reduce((s,m)=>s+(m.price===null?0:m.price*m.quantity),0),proceeds=output.sellPrice==null?null:r.output*output.sellPrice*(1-fee-tax);return {...r,materialsPriced:materials,missing,cost,proceeds,net:missing?null:proceeds-cost*(1+tax)};}).sort((a,b)=>a.net===null?(b.net===null?a.name.localeCompare(b.name):1):b.net===null?-1:b.net-a.net);}
+function renderRecipes(){const rows=getTierRecipes();document.getElementById('pi-count').textContent=rows.length;document.getElementById('pi-priced').textContent=rows.filter(r=>!r.missing).length;const valid=rows.filter(r=>r.net!==null);document.getElementById('pi-best').textContent=valid.length?isk(valid[0].net):'—';const root=document.getElementById('pi-recipes');if(!rows.length){root.innerHTML='<div class="empty">No recipes found in this tier. Check local planetary schematic data.</div>';return;}root.innerHTML=rows.map((r,i)=>'<article class="recipe"><div class="recipe-head" role="button" tabindex="0" aria-expanded="false" data-open="'+i+'"><div><span class="pill">'+esc(r.tier)+'</span> <strong>'+esc(r.name)+'</strong><div class="help">'+esc(r.schematic)+' · output '+fmt(r.output)+' / '+Math.max(1,Math.round(r.cycleSeconds/60))+' min</div></div><div><strong class="'+(r.net===null?'':r.net>=0?'positive':'warning')+'">'+(r.net===null?'NEEDS PRICES':isk(r.net))+'</strong> <span class="pill">Details ▾</span></div></div><div class="recipe-body" hidden><div class="kpis"><div class="kpi"><span>Input basket</span><strong>'+isk(r.cost)+'</strong></div><div class="kpi"><span>Net proceeds</span><strong>'+isk(r.proceeds)+'</strong></div><div class="kpi"><span>Net / batch</span><strong class="'+(r.net===null?'':r.net>=0?'positive':'warning')+'">'+isk(r.net)+'</strong></div></div><div class="scroll"><table><thead><tr><th>Input material</th><th>Quantity</th><th>Jita split</th><th>Batch cost</th></tr></thead><tbody>'+r.materialsPriced.map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+fmt(m.quantity)+'</td><td>'+isk(m.price)+'</td><td>'+isk(m.price===null?null:m.price*m.quantity)+'</td></tr>').join('')+'</tbody></table></div><p class="help">Output '+fmt(r.output)+' × '+esc(r.name)+'. Tax is a planning estimate; hauling, POCO-specific rates, extraction opportunity cost and facility fees are not included.</p></div></article>').join('');root.querySelectorAll('[data-open]').forEach(head=>{const toggle=()=>{const body=head.parentElement.querySelector('.recipe-body');body.hidden=!body.hidden;head.setAttribute('aria-expanded',String(!body.hidden));};head.addEventListener('click',toggle);head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});});}
+async function loadPrices(){const names=[...new Set(recipes.flatMap(r=>[r.name,...r.materials.map(m=>m.name)]))];document.getElementById('pi-market-status').textContent='Fetching Jita IV-4 prices through SeAT market cache…';try{for(let i=0;i<names.length;i+=100){const batch=names.slice(i,i+100),res=await fetch(marketUrl+'?names='+encodeURIComponent(batch.join(',')),{credentials:'same-origin',headers:{Accept:'application/json'}});if(!res.ok)throw new Error('Market proxy HTTP '+res.status);const data=await res.json();Object.assign(prices,data.prices||{});}document.getElementById('pi-market-status').textContent='Prices loaded through SeAT’s existing market endpoint. Its cache is shared with the Reactions planner.';}catch(e){document.getElementById('pi-market-status').textContent='Recipes are available, but price refresh failed: '+e.message+'. Refresh the page to retry.';}renderRecipes();}
+function showTab(next){tier=next;document.querySelectorAll('#pi .tabs button').forEach(b=>{const active=b.dataset.tab===next;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});document.getElementById('pi-profit').classList.toggle('hidden',next==='status');document.getElementById('pi-status').classList.toggle('hidden',next!=='status');if(next!=='status')renderRecipes();else renderColonies();}
+document.querySelectorAll('#pi .tabs button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));['pi-search','pi-fee','pi-tax'].forEach(id=>document.getElementById(id).addEventListener('input',renderRecipes));
+const key='triglavian-seat-pi-colonies-v1',getColonies=()=>{try{const a=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(a)?a:[];}catch(_){return[];}},saveColonies=a=>localStorage.setItem(key,JSON.stringify(a)),remaining=c=>c.resetAt?new Date(c.resetAt).getTime()-Date.now():null;
+function renderColonies(){const rows=getColonies().sort((a,b)=>(remaining(a)??Infinity)-(remaining(b)??Infinity)),due=rows.filter(c=>remaining(c)!==null&&remaining(c)>=0&&remaining(c)<=86400000).length,overdue=rows.filter(c=>remaining(c)!==null&&remaining(c)<0).length;document.getElementById('pi-colony-count').textContent=rows.length;document.getElementById('pi-due-count').textContent=due;document.getElementById('pi-overdue-count').textContent=overdue;const root=document.getElementById('pi-colonies');if(!rows.length){root.innerHTML='<div class="empty">No colonies tracked yet. Add a character and planet above.</div>';return;}root.innerHTML='<div class="scroll"><table><thead><tr><th>Character</th><th>Planet</th><th>Next reset</th><th>Remaining</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>'+rows.map(c=>{const left=remaining(c),state=left===null?'RESET NOT SET':left<0?'OVERDUE':left<=86400000?'DUE SOON':'RUNNING',cls=left===null?'':left<0?'warning':left<=86400000?'warning':'positive',time=left===null?'—':left<0?'overdue by '+fmt(-left/3600000)+' h':Math.floor(left/86400000)+'d '+Math.floor(left%86400000/3600000)+'h '+Math.floor(left%3600000/60000)+'m';return '<tr><td>'+esc(c.character)+'</td><td>'+esc(c.planet)+'<div class="help">'+fmt(c.cycleHours)+' h cycle</div></td><td>'+esc(c.resetAt?new Date(c.resetAt).toLocaleString():'Not set')+'</td><td>'+time+'</td><td class="'+cls+'"><strong>'+state+'</strong></td><td>'+esc(c.note||'—')+'</td><td><button data-delete="'+esc(c.id)+'" type="button">Delete</button></td></tr>';}).join('')+'</tbody></table></div>';root.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',()=>{saveColonies(getColonies().filter(c=>c.id!==b.dataset.delete));renderColonies();}));}
+document.getElementById('pi-add').addEventListener('click',()=>{const character=document.getElementById('pi-character').value.trim(),planet=document.getElementById('pi-planet').value.trim(),reset=document.getElementById('pi-reset').value;if(!character||!planet||!reset){alert('Enter the character, planet label, and next reset time.');return;}const rows=getColonies();rows.push({id:String(Date.now())+'-'+Math.random().toString(36).slice(2),character,planet,resetAt:new Date(reset).toISOString(),cycleHours:Number(document.getElementById('pi-cycle').value)||1,note:document.getElementById('pi-note').value.trim()});saveColonies(rows);['pi-character','pi-planet','pi-reset','pi-note'].forEach(id=>document.getElementById(id).value='');renderColonies();});
+setInterval(()=>{if(!document.getElementById('pi-status').classList.contains('hidden'))renderColonies();},60000);
+renderRecipes();loadPrices();
+})();
+</script>
+@endsection
