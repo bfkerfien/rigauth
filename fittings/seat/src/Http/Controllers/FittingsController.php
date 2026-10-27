@@ -213,7 +213,7 @@ class FittingsController
 
     /**
      * Build a per-user shortage list for one ship of every fit assigned to doctrines
-     * scoped to each location. Assets are combined across the user's linked pilots.
+     * scoped to each location. Each character's assets are evaluated separately; items are never pooled between characters.
      */
     private function missingInventoryShortages($db, $doctrineFits, $pilots, $locations): array
     {
@@ -311,7 +311,8 @@ class FittingsController
             }
 
             $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
-            $owned = [];
+            $ownedByPilot = [];
+            $pilotNames = $pilots->keyBy(fn ($pilot) => (int) $pilot->character_id);
             $rootLocations = [$systemId => true];
             if ($schema->hasTable('staStations')) {
                 foreach ($db->table('staStations')->where('solarSystemID', $systemId)->pluck('stationID') as $id) {
@@ -354,7 +355,7 @@ class FittingsController
                         }
                         if ($isInSystem) {
                             $typeId = (int) $asset->type_id;
-                            $owned[$typeId] = ($owned[$typeId] ?? 0) + max(1, (int) $asset->quantity);
+                            $ownedByPilot[$pilotId][$typeId] = ($ownedByPilot[$pilotId][$typeId] ?? 0) + max(1, (int) $asset->quantity);
                         }
                     }
                 }
@@ -362,28 +363,34 @@ class FittingsController
 
             foreach ($categories as $category) {
                 $shortages = [];
-                $remainingOwned = $owned;
-                foreach ($requirementsByCategory[$category] ?? [] as $requirement) {
-                    $have = (int) ($remainingOwned[$requirement['type_id']] ?? 0);
-                    if ($category === 'hull_rig') {
-                        $have = min($have, (int) $requirement['needed']);
-                        $remainingOwned[$requirement['type_id']] = max(0, (int) ($remainingOwned[$requirement['type_id']] ?? 0) - $have);
-                    }
-                    $missing = max(0, $requirement['needed'] - $have);
-                    if ($missing > 0) {
-                        $shortages[] = (object) [
-                            'type_id' => $requirement['type_id'],
-                            'type_name' => $requirement['type_name'],
-                            'needed' => $requirement['needed'],
-                            'have' => $have,
-                            'missing' => $missing,
-                            'fit_names' => array_values(array_filter(array_unique($requirement['fit_names']))),
-                            'group_key' => $requirement['group_key'] ?? null,
-                            'group_name' => $requirement['group_name'] ?? null,
-                        ];
+                // Report each pilot's shortages independently: assets from different
+                // characters must not be pooled to make a doctrine look stocked.
+                foreach ($pilotIds as $pilotId) {
+                    $remainingOwned = $ownedByPilot[$pilotId] ?? [];
+                    foreach ($requirementsByCategory[$category] ?? [] as $requirement) {
+                        $have = (int) ($remainingOwned[$requirement['type_id']] ?? 0);
+                        if ($category === 'hull_rig') {
+                            $have = min($have, (int) $requirement['needed']);
+                            $remainingOwned[$requirement['type_id']] = max(0, (int) ($remainingOwned[$requirement['type_id']] ?? 0) - $have);
+                        }
+                        $missing = max(0, $requirement['needed'] - $have);
+                        if ($missing > 0) {
+                            $shortages[] = (object) [
+                                'character_id' => $pilotId,
+                                'character_name' => $pilotNames->get($pilotId)->name ?? ('Character ' . $pilotId),
+                                'type_id' => $requirement['type_id'],
+                                'type_name' => $requirement['type_name'],
+                                'needed' => $requirement['needed'],
+                                'have' => $have,
+                                'missing' => $missing,
+                                'fit_names' => array_values(array_filter(array_unique($requirement['fit_names']))),
+                                'group_key' => ($requirement['group_key'] ?? null) === null ? null : $pilotId . ':' . $requirement['group_key'],
+                                'group_name' => $requirement['group_name'] ?? null,
+                            ];
+                        }
                     }
                 }
-                usort($shortages, fn ($a, $b) => $category === 'hull_rig'
+                usort($shortages, fn ($a, $b) => strcasecmp($a->character_name, $b->character_name) ?: ($category === 'hull_rig'
                     ? (strcasecmp((string) ($a->group_name ?? ''), (string) ($b->group_name ?? '')) ?: strcasecmp($a->type_name, $b->type_name))
                     : strcasecmp($a->type_name, $b->type_name));
                 $result[$locationType]['categories'][$category] = collect($shortages);
@@ -398,7 +405,7 @@ class FittingsController
 
     /**
      * Calculate whether all components for each doctrine fit are present in the
-     * configured home or deployment system. Assets are combined across linked pilots.
+     * configured home or deployment system. Each character's assets are evaluated separately; items are never pooled between characters.
      */
     private function pilotFitInventoryStatus($db, $doctrineFits, $pilots, $locations): array
     {
