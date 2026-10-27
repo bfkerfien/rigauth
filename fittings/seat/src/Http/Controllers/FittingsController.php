@@ -409,6 +409,7 @@ class FittingsController
         foreach ($doctrineFits as $doctrineName => $doctrineFitList) {
             foreach ($doctrineFitList as $fit) {
                 $fitId = (int) $fit->id;
+                $fit->doctrine = $doctrineName;
                 $fitsById[$fitId] = $fit;
                 foreach (['home', 'deployment', 'third'] as $locationType) {
                     $statuses[$fitId][$locationType] = [
@@ -473,13 +474,16 @@ class FittingsController
                 }
             }
 
-            $owned = [];
+            // Keep inventory isolated per character. A pilot's assets must never be
+            // combined with another pilot's assets to mark a fit as ready.
+            $ownedByPilot = [];
             foreach ($pilotIds as $pilotId) {
                 $pilotAssets = $assets->where('character_id', $pilotId);
                 $parentByItem = [];
                 foreach ($pilotAssets as $asset) {
                     $parentByItem[(int) $asset->item_id] = (int) $asset->location_id;
                 }
+                $ownedByPilot[$pilotId] = [];
                 foreach ($pilotAssets as $asset) {
                     $locationId = (int) $asset->location_id;
                     $isInSystem = false;
@@ -488,21 +492,15 @@ class FittingsController
                     } else {
                         $seen = [];
                         for ($depth = 0; $depth < 25 && $locationId > 0; $depth++) {
-                            if (isset($rootLocations[$locationId])) {
-                                $isInSystem = true;
-                                break;
-                            }
-                            if (isset($seen[$locationId]) || !isset($parentByItem[$locationId])) {
-                                break;
-                            }
+                            if (isset($rootLocations[$locationId])) { $isInSystem = true; break; }
+                            if (isset($seen[$locationId]) || !isset($parentByItem[$locationId])) break;
                             $seen[$locationId] = true;
                             $locationId = $parentByItem[$locationId];
                         }
                     }
-
                     if ($isInSystem) {
                         $typeId = (int) $asset->type_id;
-                        $owned[$typeId] = ($owned[$typeId] ?? 0) + max(1, (int) $asset->quantity);
+                        $ownedByPilot[$pilotId][$typeId] = ($ownedByPilot[$pilotId][$typeId] ?? 0) + max(1, (int) $asset->quantity);
                     }
                 }
             }
@@ -514,33 +512,44 @@ class FittingsController
                 foreach ($itemsByFit->get($fitId, collect()) as $item) {
                     $typeId = (int) $item->type_id;
                     $requirements[$typeId] = ($requirements[$typeId] ?? 0) + max(1, (int) $item->quantity_per_ship);
-                    if ((bool) $item->is_hull) {
-                        $hasHull = true;
-                    }
+                    if ((bool) $item->is_hull) $hasHull = true;
                 }
-
                 $shipTypeId = (int) $fit->ship_type_id;
-                if (!$hasHull && $shipTypeId > 0) {
-                    $requirements[$shipTypeId] = max(1, $requirements[$shipTypeId] ?? 0);
-                }
+                if (!$hasHull && $shipTypeId > 0) $requirements[$shipTypeId] = max(1, $requirements[$shipTypeId] ?? 0);
 
-                $ready = (bool) $requirements;
-                foreach ($requirements as $typeId => $quantity) {
-                    if (($owned[$typeId] ?? 0) < $quantity) {
-                        $ready = false;
-                        break;
+                $selectedPilotIds = $this->pilotIdsSelectingDoctrine($db, $pilots, $locationType, (string) ($fit->doctrine ?? ''));
+                $ready = false;
+                foreach ($selectedPilotIds as $pilotId) {
+                    $pilotReady = (bool) $requirements;
+                    foreach ($requirements as $typeId => $quantity) {
+                        if (($ownedByPilot[$pilotId][$typeId] ?? 0) < $quantity) { $pilotReady = false; break; }
                     }
+                    if ($pilotReady) { $ready = true; break; }
                 }
-
-                $statuses[$fitId][$locationType] = [
-                    'applicable' => true,
-                    'available' => true,
-                    'ready' => $ready,
-                ];
+                $statuses[$fitId][$locationType] = ['applicable' => true, 'available' => true, 'ready' => $ready];
             }
         }
 
         return $statuses;
+    }
+
+    private function pilotIdsSelectingDoctrine($db, $pilots, string $locationType, string $doctrine): array
+    {
+        $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        if (!$pilotIds || $doctrine === '' || !$db->getSchemaBuilder()->hasTable('fit_character_doctrine_settings')) return $pilotIds;
+        $configuredIds = $db->table('fit_character_doctrine_settings')->whereIn('character_id', $pilotIds)
+            ->where('location_type', $locationType)->where('is_configured', true)
+            ->pluck('character_id')->map(fn ($id) => (int) $id)->all();
+        if (!$configuredIds) return $pilotIds;
+        $selectedIds = $db->table('fit_character_doctrine_assignments')->whereIn('character_id', $configuredIds)
+            ->where('location_type', $locationType)->where('doctrine', $doctrine)
+            ->pluck('character_id')->map(fn ($id) => (int) $id)->all();
+        $legacyIds = array_values(array_diff($pilotIds, $configuredIds));
+        if ($legacyIds) {
+            $legacyDoctrine = $db->table('fit_doctrines')->where('name', $doctrine)->value('location_scope');
+            if (in_array($legacyDoctrine ?? 'both', [$locationType, 'both'], true)) $selectedIds = array_merge($selectedIds, $legacyIds);
+        }
+        return array_values(array_unique($selectedIds));
     }
 
     private function selectedDoctrinesForLocation($db, $pilots, string $locationType, $doctrineFits): array
