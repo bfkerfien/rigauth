@@ -89,6 +89,9 @@ class FittingsController
         }
 
         $pilots = auth()->user()->characters->unique('character_id')->values();
+        $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $characterDoctrineSettings = $db->table('fit_character_doctrine_settings')->whereIn('character_id', $pilotIds)->get()->keyBy(fn ($row) => $row->character_id . '|' . $row->location_type);
+        $characterDoctrineSelections = $db->table('fit_character_doctrine_assignments')->whereIn('character_id', $pilotIds)->get()->groupBy(fn ($row) => $row->character_id . '|' . $row->location_type);
         $fitSkillStatus = $this->pilotFitEligibility($db, $doctrineFits, $pilots);
         $locations = $db->table('fit_location_settings')->get()->keyBy('location_type');
         $fitInventoryStatus = $this->pilotFitInventoryStatus($db, $doctrineFits, $pilots, $locations);
@@ -116,7 +119,39 @@ class FittingsController
             'shoppingListItems' => $shoppingListItems,
             'locations' => $locations,
             'inventoryShortages' => $inventoryShortages,
+            'characterDoctrineSettings' => $characterDoctrineSettings,
+            'characterDoctrineSelections' => $characterDoctrineSelections,
         ]);
+    }
+
+    public function storePilotDoctrineSelections(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate([
+            'character_id' => ['required', 'integer', 'min:1'],
+            'location_type' => ['required', 'in:home,deployment,third'],
+            'doctrines' => ['nullable', 'array'],
+            'doctrines.*' => ['required', 'string', 'max:120'],
+        ]);
+        $characterId = (int) $data['character_id'];
+        abort_unless(auth()->user()->characters->contains(fn ($character) => (int) $character->character_id === $characterId), 403);
+        $db = $this->market();
+        $selected = array_values(array_unique($data['doctrines'] ?? []));
+        if ($selected && $db->table('fit_doctrines')->whereIn('name', $selected)->count() !== count($selected)) {
+            return back()->withErrors(['doctrines' => 'One or more selected doctrines are no longer available.'])->withInput();
+        }
+        $locationType = $data['location_type'];
+        $db->transaction(function () use ($db, $characterId, $locationType, $selected) {
+            $db->table('fit_character_doctrine_settings')->updateOrInsert(
+                ['character_id' => $characterId, 'location_type' => $locationType],
+                ['owner_user_id' => auth()->id(), 'is_configured' => true, 'updated_at' => now()]
+            );
+            $db->table('fit_character_doctrine_assignments')->where('character_id', $characterId)->where('location_type', $locationType)->delete();
+            if ($selected) $db->table('fit_character_doctrine_assignments')->insert(array_map(fn ($name) => [
+                'character_id' => $characterId, 'location_type' => $locationType, 'doctrine' => $name, 'created_at' => now(),
+            ], $selected));
+        });
+        return redirect()->route('seatcore::fittings.index')->with('success', 'Doctrine selection saved for this character and location.');
     }
 
     public function storePilotShoppingList(Request $request): RedirectResponse
@@ -124,7 +159,7 @@ class FittingsController
         abort_unless(auth()->check(), 401);
         $data = $request->validate([
             'list_name' => ['required', 'string', 'max:160'],
-            'list_type' => ['required', 'in:home,deployment'],
+            'list_type' => ['required', 'in:home,deployment,third'],
             'notes' => ['nullable', 'string', 'max:10000'],
         ]);
 
@@ -184,7 +219,9 @@ class FittingsController
     {
         $categories = ['modules', 'consumables', 'hull_rig'];
         $result = [];
-        foreach (['home', 'deployment'] as $locationType) {
+        $selectedByLocation = [];
+        foreach (['home', 'deployment', 'third'] as $locationType) {
+            $selectedByLocation[$locationType] = $this->selectedDoctrinesForLocation($db, $pilots, $locationType, $doctrineFits);
             $result[$locationType] = ['available' => false, 'categories' => []];
             foreach ($categories as $category) {
                 $result[$locationType]['categories'][$category] = collect();
@@ -206,10 +243,7 @@ class FittingsController
             $requirements = [];
             $fitIds = [];
             foreach ($doctrineFits as $doctrine => $fits) {
-                $scope = $fits->first()->location_scope ?? 'both';
-                if (!in_array($scope, [$locationType, 'both'], true)) {
-                    continue;
-                }
+                if (!in_array($doctrine, $selectedByLocation[$locationType], true)) continue;
                 foreach ($fits as $fit) {
                     $fitId = (int) $fit->id;
                     $fitIds[] = $fitId;
@@ -370,14 +404,15 @@ class FittingsController
     {
         $statuses = [];
         $fitsById = [];
-        foreach ($doctrineFits as $doctrineFitList) {
-            $scope = $doctrineFitList->first()->location_scope ?? 'both';
+        $selectedByLocation = [];
+        foreach (['home', 'deployment', 'third'] as $locationType) $selectedByLocation[$locationType] = $this->selectedDoctrinesForLocation($db, $pilots, $locationType, $doctrineFits);
+        foreach ($doctrineFits as $doctrineName => $doctrineFitList) {
             foreach ($doctrineFitList as $fit) {
                 $fitId = (int) $fit->id;
                 $fitsById[$fitId] = $fit;
-                foreach (['home', 'deployment'] as $locationType) {
+                foreach (['home', 'deployment', 'third'] as $locationType) {
                     $statuses[$fitId][$locationType] = [
-                        'applicable' => in_array($scope, [$locationType, 'both'], true),
+                        'applicable' => in_array($doctrineName, $selectedByLocation[$locationType], true),
                         'available' => false,
                         'ready' => false,
                     ];
@@ -405,11 +440,8 @@ class FittingsController
                 ->get(['character_id', 'item_id', 'type_id', 'quantity', 'location_id', 'location_type'])
             : collect();
 
-        foreach (['home', 'deployment'] as $locationType) {
-            $fitIdsForLocation = array_keys(array_filter(
-                $statuses,
-                fn ($fitStatus) => $fitStatus[$locationType]['applicable']
-            ));
+        foreach (['home', 'deployment', 'third'] as $locationType) {
+            $fitIdsForLocation = array_keys(array_filter($statuses, fn ($fitStatus) => $fitStatus[$locationType]['applicable']));
             if (!$fitIdsForLocation) {
                 continue;
             }
@@ -509,6 +541,18 @@ class FittingsController
         }
 
         return $statuses;
+    }
+
+    private function selectedDoctrinesForLocation($db, $pilots, string $locationType, $doctrineFits): array
+    {
+        $legacy = $doctrineFits->filter(fn ($fits) => in_array($fits->first()->location_scope ?? 'both', [$locationType, 'both'], true))->keys()->all();
+        $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        if (!$pilotIds || !$db->getSchemaBuilder()->hasTable('fit_character_doctrine_settings')) return $legacy;
+        $configuredIds = $db->table('fit_character_doctrine_settings')->whereIn('character_id', $pilotIds)->where('location_type', $locationType)->where('is_configured', true)->pluck('character_id')->map(fn ($id) => (int) $id)->all();
+        if (!$configuredIds) return $legacy;
+        $selected = $db->table('fit_character_doctrine_assignments')->whereIn('character_id', $configuredIds)->where('location_type', $locationType)->pluck('doctrine')->unique()->values()->all();
+        if (array_diff($pilotIds, $configuredIds)) $selected = array_merge($selected, $legacy);
+        return array_values(array_unique($selected));
     }
 
     private function eftClipboardText(object $fit): string
@@ -926,11 +970,12 @@ class FittingsController
         $data = $request->validate([
             'home_station_id' => ['nullable', 'integer', 'min:1'],
             'deployment_station_id' => ['nullable', 'integer', 'min:1'],
+            'third_station_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $db = $this->market();
         $locations = [];
-        foreach (['home', 'deployment'] as $locationType) {
+        foreach (['home', 'deployment', 'third'] as $locationType) {
             $stationId = $data[$locationType . '_station_id'] ?? null;
             $station = null;
             if ($stationId) {
@@ -977,14 +1022,14 @@ class FittingsController
             }
         });
 
-        return redirect()->route('seatcore::fittings.manage')->with('success', 'Home and deployment stations saved.');
+        return redirect()->route('seatcore::fittings.manage')->with('success', 'Home, deployment and third-location stations saved.');
     }
 
     public function storeAllianceStation(Request $request): RedirectResponse
     {
         $this->requireAdmin();
         $data = $request->validate([
-            'location_type' => ['required', 'in:home,deployment'],
+            'location_type' => ['required', 'in:home,deployment,third'],
             'station_id' => ['required', 'integer', 'min:1'],
         ]);
 
@@ -1022,7 +1067,7 @@ class FittingsController
     public function destroyAllianceStation(string $locationType, int $stationId): RedirectResponse
     {
         $this->requireAdmin();
-        abort_unless(in_array($locationType, ['home', 'deployment'], true), 404);
+        abort_unless(in_array($locationType, ['home', 'deployment', 'third'], true), 404);
 
         $db = $this->market();
         $usedAsDefault = $db->table('fit_location_settings')
@@ -1051,7 +1096,7 @@ class FittingsController
         $this->requireAdmin();
         $data = $request->validate([
             'list_name' => ['required', 'string', 'max:160'],
-            'list_type' => ['required', 'in:home,deployment'],
+            'list_type' => ['required', 'in:home,deployment,third'],
             'notes' => ['nullable', 'string', 'max:10000'],
         ]);
 
@@ -1117,7 +1162,7 @@ class FittingsController
         $this->requireAdmin();
         $data = $request->validate([
             'doctrine_name' => ['required', 'string', 'max:120'],
-            'location_scope' => ['required', 'in:home,deployment,both'],
+            'location_scope' => ['required', 'in:home,deployment,third,both'],
         ]);
 
         $name = trim($data['doctrine_name']);
@@ -1162,7 +1207,7 @@ class FittingsController
     {
         $this->requireAdmin();
         $data = $request->validate([
-            'location_scope' => ['required', 'in:home,deployment,both'],
+            'location_scope' => ['required', 'in:home,deployment,third,both'],
             'fits' => ['nullable', 'array'],
             'fits.*' => ['integer', 'min:1'],
         ]);
