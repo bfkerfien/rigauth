@@ -23,7 +23,8 @@
             <select id="doctrine-scope" name="location_scope" class="form-control" required>
               <option value="home" {{ old('location_scope', 'both') === 'home' ? 'selected' : '' }}>Home system</option>
               <option value="deployment" {{ old('location_scope') === 'deployment' ? 'selected' : '' }}>Deployment system</option>
-              <option value="both" {{ old('location_scope', 'both') === 'both' ? 'selected' : '' }}>Both systems</option>
+              <option value="third" {{ old('location_scope') === 'third' ? 'selected' : '' }}>Third location</option>
+              <option value="both" {{ old('location_scope', 'both') === 'both' ? 'selected' : '' }}>All locations</option>
             </select>
           </div>
           <button class="btn btn-primary" type="submit">Add Doctrine</button>

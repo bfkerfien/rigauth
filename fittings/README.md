@@ -4,7 +4,7 @@ Native fitting management and market intelligence for the Triglavian Consortium'
 
 ## Fitting management
 
-The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Administrators can also set separate home and deployment station/system names and IDs. Creating a home or deployment shopping list copies the corresponding saved station and system onto that list. Saving a changed default location also updates existing lists of that type. Administrators can add hulls, modules, rigs, consumables, and other items with quantities and notes. The home and deployment views each have separate Modules, Consumables, and Hulls & Rigs subtabs. Writes are restricted to SeAT users with the `global.superuser` permission.
+The native SeAT page is built from the existing SeAT web package layout and uses the existing authenticated session. The management scaffold supports creating, editing, deleting, filtering, and categorizing fitting records. Administrators can set home, deployment, and a third station/system location. Each character can independently select doctrines for inventory checks at each location. Creating a home or deployment shopping list copies the corresponding saved station and system onto that list. Saving a changed default location also updates existing lists of that type. Administrators can add hulls, modules, rigs, consumables, and other items with quantities and notes. The home and deployment views each have separate Modules, Consumables, and Hulls & Rigs subtabs. Writes are restricted to SeAT users with the `global.superuser` permission.
 
 **A fitting can belong to multiple categories.** The database uses `fit_fits` as the canonical fit record, `fit_categories` as the category catalogue, and `fit_category_assignments` as a many-to-many join. For example, one Scimitar fitting can appear under Logistics, Shield Doctrine, and Fleet Support without duplicating the fit. Doctrine tags are modeled separately.
 
@@ -17,7 +17,7 @@ The old standalone project is the reference for the fitting workflow: its fittin
 - Leave legacy `eve_market` and its collector untouched until an explicit migration is planned and verified.
 - Keep credentials, tokens, and real `.env` files out of Git.
 
-See `database/schema.sql`, `docs/FRESH_DATABASE.md`, and `.env.example`.
+See `database/schema.sql`, `database/migrations/2026_10_27_third_location_character_doctrines.sql`, `docs/FRESH_DATABASE.md`, and `.env.example`. Apply the new migration to existing installations before deploying this change.
 
 ## Source integration
 

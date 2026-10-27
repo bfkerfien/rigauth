@@ -81,12 +81,12 @@
   <div class="col-lg-4">
     @if(auth()->check() && auth()->user()->can('global.superuser'))
     <div class="card">
-      <div class="card-header"><strong>Home &amp; Deployment Stations</strong></div>
+      <div class="card-header"><strong>Fittings Locations</strong></div>
       <div class="card-body">
         <p class="text-muted">Choose each location from its own list. Home also includes Keepstars that SeAT has cached in 4-HWWF. Station and solar system details are filled from SeAT’s EVE data.</p>
         <form method="POST" action="{{ route('seatcore::fittings.locations.store') }}">
           @csrf
-          @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $key => $label)
+          @foreach(['home' => 'Home', 'deployment' => 'Deployment', 'third' => 'Third Location'] as $key => $label)
             @php($location = $locations[$key] ?? null)
             <div class="form-group">
               <label for="{{ $key }}-station">{{ $label }} station</label>
@@ -111,13 +111,13 @@
           <label for="station-list-type" class="mr-2">Add to</label>
           <select id="station-list-type" name="location_type" class="form-control mr-2" required>
             <option value="home">Home list</option>
-            <option value="deployment">Deployment list</option>
+            <option value="deployment">Deployment list</option><option value="third">Third-location list</option>
           </select>
           <label for="station-id" class="sr-only">Station ID</label>
           <input id="station-id" name="station_id" type="number" min="1" class="form-control mr-2" placeholder="Station ID" required>
           <button class="btn btn-secondary" type="submit">Add Station</button>
         </form>
-        @foreach(['home' => 'Home', 'deployment' => 'Deployment'] as $listType => $listLabel)
+        @foreach(['home' => 'Home', 'deployment' => 'Deployment', 'third' => 'Third Location'] as $listType => $listLabel)
           <h6>{{ $listLabel }} station options</h6>
           @forelse(($stations[$listType] ?? collect()) as $station)
             <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-1">

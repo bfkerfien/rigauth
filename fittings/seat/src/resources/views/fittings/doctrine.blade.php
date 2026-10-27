@@ -21,7 +21,8 @@
         <select id="doctrine-scope" name="location_scope" class="form-control" required>
           <option value="home" {{ ($doctrine->location_scope ?? 'both') === 'home' ? 'selected' : '' }}>Home system</option>
           <option value="deployment" {{ ($doctrine->location_scope ?? 'both') === 'deployment' ? 'selected' : '' }}>Deployment system</option>
-          <option value="both" {{ ($doctrine->location_scope ?? 'both') === 'both' ? 'selected' : '' }}>Both systems</option>
+          <option value="third" {{ ($doctrine->location_scope ?? 'both') === 'third' ? 'selected' : '' }}>Third location</option>
+          <option value="both" {{ ($doctrine->location_scope ?? 'both') === 'both' ? 'selected' : '' }}>All locations</option>
         </select>
       </div>
       <div class="table-responsive">

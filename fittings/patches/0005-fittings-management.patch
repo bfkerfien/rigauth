@@ -1,13 +1,14 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -54,4 +54,23 @@
+@@ -54,4 +54,24 @@
 -        // Triglavian Consortium Fittings placeholder page.
 -        Route::get('/fittings', function () {
 -            return view('web::fittings');
 -        })->name('seatcore::fittings.index');
 +        // Pilot-facing fittings page.
 +        Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');
++        Route::post('/fittings/doctrine-selections', 'FittingsController@storePilotDoctrineSelections')->name('seatcore::fittings.pilot.doctrines.store');
 +        Route::post('/fittings/shopping-lists', 'FittingsController@storePilotShoppingList')->name('seatcore::fittings.pilot.shopping-lists.store');
 +        Route::post('/fittings/shopping-lists/{listId}/items', 'FittingsController@storePilotShoppingListItem')->whereNumber('listId')->name('seatcore::fittings.pilot.shopping-list-items.store');
 +
