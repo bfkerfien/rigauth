@@ -402,7 +402,7 @@ class FittingsController
                 }
                 usort($shortages, fn ($a, $b) => strcasecmp($a->character_name, $b->character_name) ?: ($category === 'hull_rig'
                     ? (strcasecmp((string) ($a->group_name ?? ''), (string) ($b->group_name ?? '')) ?: strcasecmp($a->type_name, $b->type_name))
-                    : strcasecmp($a->type_name, $b->type_name));
+                    : strcasecmp($a->type_name, $b->type_name)));
                 $result[$locationType]['categories'][$category] = collect($shortages);
             }
 
