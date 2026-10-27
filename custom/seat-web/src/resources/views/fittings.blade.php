@@ -8,6 +8,21 @@
 @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
 @if($errors->any()) <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div> @endif
 
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="GET" action="{{ route('seatcore::fittings.index') }}" class="form-inline">
+      <label for="fittings-character-filter" class="mr-2"><strong>Generate lists for character</strong></label>
+      <select id="fittings-character-filter" name="character_id" class="form-control mr-2" required>
+        @foreach($pilots as $pilot)
+          <option value="{{ $pilot->character_id }}" {{ (int) $selectedCharacterId === (int) $pilot->character_id ? 'selected' : '' }}>{{ $pilot->name ?? ('Character '.$pilot->character_id) }}</option>
+        @endforeach
+      </select>
+      <button type="submit" class="btn btn-primary">Show lists</button>
+    </form>
+    <small class="form-text text-muted mt-2">Home, Deployment and Third Location missing-item lists show only this character's requirements and assets. Doctrine settings remain configurable separately for each character.</small>
+  </div>
+</div>
+
 <ul class="nav nav-tabs mb-3" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#fittings-doctrines" role="tab">Doctrines</a></li>
   <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#fittings-home" role="tab">Home System</a></li>
