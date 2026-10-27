@@ -220,8 +220,12 @@ class FittingsController
         $categories = ['modules', 'consumables', 'hull_rig'];
         $result = [];
         $selectedByLocation = [];
+        $selectedByPilotAndLocation = [];
         foreach (['home', 'deployment', 'third'] as $locationType) {
             $selectedByLocation[$locationType] = $this->selectedDoctrinesForLocation($db, $pilots, $locationType, $doctrineFits);
+            foreach ($pilots as $pilot) {
+                $selectedByPilotAndLocation[$locationType][(int) $pilot->character_id] = $this->selectedDoctrinesForCharacter($db, (int) $pilot->character_id, $locationType, $doctrineFits);
+            }
             $result[$locationType] = ['available' => false, 'categories' => []];
             foreach ($categories as $category) {
                 $result[$locationType]['categories'][$category] = collect();
@@ -243,14 +247,20 @@ class FittingsController
             $requirements = [];
             $fitIds = [];
             foreach ($doctrineFits as $doctrine => $fits) {
-                if (!in_array($doctrine, $selectedByLocation[$locationType], true)) continue;
                 foreach ($fits as $fit) {
                     $fitId = (int) $fit->id;
+                    $characterIds = [];
+                    foreach ($pilots as $pilot) {
+                        $pilotId = (int) $pilot->character_id;
+                        if (in_array($doctrine, $selectedByPilotAndLocation[$locationType][$pilotId] ?? [], true)) $characterIds[] = $pilotId;
+                    }
+                    if (!$characterIds) continue;
                     $fitIds[] = $fitId;
                     $requirements[$fitId] = [
                         'fit_name' => $fit->fit_name,
                         'ship_type_id' => (int) $fit->ship_type_id,
                         'doctrine' => $doctrine,
+                        'character_ids' => $characterIds,
                     ];
                 }
             }
@@ -266,7 +276,9 @@ class FittingsController
                         ? 'hull_rig'
                         : ((bool) $item->is_consumable ? 'consumables' : 'modules');
                     $typeId = (int) $item->type_id;
-                    $key = $category === 'hull_rig' ? $category . ':' . $fitId . ':' . $typeId : $category . ':' . $typeId;
+                    $key = $category === 'hull_rig'
+                        ? $category . ':' . $fitId . ':' . $typeId
+                        : $category . ':' . $typeId;
                     $quantity = (int) $item->quantity_per_ship;
                     if (!isset($requirementsByCategory[$category][$key])) {
                         $requirementsByCategory[$category][$key] = [
@@ -276,12 +288,14 @@ class FittingsController
                             'fit_names' => [],
                             'group_key' => $category === 'hull_rig' ? $fitId : null,
                             'group_name' => $category === 'hull_rig' ? ($requirements[$fitId]['fit_name'] ?? 'Fit') : null,
+                            'character_ids' => $requirements[$fitId]['character_ids'] ?? [],
                         ];
                     } elseif ($category !== 'hull_rig') {
-                        $requirementsByCategory[$category][$key]['needed'] = max(
-                            $requirementsByCategory[$category][$key]['needed'],
-                            $quantity
-                        );
+                        $requirementsByCategory[$category][$key]['needed'] = max($requirementsByCategory[$category][$key]['needed'], $quantity);
+                        $requirementsByCategory[$category][$key]['character_ids'] = array_values(array_unique(array_merge(
+                            $requirementsByCategory[$category][$key]['character_ids'] ?? [],
+                            $requirements[$fitId]['character_ids'] ?? []
+                        )));
                     }
                     $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
                     if ((bool) $item->is_hull) {
@@ -304,6 +318,7 @@ class FittingsController
                                 'fit_names' => [$fitId => $fit['fit_name']],
                                 'group_key' => $fitId,
                                 'group_name' => $fit['fit_name'],
+                                'character_ids' => $fit['character_ids'] ?? [],
                             ];
                         }
                     }
@@ -368,6 +383,7 @@ class FittingsController
                 foreach ($pilotIds as $pilotId) {
                     $remainingOwned = $ownedByPilot[$pilotId] ?? [];
                     foreach ($requirementsByCategory[$category] ?? [] as $requirement) {
+                        if (!in_array($pilotId, $requirement['character_ids'] ?? [], true)) continue;
                         $have = (int) ($remainingOwned[$requirement['type_id']] ?? 0);
                         if ($category === 'hull_rig') {
                             $have = min($have, (int) $requirement['needed']);
@@ -557,6 +573,20 @@ class FittingsController
             if (in_array($legacyDoctrine ?? 'both', [$locationType, 'both'], true)) $selectedIds = array_merge($selectedIds, $legacyIds);
         }
         return array_values(array_unique($selectedIds));
+    }
+
+    private function selectedDoctrinesForCharacter($db, int $characterId, string $locationType, $doctrineFits): array
+    {
+        if (!$db->getSchemaBuilder()->hasTable('fit_character_doctrine_settings')) {
+            return $doctrineFits->filter(fn ($fits) => in_array($fits->first()->location_scope ?? 'both', [$locationType, 'both'], true))->keys()->all();
+        }
+        $configured = $db->table('fit_character_doctrine_settings')->where('character_id', $characterId)
+            ->where('location_type', $locationType)->where('is_configured', true)->exists();
+        if (!$configured) {
+            return $doctrineFits->filter(fn ($fits) => in_array($fits->first()->location_scope ?? 'both', [$locationType, 'both'], true))->keys()->all();
+        }
+        return $db->table('fit_character_doctrine_assignments')->where('character_id', $characterId)
+            ->where('location_type', $locationType)->pluck('doctrine')->unique()->values()->all();
     }
 
     private function selectedDoctrinesForLocation($db, $pilots, string $locationType, $doctrineFits): array
