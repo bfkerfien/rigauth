@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS fit_category_assignments (
 
 CREATE TABLE IF NOT EXISTS fit_doctrines (
  name VARCHAR(120) NOT NULL PRIMARY KEY,
- location_scope ENUM('home','deployment','both') NOT NULL DEFAULT 'both',
+ location_scope ENUM('home','deployment','third','both') NOT NULL DEFAULT 'both',
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS fit_items (
 CREATE TABLE IF NOT EXISTS fit_shopping_lists (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  list_name VARCHAR(160) NOT NULL,
- list_type ENUM('home','deployment') NOT NULL,
+ list_type ENUM('home','deployment','third') NOT NULL,
  owner_user_id BIGINT UNSIGNED NULL,
  station_id BIGINT UNSIGNED NULL,
  station_name VARCHAR(255) NULL,
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS fit_shopping_list_items (
 
 -- Default station and solar system for the home and deployment shopping lists.
 CREATE TABLE IF NOT EXISTS fit_location_settings (
- location_type ENUM('home','deployment') NOT NULL PRIMARY KEY,
+ location_type ENUM('home','deployment','third') NOT NULL PRIMARY KEY,
  station_id BIGINT UNSIGNED NULL,
  station_name VARCHAR(255) NULL,
  system_id INT UNSIGNED NULL,
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS fit_location_settings (
 
 -- Location-specific alliance-approved stations. Jita stations are seeded into both lists.
 CREATE TABLE IF NOT EXISTS fit_alliance_stations (
- location_type ENUM('home','deployment') NOT NULL,
+ location_type ENUM('home','deployment','third') NOT NULL,
  station_id BIGINT UNSIGNED NOT NULL,
  station_name VARCHAR(255) NOT NULL,
  system_id INT UNSIGNED NOT NULL,
@@ -190,3 +190,25 @@ WHERE m.name = 'Jita';
 -- Designated alliance home Keepstar in 4-HWWF (system ID 30000240).
 INSERT IGNORE INTO fit_alliance_stations (location_type, station_id, station_name, system_id, system_name)
 VALUES ('home', 1054994218305, 'Keepstar 1054994218305', 30000240, '4-HWWF');
+
+
+-- Per-character doctrine selection for each inventory location.
+CREATE TABLE IF NOT EXISTS fit_character_doctrine_settings (
+ character_id BIGINT UNSIGNED NOT NULL,
+ location_type ENUM('home','deployment','third') NOT NULL,
+ owner_user_id BIGINT UNSIGNED NOT NULL,
+ is_configured BOOLEAN NOT NULL DEFAULT TRUE,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (character_id, location_type),
+ KEY ix_fit_character_doctrine_owner (owner_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS fit_character_doctrine_assignments (
+ character_id BIGINT UNSIGNED NOT NULL,
+ location_type ENUM('home','deployment','third') NOT NULL,
+ doctrine VARCHAR(120) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (character_id, location_type, doctrine),
+ KEY ix_fit_character_doctrine_lookup (location_type, doctrine),
+ CONSTRAINT fk_fit_character_doctrine_name FOREIGN KEY (doctrine) REFERENCES fit_doctrines(name) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
