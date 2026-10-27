@@ -276,30 +276,23 @@ class FittingsController
                         ? 'hull_rig'
                         : ((bool) $item->is_consumable ? 'consumables' : 'modules');
                     $typeId = (int) $item->type_id;
-                    $key = $category === 'hull_rig'
-                        ? $category . ':' . $fitId . ':' . $typeId
-                        : $category . ':' . $typeId;
                     $quantity = (int) $item->quantity_per_ship;
-                    if (!isset($requirementsByCategory[$category][$key])) {
-                        $requirementsByCategory[$category][$key] = [
-                            'type_id' => $typeId,
-                            'type_name' => $item->type_name,
-                            'needed' => $quantity,
-                            'fit_names' => [],
-                            'group_key' => $category === 'hull_rig' ? $fitId : null,
-                            'group_name' => $category === 'hull_rig' ? ($requirements[$fitId]['fit_name'] ?? 'Fit') : null,
-                            'character_ids' => $requirements[$fitId]['character_ids'] ?? [],
-                        ];
-                    } elseif ($category !== 'hull_rig') {
-                        $requirementsByCategory[$category][$key]['needed'] = max($requirementsByCategory[$category][$key]['needed'], $quantity);
-                        $requirementsByCategory[$category][$key]['character_ids'] = array_values(array_unique(array_merge(
-                            $requirementsByCategory[$category][$key]['character_ids'] ?? [],
-                            $requirements[$fitId]['character_ids'] ?? []
-                        )));
-                    }
-                    $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
-                    if ((bool) $item->is_hull) {
-                        $hasHull[$fitId] = true;
+                    if ((bool) $item->is_hull) $hasHull[$fitId] = true;
+                    foreach ($requirements[$fitId]['character_ids'] ?? [] as $characterId) {
+                        $key = $category === 'hull_rig'
+                            ? $category . ':' . $fitId . ':' . $typeId . ':' . $characterId
+                            : $category . ':' . $typeId . ':' . $characterId;
+                        if (!isset($requirementsByCategory[$category][$key])) {
+                            $requirementsByCategory[$category][$key] = [
+                                'type_id' => $typeId, 'type_name' => $item->type_name, 'needed' => $quantity,
+                                'fit_names' => [], 'group_key' => $category === 'hull_rig' ? $characterId . ':' . $fitId : null,
+                                'group_name' => $category === 'hull_rig' ? ($requirements[$fitId]['fit_name'] ?? 'Fit') : null,
+                                'character_ids' => [$characterId],
+                            ];
+                        } elseif ($category !== 'hull_rig') {
+                            $requirementsByCategory[$category][$key]['needed'] = max($requirementsByCategory[$category][$key]['needed'], $quantity);
+                        }
+                        $requirementsByCategory[$category][$key]['fit_names'][$fitId] = $requirements[$fitId]['fit_name'] ?? '';
                     }
                 }
 
@@ -308,18 +301,19 @@ class FittingsController
                 foreach ($requirements as $fitId => $fit) {
                     if (!isset($hasHull[$fitId]) && $fit['ship_type_id'] > 0) {
                         $type = $db->table('invTypes')->where('typeID', $fit['ship_type_id'])->first(['typeName']);
-                        $key = 'hull_rig:' . $fitId . ':' . $fit['ship_type_id'];
-                        if (!isset($requirementsByCategory['hull_rig'][$key]) ||
-                            1 > $requirementsByCategory['hull_rig'][$key]['needed']) {
-                            $requirementsByCategory['hull_rig'][$key] = [
-                                'type_id' => $fit['ship_type_id'],
-                                'type_name' => $type->typeName ?? $fit['fit_name'],
-                                'needed' => 1,
-                                'fit_names' => [$fitId => $fit['fit_name']],
-                                'group_key' => $fitId,
-                                'group_name' => $fit['fit_name'],
-                                'character_ids' => $fit['character_ids'] ?? [],
-                            ];
+                        foreach ($fit['character_ids'] ?? [] as $characterId) {
+                            $key = 'hull_rig:' . $fitId . ':' . $fit['ship_type_id'] . ':' . $characterId;
+                            if (!isset($requirementsByCategory['hull_rig'][$key])) {
+                                $requirementsByCategory['hull_rig'][$key] = [
+                                    'type_id' => $fit['ship_type_id'],
+                                    'type_name' => $type->typeName ?? $fit['fit_name'],
+                                    'needed' => 1,
+                                    'fit_names' => [$fitId => $fit['fit_name']],
+                                    'group_key' => $characterId . ':' . $fitId,
+                                    'group_name' => $fit['fit_name'],
+                                    'character_ids' => [$characterId],
+                                ];
+                            }
                         }
                     }
                 }
