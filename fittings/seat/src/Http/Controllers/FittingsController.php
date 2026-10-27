@@ -89,13 +89,20 @@ class FittingsController
         }
 
         $pilots = auth()->user()->characters->unique('character_id')->values();
+        $firstCharacterId = $pilots->isNotEmpty() ? (int) $pilots->first()->character_id : null;
+        $requestedCharacterId = request()->query('character_id');
+        $selectedCharacterId = $firstCharacterId;
+        if ($requestedCharacterId !== null && $pilots->contains(fn ($pilot) => (int) $pilot->character_id === (int) $requestedCharacterId)) {
+            $selectedCharacterId = (int) $requestedCharacterId;
+        }
+        $listPilots = $pilots->filter(fn ($pilot) => (int) $pilot->character_id === $selectedCharacterId)->values();
         $pilotIds = $pilots->pluck('character_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
         $characterDoctrineSettings = $db->table('fit_character_doctrine_settings')->whereIn('character_id', $pilotIds)->get()->keyBy(fn ($row) => $row->character_id . '|' . $row->location_type);
         $characterDoctrineSelections = $db->table('fit_character_doctrine_assignments')->whereIn('character_id', $pilotIds)->get()->groupBy(fn ($row) => $row->character_id . '|' . $row->location_type);
         $fitSkillStatus = $this->pilotFitEligibility($db, $doctrineFits, $pilots);
         $locations = $db->table('fit_location_settings')->get()->keyBy('location_type');
         $fitInventoryStatus = $this->pilotFitInventoryStatus($db, $doctrineFits, $pilots, $locations);
-        $inventoryShortages = $this->missingInventoryShortages($db, $doctrineFits, $pilots, $locations);
+        $inventoryShortages = $this->missingInventoryShortages($db, $doctrineFits, $listPilots, $locations);
 
         $shoppingLists = $db->table('fit_shopping_lists')
             ->where('owner_user_id', auth()->id())
@@ -113,6 +120,7 @@ class FittingsController
             'doctrines' => $doctrines,
             'doctrineFits' => $doctrineFits,
             'pilots' => $pilots,
+            'selectedCharacterId' => $selectedCharacterId,
             'fitSkillStatus' => $fitSkillStatus,
             'fitInventoryStatus' => $fitInventoryStatus,
             'shoppingLists' => $shoppingLists,
