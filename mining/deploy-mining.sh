@@ -11,6 +11,7 @@ FILES=(
   "src/Http/Controllers/MiningLedgerController.php"
   "src/Http/Routes/MiningLedger.php"
   "src/database/migrations/2026_10_29_000001_create_mining_ledger_tables.php"
+  "src/database/migrations/2026_10_29_000002_create_mining_timer_board_tables.php"
   "src/resources/views/mining/index.blade.php"
   "src/Http/routes.php"
   "src/resources/views/includes/sidebar.blade.php"
@@ -49,6 +50,7 @@ for source in \
   "$REPO/mining/src/Http/Controllers/MiningLedgerController.php" \
   "$REPO/mining/src/Http/Routes/MiningLedger.php" \
   "$REPO/mining/database/migrations/2026_10_29_000001_create_mining_ledger_tables.php" \
+  "$REPO/mining/database/migrations/2026_10_29_000002_create_mining_timer_board_tables.php" \
   "$REPO/mining/resources/views/mining/index.blade.php"; do
   [[ -f "$source" ]] || { echo "STOP: missing source file $source"; exit 1; }
 done
@@ -76,6 +78,7 @@ echo "Backup: $BACKUP"
 sudo install -D -m 0644 "$REPO/mining/src/Http/Controllers/MiningLedgerController.php" "$WEB/src/Http/Controllers/MiningLedgerController.php"
 sudo install -D -m 0644 "$REPO/mining/src/Http/Routes/MiningLedger.php" "$WEB/src/Http/Routes/MiningLedger.php"
 sudo install -D -m 0644 "$REPO/mining/database/migrations/2026_10_29_000001_create_mining_ledger_tables.php" "$WEB/src/database/migrations/2026_10_29_000001_create_mining_ledger_tables.php"
+sudo install -D -m 0644 "$REPO/mining/database/migrations/2026_10_29_000002_create_mining_timer_board_tables.php" "$WEB/src/database/migrations/2026_10_29_000002_create_mining_timer_board_tables.php"
 sudo install -D -m 0644 "$REPO/mining/resources/views/mining/index.blade.php" "$WEB/src/resources/views/mining/index.blade.php"
 
 # Make route and navigation registration idempotent. Require exactly one known insertion anchor.

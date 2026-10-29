@@ -109,9 +109,21 @@ class MiningLedgerController extends Controller
         ];
 
         $canViewCorporation = $this->canViewCorporation();
+        $corporationIds = $this->visibleCorporationIds();
+        $timerQuery = DB::table('mining_timers')->where(function ($scope) use ($corporationIds) {
+            if ($corporationIds) $scope->whereIn('corporation_id', $corporationIds);
+            $scope->orWhere('created_by_user_id', auth()->id());
+        });
+        $miningTimers = $timerQuery->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")->orderBy('expires_at')->limit(200)->get();
+        $anomalyQuery = DB::table('mining_anomalies')->where(function ($scope) use ($corporationIds) {
+            if ($corporationIds) $scope->whereIn('corporation_id', $corporationIds);
+            $scope->orWhere('created_by_user_id', auth()->id());
+        });
+        $miningAnomalies = $anomalyQuery->orderByDesc('last_seen_at')->limit(200)->get();
 
         return view('web::mining.index', compact(
-            'operations', 'yields', 'characters', 'summary', 'canViewCorporation'
+            'operations', 'yields', 'characters', 'summary', 'canViewCorporation',
+            'miningTimers', 'miningAnomalies'
         ));
     }
 
@@ -361,6 +373,95 @@ class MiningLedgerController extends Controller
         }
 
         return redirect()->route('seatcore::mining.index')->with(count($errors) ? 'warning' : 'success', $message);
+    }
+
+
+    public function importAnomalies(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate([
+            'system_name' => ['required', 'string', 'max:120'],
+            'scan_paste' => ['required', 'string', 'max:30000'],
+        ]);
+        $lines = preg_split('/\r\n|\r|\n/', trim($data['scan_paste']));
+        $seen = [];
+        $inserted = 0;
+        $skipped = 0;
+        $corporationId = $this->visibleCorporationIds()[0] ?? null;
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            $columns = array_map('trim', preg_split('/\t+/', $line));
+            $candidate = trim($columns[0] ?? '');
+            if ($candidate === '' || preg_match('/^(name|type|group|signal strength|distance|solar system)$/i', $candidate)) {
+                $skipped++;
+                continue;
+            }
+            $key = mb_strtolower($data['system_name'] . '|' . $candidate);
+            if (isset($seen[$key])) { $skipped++; continue; }
+            $seen[$key] = true;
+            $existing = DB::table('mining_anomalies')->where('system_name', $data['system_name'])
+                ->where('anomaly_name', $candidate)->where('status', 'present')->first();
+            if ($existing) {
+                DB::table('mining_anomalies')->where('id', $existing->id)->update([
+                    'last_seen_at' => now(), 'scan_text' => mb_substr($line, 0, 1000), 'updated_at' => now(),
+                ]);
+                $skipped++;
+                continue;
+            }
+            DB::table('mining_anomalies')->insert([
+                'corporation_id' => $corporationId, 'system_name' => $data['system_name'],
+                'anomaly_name' => mb_substr($candidate, 0, 190), 'scan_text' => mb_substr($line, 0, 1000),
+                'status' => 'present', 'first_seen_at' => now(), 'last_seen_at' => now(),
+                'created_by_user_id' => auth()->id(), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $inserted++;
+        }
+        $this->audit('anomalies.pasted', 'anomaly_scan', null, [
+            'system_name' => $data['system_name'], 'inserted' => $inserted, 'skipped' => $skipped,
+        ]);
+        return redirect()->route('seatcore::mining.index')
+            ->with('success', "Scan paste processed: {$inserted} new anomaly row(s), {$skipped} skipped or refreshed.");
+    }
+
+    public function storeTimer(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:160'],
+            'system_name' => ['required', 'string', 'max:120'],
+            'anomaly_name' => ['nullable', 'string', 'max:190'],
+            'duration_minutes' => ['required', 'integer', 'min:1', 'max:10080'],
+            'started_at' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $startedAt = \Illuminate\Support\Carbon::parse($data['started_at']);
+        $expiresAt = $startedAt->copy()->addMinutes((int) $data['duration_minutes']);
+        $id = DB::table('mining_timers')->insertGetId([
+            'corporation_id' => $this->visibleCorporationIds()[0] ?? null,
+            'title' => $data['title'], 'system_name' => $data['system_name'],
+            'anomaly_name' => $data['anomaly_name'] ?? null,
+            'started_at' => $startedAt->toDateTimeString(), 'expires_at' => $expiresAt->toDateTimeString(),
+            'status' => 'active', 'notes' => $data['notes'] ?? null, 'created_by_user_id' => auth()->id(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->audit('timer.created', 'timer', $id, ['system_name' => $data['system_name'], 'expires_at' => $expiresAt->toDateTimeString()]);
+        return redirect()->route('seatcore::mining.index')->with('success', 'Mining timer added to the board.');
+    }
+
+    public function updateAnomalyStatus(Request $request, int $id)
+    {
+        abort_unless(auth()->check(), 401);
+        $data = $request->validate(['status' => ['required', 'in:present,mined,despawned']]);
+        $query = DB::table('mining_anomalies')->where('id', $id)->where(function ($scope) {
+            $corporationIds = $this->visibleCorporationIds();
+            if ($corporationIds) $scope->whereIn('corporation_id', $corporationIds);
+            $scope->orWhere('created_by_user_id', auth()->id());
+        });
+        abort_unless($query->exists(), 404);
+        $query->update(['status' => $data['status'], 'updated_at' => now()]);
+        $this->audit('anomaly.status_changed', 'anomaly', $id, ['status' => $data['status']]);
+        return redirect()->route('seatcore::mining.index')->with('success', 'Anomaly status updated.');
     }
 
     private function jitaSellPrice(int $typeId): ?float

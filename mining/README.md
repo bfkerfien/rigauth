@@ -48,3 +48,12 @@ After deployment, register/grant the SeAT ACL ability `mining.corporation.view` 
 ## Current limitations / next increment
 
 This first version supports operations, manual yield entry, CSV import, audit entries, and best-effort Jita pricing. It does not claim ESI-verified mining yields, automatic anomaly discovery, automatic mining-session detection, or an in-game mining log integration.
+
+
+## Mining timer board and scan-window paste
+
+The Mining page includes a timer board for manually timed site clears, anomaly timers, and fleet coordination. Add a label, system, optional anomaly, start time, and duration; the board displays its expiry and countdown. Timers are coordination records, not claims about authoritative EVE respawn mechanics.
+
+Copy rows from the in-game Probe Scanner / scan results and paste them into the anomaly import box, selecting the solar system for that paste. Tab-separated text is supported. The first column is stored as the anomaly label, and the original row is retained for reference. Repeated anomaly names already marked present in the same system refresh their last-seen timestamp. Operators can mark rows present, mined, or despawned.
+
+The parser is intentionally forgiving because EVE clipboard layouts can vary. Confirm the labels after the first paste and share a sample of the actual copied scan text if your client exports a different layout; the parser can then be tuned to that exact format.

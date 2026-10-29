@@ -28,6 +28,59 @@
     <div class="col-md-4"><div class="info-box"><span class="info-box-icon bg-info"><i class="fas fa-coins"></i></span><div class="info-box-content"><span class="info-box-text">Estimated Jita value</span><span class="info-box-number">{{ $summary['value'] === null ? 'N/A' : number_format((float) $summary['value'], 2) . ' ISK' }}</span></div></div></div>
   </div>
 
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Mining timer board</h3></div>
+    <div class="card-body">
+      <p class="text-muted">Create countdowns for site clears, anomaly timers, or fleet actions. These are manual coordination timers, not authoritative EVE respawn predictions.</p>
+      <form method="POST" action="{{ route('seatcore::mining.timers.store') }}">
+        @csrf
+        <div class="form-row">
+          <div class="form-group col-md-3"><label for="timer-title">Timer label</label><input id="timer-title" class="form-control" name="title" maxlength="160" placeholder="e.g. Ore anomaly clear" required></div>
+          <div class="form-group col-md-2"><label for="timer-system">System</label><input id="timer-system" class="form-control" name="system_name" maxlength="120" required></div>
+          <div class="form-group col-md-2"><label for="timer-anomaly">Anomaly (optional)</label><input id="timer-anomaly" class="form-control" name="anomaly_name" maxlength="190"></div>
+          <div class="form-group col-md-2"><label for="timer-duration">Duration (minutes)</label><input id="timer-duration" class="form-control" type="number" name="duration_minutes" min="1" max="10080" value="60" required></div>
+          <div class="form-group col-md-3"><label for="timer-started">Timer starts at</label><input id="timer-started" class="form-control" type="datetime-local" name="started_at" value="{{ now()->format('Y-m-d\TH:i') }}" required></div>
+          <div class="form-group col-md-12"><label for="timer-notes">Notes</label><input id="timer-notes" class="form-control" name="notes" maxlength="1000"></div>
+        </div>
+        <button class="btn btn-primary" type="submit">Add timer</button>
+      </form>
+      <hr>
+      <div class="table-responsive"><table class="table table-striped table-sm">
+        <thead><tr><th>Timer</th><th>System / anomaly</th><th>Started</th><th>Expires</th><th>Countdown</th><th>Status</th></tr></thead>
+        <tbody>
+        @forelse ($miningTimers as $timer)
+          <tr><td>{{ $timer->title }}<br><small class="text-muted">{{ $timer->notes }}</small></td><td>{{ $timer->system_name }}<br><small>{{ $timer->anomaly_name }}</small></td><td>{{ $timer->started_at }}</td><td>{{ $timer->expires_at }}</td>
+          <td>@if ($timer->status !== 'active'){{ ucfirst($timer->status) }}@elseif (\Illuminate\Support\Carbon::parse($timer->expires_at)->isPast())<span class="text-danger">Expired</span>@else{{ \Illuminate\Support\Carbon::parse($timer->expires_at)->diffForHumans(now(), ['parts' => 3, 'short' => true]) }}@endif</td>
+          <td>{{ $timer->status === 'active' && \Illuminate\Support\Carbon::parse($timer->expires_at)->isPast() ? 'expired' : $timer->status }}</td></tr>
+        @empty<tr><td colspan="6" class="text-muted">No timers on the board yet.</td></tr>@endforelse
+        </tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Paste anomalies from the in-game scan window</h3></div>
+    <form method="POST" action="{{ route('seatcore::mining.anomalies.paste') }}">
+      @csrf
+      <div class="card-body">
+        <p>Copy anomaly rows from the in-game Probe Scanner / scan results and paste them here. Use one system per paste. Tab-separated rows are supported; the first column is saved as the anomaly label and the original row is retained. Repeated present rows refresh their last-seen time.</p>
+        <div class="form-group"><label for="scan-system">Solar system</label><input id="scan-system" class="form-control" name="system_name" maxlength="120" required></div>
+        <div class="form-group"><label for="scan-paste">Copied scan rows</label><textarea id="scan-paste" class="form-control" name="scan_paste" rows="6" maxlength="30000" placeholder="Paste the scan-window rows here..." required></textarea></div>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary" type="submit">Import scan rows</button></div>
+    </form>
+    <div class="card-body table-responsive"><table class="table table-striped table-sm">
+      <thead><tr><th>System</th><th>Anomaly</th><th>First seen</th><th>Last seen</th><th>Source row</th><th>Status</th><th>Update status</th></tr></thead>
+      <tbody>
+      @forelse ($miningAnomalies as $anomaly)
+        <tr><td>{{ $anomaly->system_name }}</td><td>{{ $anomaly->anomaly_name }}</td><td>{{ $anomaly->first_seen_at }}</td><td>{{ $anomaly->last_seen_at }}</td><td><small>{{ $anomaly->scan_text }}</small></td><td>{{ $anomaly->status }}</td>
+        <td><form method="POST" action="{{ route('seatcore::mining.anomalies.status', $anomaly->id) }}" class="form-inline">@csrf
+          <select class="form-control form-control-sm mr-1" name="status"><option value="present" {{ $anomaly->status === 'present' ? 'selected' : '' }}>Present</option><option value="mined" {{ $anomaly->status === 'mined' ? 'selected' : '' }}>Mined</option><option value="despawned" {{ $anomaly->status === 'despawned' ? 'selected' : '' }}>Despawned</option></select>
+          <button class="btn btn-sm btn-secondary" type="submit">Save</button></form></td></tr>
+      @empty<tr><td colspan="7" class="text-muted">No scan anomalies added yet.</td></tr>@endforelse
+      </tbody></table></div>
+  </div>
+
   <div class="card">
     <div class="card-header"><h3 class="card-title">Create mining operation</h3></div>
     <form method="POST" action="{{ route('seatcore::mining.operations.store') }}">
@@ -57,7 +110,7 @@
           <div class="form-group col-md-2"><label for="yield-type-id">Ore type ID</label><input id="yield-type-id" class="form-control" type="number" min="1" name="type_id" required></div>
           <div class="form-group col-md-2"><label for="yield-type-name">Ore name (if no SDE)</label><input id="yield-type-name" class="form-control" name="type_name" maxlength="190"></div>
           <div class="form-group col-md-1"><label for="yield-quantity">Quantity</label><input id="yield-quantity" class="form-control" type="number" min="1" name="quantity" required></div>
-          <div class="form-group col-md-2"><label for="yield-recorded-at">Recorded at</label><input id="yield-recorded-at" class="form-control" type="datetime-local" name="recorded_at" value="{{ now()->format('Y-m-d\\TH:i') }}" required></div>
+          <div class="form-group col-md-2"><label for="yield-recorded-at">Recorded at</label><input id="yield-recorded-at" class="form-control" type="datetime-local" name="recorded_at" value="{{ now()->format('Y-m-d\TH:i') }}" required></div>
           <div class="form-group col-md-12"><label for="yield-reference">Source reference / notes</label><input id="yield-reference" class="form-control" name="source_reference" maxlength="255"></div>
         </div>
       </div>
