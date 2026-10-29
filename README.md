@@ -21,3 +21,10 @@ Do not commit a server `.env` file or generated credentials here. Keep deploymen
 
 
 See [`SEAT_SSO_SETUP.md`](./SEAT_SSO_SETUP.md) for configuring the SeAT-to-Market SSO bridge. The shared signing secret belongs only in server environment files, never in this repository.
+
+
+## Mining Ledger add-on
+
+The proposed native SeAT Mining Ledger is maintained under [mining/](./mining/). It records mining operations and reported yields, accepts manual entries and CSV imports, caches estimated Jita sell prices, and applies personal-versus-corporation visibility rules. See [mining/README.md](./mining/README.md) for the import format, ESI limitations, access setup, and deployment procedure.
+
+The Mining Ledger is a source overlay for the existing SeAT web package and uses the existing SeAT database. Its deployment script backs up modified files and does not create a separate service or database. Review the corporation ACL and test on the current deployment before granting access.
