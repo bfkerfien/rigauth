@@ -131,7 +131,7 @@ class MiningLedgerController extends Controller
         $owned = $this->ownedCharacters()->keyBy(fn ($character) => (int) ($character->character_id ?? $character->getKey()));
         $selectedIds = collect($data['character_ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
         foreach ($selectedIds as $id) {
-            abort_unless($owned->has($id) || $this->canViewCorporation(), 403, 'You cannot assign a character you do not control.');
+            abort_unless($owned->has($id), 403, 'You can only assign characters linked to your SeAT account.');
         }
 
         $selectedCorporations = $selectedIds->map(function ($characterId) use ($owned) {
@@ -192,7 +192,7 @@ class MiningLedgerController extends Controller
         $character = $this->ownedCharacters()->first(function ($candidate) use ($data) {
             return (int) ($candidate->character_id ?? $candidate->getKey()) === (int) $data['character_id'];
         });
-        abort_unless($character || $this->canViewCorporation(), 403, 'You can only enter yields for your own characters.');
+        abort_unless($character, 403, 'You can only enter yields for characters linked to your SeAT account.');
 
         $operation = null;
         if (!empty($data['operation_id'])) {
@@ -290,7 +290,7 @@ class MiningLedgerController extends Controller
             $typeId = (int) $value('type_id');
             $quantity = filter_var($value('quantity'), FILTER_VALIDATE_INT);
             $recordedAt = $value('recorded_at');
-            if (!$characterId || !$typeId || !$quantity || $quantity < 1 || !$recordedAt || !in_array($characterId, $ownedIds, true) && !$this->canViewCorporation()) {
+            if (!$characterId || !$typeId || !$quantity || $quantity < 1 || !$recordedAt || !in_array($characterId, $ownedIds, true)) {
                 $errors[] = "Line {$line}: invalid values or character outside your access scope.";
                 continue;
             }
