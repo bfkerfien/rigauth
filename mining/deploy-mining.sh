@@ -38,6 +38,9 @@ rollback() {
 trap rollback EXIT
 
 [[ -d "$REPO/.git" ]] || { echo "STOP: $REPO is not a Git checkout."; exit 1; }
+[[ -z "$(git -C "$REPO" status --porcelain)" ]] || {
+  echo "STOP: rigauth has local changes. Commit or back them up before deploying."; git -C "$REPO" status --short; exit 1;
+}
 [[ -d "$WEB/src/Http" && -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || {
   echo "STOP: expected SeAT web source files not found at $WEB."; exit 1;
 }
