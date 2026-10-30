@@ -65,7 +65,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 foreach (["industryActivityMaterials", "industryActivityProducts"] as $table) {
     if (!Schema::hasTable($table)) {
-        fwrite(STDERR, "Missing table: ".$table."\\n");
+        fwrite(STDERR, "Missing table: ".$table."\n");
         exit(2);
     }
 }
