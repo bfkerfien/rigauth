@@ -191,6 +191,7 @@ class CookbookController extends Controller
             'runs' => ['required', 'integer', 'min:1', 'max:100000'],
             'product_me' => ['required', 'integer', 'min:0', 'max:10'],
             'component_me' => ['required', 'integer', 'min:0', 'max:10'],
+            'character_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         try {
@@ -218,14 +219,29 @@ class CookbookController extends Controller
                 0
             );
 
-            $mineralRows = $this->materialRows($minerals);
-            $otherRows = $this->materialRows($other);
+            $inventory = [];
+            if (!empty($data['character_id'])) {
+                $characterId = (int) $data['character_id'];
+                $this->authorizeCharacter($characterId);
+                abort_unless(Schema::hasTable('character_assets'), 503, 'SeAT character asset cache is unavailable.');
+                $inventory = DB::table('character_assets')
+                    ->where('character_id', $characterId)
+                    ->groupBy('type_id')
+                    ->selectRaw('type_id, SUM(quantity) as quantity')
+                    ->pluck('quantity', 'type_id')
+                    ->map(fn ($quantity) => (int) $quantity)
+                    ->all();
+            }
+
+            $mineralRows = $this->materialRows($minerals, $inventory);
+            $otherRows = $this->materialRows($other, $inventory);
 
             return response()->json([
                 'product' => $product->typeName,
                 'runs' => (int) $data['runs'],
                 'product_me' => (int) $data['product_me'],
                 'component_me' => (int) $data['component_me'],
+                'inventory_character_id' => !empty($data['character_id']) ? (int) $data['character_id'] : null,
                 'minerals' => $mineralRows,
                 'other_materials' => $otherRows,
                 'note' => 'Quantities are calculated from the SDE currently loaded in SeAT. Non-mineral inputs are listed separately; no market prices are assumed.',
@@ -235,7 +251,7 @@ class CookbookController extends Controller
         }
     }
 
-    private function materialRows(array $materials): array
+    private function materialRows(array $materials, array $inventory = []): array
     {
         $ids = array_keys($materials);
         $names = $ids ? DB::table('invTypes')->whereIn('typeID', $ids)->pluck('typeName', 'typeID')->all() : [];
@@ -245,6 +261,8 @@ class CookbookController extends Controller
                 'type_id' => (int) $typeId,
                 'name' => $names[$typeId] ?? ('Type ' . $typeId),
                 'quantity' => (int) $quantity,
+                'available_quantity' => (int) ($inventory[$typeId] ?? 0),
+                'shortfall_quantity' => max(0, (int) $quantity - (int) ($inventory[$typeId] ?? 0)),
             ];
         }
         usort($rows, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
