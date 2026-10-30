@@ -96,7 +96,7 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreTypeIds)
                     ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereNot(function ($query) {
+                    ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
                         }
@@ -151,7 +151,7 @@ class CookbookController extends Controller
             ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
             ->where('groups.categoryID', self::ORE_CATEGORY_ID)
             ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereNot(function ($query) {
+                    ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
                         }
@@ -210,7 +210,7 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreIds)
                     ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereNot(function ($query) {
+                    ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
                         }
@@ -266,7 +266,7 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->whereIn('types.typeID', $selectedIds)
                 ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereNot(function ($query) {
+                    ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
                         }
@@ -435,7 +435,7 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->where('types.typeID', $typeId)
                 ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereNot(function ($query) {
+                    ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
                         }
