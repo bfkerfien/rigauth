@@ -71,21 +71,21 @@
         <div id="cookbook-ore-output"></div>
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
-        <p class="text-muted">After calculating a blueprint above, this uses minerals at Draken Manufacturing first, then the compressed ore already stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
+        <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion (temporary manufacturing-stock location) first, then base-grade compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
         <div class="form-row align-items-start">
           <div class="form-group col-md-8">
             <label>Normal compressed ores to use for the remaining shortfall</label>
             <div id="cookbook-plan-ore-options" class="row border rounded p-3 mx-0" style="max-height: 340px; overflow-y: auto;">
               <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
             </div>
-            <small class="form-text text-muted">Only base-grade compressed ores are listed. The +5% and +10% ore variants are excluded from the available choices. Tick each ore you want the calculator to use.</small>
+            <small class="form-text text-muted">Only base-grade compressed ores are listed. The +5%, +10% and +15% grade variants are excluded from the choices and ore basket. Tick each ore you want the calculator to use.</small>
           </div>
           <div class="form-group col-md-4">
             <button id="cookbook-plan-ore" class="btn btn-success btn-block" type="button" disabled>Calculate remaining ore needed</button>
           </div>
         </div>
         <div id="cookbook-ore-plan-output"></div>
-        <small class="form-text text-muted">The planner uses the selected ore type for additional mining requirements. Existing compressed ore of every type at the refinery is counted first. This is a one-ore-type additional plan, not an optimization across multiple new ore types.</small>
+        <small class="form-text text-muted">The planner uses only the checked base-grade ore types for additional mining requirements. Existing base-grade compressed ore at the refinery is counted first. You can check multiple ore types and the planner combines the selected types to cover the remaining mineral shortfall.</small>
         <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to BKG-Q2 — Draken Manufacturing and BKG-Q2 — Draken Barrel Refinery, including nested containers inside those structures.</small>
       @endif
     </div>
@@ -177,7 +177,7 @@
           '</tbody></table></div>';
         output.innerHTML = '<h4>' + esc(data.product) + ' <small class="text-muted">· ' + data.runs + ' runs</small></h4>' +
           table(data.minerals, 'Minerals') + table(data.other_materials, 'Other required inputs') +
-          (data.inventory_character_id ? '<div class="alert alert-info">Material availability is checked only at BKG-Q2 — Draken Manufacturing. Ore stock is checked separately at BKG-Q2 — Draken Barrel Refinery.</div>' : '') +
+          (data.inventory_character_id ? '<div class="alert alert-info">Material availability is checked only at BKG-Q2 — The New Dominion (temporary manufacturing-stock location). Ore stock is checked separately at BKG-Q2 — Draken Barrel Refinery.</div>' : '') +
           '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
       } catch (e) {
         output.innerHTML = '';
@@ -241,7 +241,7 @@
               '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(item.name) +
                 ' <small class="text-muted d-block">' + Number(item.portion_size).toLocaleString() + ' units/batch</small></label>' +
             '</div></div>'
-          ).join('') : '<div class="col-12 text-muted">No base-grade compressed ores were found in the SeAT SDE.';
+          ).join('') : '<div class="col-12 text-muted">No base-grade compressed ores were found in the SeAT SDE.</div>';
           orePlanButton.disabled = !latestCalculation || !character.value;
         } catch (e) {
           status.textContent = e.message;
