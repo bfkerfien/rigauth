@@ -77,10 +77,10 @@ $refineryId = env("COOKBOOK_REFINERY_STRUCTURE_ID");
 $manufacturingId = env("COOKBOOK_MANUFACTURING_STRUCTURE_ID");
 $refineryIdValid = is_string($refineryId) && ctype_digit($refineryId) && (int) $refineryId > 0;
 $manufacturingIdValid = is_string($manufacturingId) && ctype_digit($manufacturingId) && (int) $manufacturingId > 0;
-$refineryMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Barrel Refinery")->count() : 0;
-$manufacturingMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Manufacturing")->count() : 0;
+$refineryMatches = $structureCache ? DB::table("universe_structures")->where("name", "BKG-Q2 - Draken Barrel Refinery")->count() : 0;
+$manufacturingMatches = $structureCache ? DB::table("universe_structures")->where("name", "BKG-Q2 - The New Dominion")->count() : 0;
 if ((!$refineryIdValid && $refineryMatches !== 1) || (!$manufacturingIdValid && $manufacturingMatches !== 1)) {
-    fwrite(STDERR, "Could not resolve both BKG-Q2 structures. Ensure SeAT has cached Draken Barrel Refinery and Draken Manufacturing in universe_structures, or set both structure IDs in /opt/seat-docker/.env.\n");
+    fwrite(STDERR, "Could not resolve the BKG-Q2 refinery and temporary manufacturing locations. Ensure SeAT has cached BKG-Q2 - Draken Barrel Refinery and BKG-Q2 - The New Dominion in universe_structures, or set the corresponding structure IDs in /opt/seat-docker/.env.\n");
     exit(2);
 }
 if ($materials < 1 || $products < 1) {
