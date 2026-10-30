@@ -96,6 +96,7 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreTypeIds)
                     ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
                     ->whereExists(function ($materials) {
                         $materials->select(DB::raw(1))
                             ->from('invTypeMaterials as ore_minerals')
@@ -163,6 +164,7 @@ class CookbookController extends Controller
             ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
             ->where('groups.categoryID', self::ORE_CATEGORY_ID)
             ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
                     ->whereExists(function ($materials) {
                         $materials->select(DB::raw(1))
                             ->from('invTypeMaterials as ore_minerals')
@@ -236,6 +238,7 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreIds)
                     ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
                     ->whereExists(function ($materials) {
                         $materials->select(DB::raw(1))
                             ->from('invTypeMaterials as ore_minerals')
@@ -304,6 +307,7 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->whereIn('types.typeID', $selectedIds)
                 ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
                     ->whereExists(function ($materials) {
                         $materials->select(DB::raw(1))
                             ->from('invTypeMaterials as ore_minerals')
@@ -485,6 +489,7 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->where('types.typeID', $typeId)
                 ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
                     ->whereExists(function ($materials) {
                         $materials->select(DB::raw(1))
                             ->from('invTypeMaterials as ore_minerals')
