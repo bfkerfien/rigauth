@@ -2,51 +2,55 @@
 
 The Cookbook runs inside SeAT using the authenticated SeAT session, existing SeAT database, SDE tables and ESI-cached character assets. It does not create a standalone service, database, user account, OAuth application or separate token store.
 
-## Included functionality
-
-### Manufacturing planner
+## Manufacturing planner
 - Search published manufacturing products from the SeAT SDE.
-- Recursively expand blueprint materials and separate minerals from other required inputs.
-- Apply the entered product ME and component ME to the corresponding blueprint levels.
-- Compare each required material against the selected linked character's cached assets.
-- Show required quantity, cached quantity and remaining shortfall.
+- Recursively expand blueprint materials and separate minerals from other inputs.
+- Apply entered product ME and component ME.
+- Compare requirements only against stock at **BKG-Q2 — Draken Manufacturing**.
+- Show required quantity, facility stock and remaining mineral/material shortfall.
 
-### Character inventory selector
-- Uses SeAT-linked characters; the user cannot query a character that is not associated with their SeAT account.
-- Reads `character_assets` and includes all locations in that character's current SeAT asset cache.
-- The inventory view lists compressed ore assets and their cached quantities.
-- Asset quantities are only as fresh as SeAT's last successful ESI asset refresh. Refresh the character's assets in SeAT before relying on the results.
+## Facility-scoped inventory
+The two BKG-Q2 facilities are deliberately treated separately:
+- **Ore:** only **BKG-Q2 — Draken Barrel Refinery**.
+- **Minerals and manufacturing inputs:** only **BKG-Q2 — Draken Manufacturing**.
 
-### Compressed ore basket and refining estimate
-- Loads the selected character's compressed ore assets into an editable basket.
-- Lets the user adjust the quantity of each ore in the basket.
-- Uses each ore's SDE `portionSize` and `invTypeMaterials` reprocessing quantities.
-- Calculates complete batches, mineral output and leftover ore units.
-- Accepts the user's combined reprocessing yield percentage instead of inventing character skills, implants, structure rigs, bonuses or taxes.
+Character asset rows inside nested containers are traced to their root location, so hangar divisions and containers inside the configured structure are included. Assets in other stations, structures, ship cargo, personal hangars or corporation hangars are not counted. The dropdown selects the linked SeAT character whose personal asset cache is read. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
-**Refining estimate limitation:** enter the actual combined yield percentage for the character and facility. This increment does not calculate that percentage from skill levels, implants, rigs, structure bonuses or tax. It also does not yet filter inventory to a specific structure or station; it uses all locations in the selected character's SeAT asset cache. It does not claim live Jita prices.
+Structure resolution uses SeAT's `eve_names` or `eveNames` name cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
+- `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
+- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of Draken Manufacturing.
+
+The application refuses to fall back to global inventory if either BKG-Q2 structure cannot be resolved.
+
+## Compressed ore planner
+- Loads compressed ore stock from Draken Barrel Refinery only.
+- Uses SDE `portionSize` and `invTypeMaterials` reprocessing composition.
+- Applies the entered combined refining yield percentage.
+- Calculates complete batches and mineral output from the ore already stored at the refinery.
+- Deducts minerals already at Draken Manufacturing from the blueprint requirement.
+- Lets the user select a compressed ore type for the remaining shortfall and calculates additional ore units / complete batches required, with resulting surplus.
+
+The additional-ore calculation uses one selected ore type for the new mining requirement. It is not an optimizer that chooses a multi-ore blend. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
 
 ## Required SeAT tables
-
 - `invTypes`
 - `invGroups`
 - `industryActivityProducts`
 - `industryActivityMaterials`
 - `invTypeMaterials`
 - `character_assets`
+- `eve_names` or `eveNames`, unless both structure IDs are explicitly configured in `/opt/seat-docker/.env`
 
-The CCP SDE importer in `cookbook/import-cookbook-sde.py` imports manufacturing blueprint materials and products into the existing SeAT database. It does not create or populate `invTypeMaterials`; that table must already be populated by SeAT's SDE import/update process.
+The CCP SDE importer in `cookbook/import-cookbook-sde.py` imports manufacturing blueprint materials and products into the existing SeAT database. It does not create or populate SeAT's `invTypeMaterials`; that table must already be populated by SeAT's SDE import/update process.
 
 ## Import manufacturing SDE data
-
-Run on the server after pulling the branch. The script reads the existing `/opt/seat-docker/.env` and uses the existing MariaDB Compose service. Run with sudo so it can read the SeAT environment file:
 
 ```bash
 cd /opt/rigauth
 sudo python3 cookbook/import-cookbook-sde.py
 ```
 
-The importer reports the number of imported manufacturing material and product rows. If it fails, do not deploy; capture the complete error output.
+The importer reads the existing `/opt/seat-docker/.env` and uses the existing MariaDB Compose service.
 
 ## Deploy
 
@@ -55,21 +59,16 @@ cd /opt/rigauth || exit 1
 git fetch origin
 git switch feature/cookbook-seat-integration 2>/dev/null || git switch -c feature/cookbook-seat-integration --track origin/feature/cookbook-seat-integration
 git pull --ff-only origin feature/cookbook-seat-integration
-git status --short --branch
 bash cookbook/deploy-cookbook.sh
 ```
 
-The deployment script checks the SeAT source paths, running front service, bind mount, required tables and populated manufacturing/reprocessing SDE data. It backs up each SeAT file it changes, installs the controller, route include and Blade view, registers routes and sidebar navigation idempotently, clears Laravel caches, verifies route registration and caches views. On failure it restores backed-up SeAT files. It does not restart containers or create a separate database.
+The deployment script checks required SDE and asset tables, structure-name resolution support, the running SeAT front service and bind mount. It backs up changed SeAT files, installs the controller, route include and Blade view, registers the sidebar link and routes idempotently, clears caches, verifies routes and caches views. It restores files on failure.
 
-## Test after deployment
+## Test
+1. Sign in to SeAT and open **Triglavian Cookbook**.
+2. Select a linked character and load facility inventory.
+3. Confirm ore shown is only from Draken Barrel Refinery.
+4. Calculate a blueprint and confirm manufacturing stock is only from Draken Manufacturing.
+5. Choose a compressed ore type and calculate the additional ore required.
+6. Refresh the character's ESI assets in SeAT before relying on the quantities.
 
-1. Sign in to SeAT and open **Triglavian Cookbook** from the sidebar.
-2. Search for a manufacturing product and calculate its material requirements.
-3. Select a linked character and calculate again; confirm the cached-assets and shortfall columns appear.
-4. In **Character inventory and compressed ore basket**, load that character's compressed ore assets.
-5. Adjust basket quantities if needed, enter the actual combined reprocessing yield percentage, and calculate mineral output.
-6. Refresh the character's ESI assets in SeAT before trusting inventory figures.
-
-## Remaining scope
-
-This implementation does not yet reproduce any standalone-only behavior that depends on unavailable original project code or unconfirmed facility identifiers. In particular, it does not provide structure-specific asset filtering for BKG-Q2, automatic refining-skill/implant/rig yield derivation, or Jita market valuation. No inventory quantities, refining bonuses or prices are fabricated.
