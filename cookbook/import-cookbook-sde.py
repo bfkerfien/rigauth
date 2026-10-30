@@ -45,6 +45,10 @@ def sql_rows(table: str, columns: tuple[str, ...], rows: list[tuple[int, ...]]) 
 
 
 def main() -> int:
+    if os.geteuid() != 0:
+        print("ERROR: run this importer with sudo so it can read SeAT .env and access Docker.", file=sys.stderr)
+        return 1
+
     if not (COMPOSE_DIR / "docker-compose.yml").is_file():
         print(f"ERROR: expected Compose file not found: {COMPOSE_DIR / 'docker-compose.yml'}", file=sys.stderr)
         return 1
@@ -122,8 +126,11 @@ def main() -> int:
             "SELECT 'industryActivityProducts' AS table_name, COUNT(*) AS rows_imported FROM industryActivityProducts WHERE activityID=1;\n"
         )
 
+        # The importer itself runs as root; do not invoke nested sudo here.
+        # Nested sudo applies env_reset and silently drops MYSQL_PWD before Compose
+        # can forward it into the MariaDB client container.
         command = [
-            "sudo", "docker", "compose", "exec", "-T", "-e", "MYSQL_PWD",
+            "docker", "compose", "exec", "-T", "-e", "MYSQL_PWD",
             "mariadb", "mariadb", "--default-character-set=utf8mb4",
             "-u", db_user, db_name,
         ]
