@@ -92,6 +92,7 @@
     const inventoryUrl = @json(route('seatcore::cookbook.inventory'));
     const reprocessUrl = @json(route('seatcore::cookbook.reprocess'));
     const token = @json(csrf_token());
+    const characterSelect = document.getElementById('cookbook-character');
 
     search.addEventListener('input', function () {
       clearTimeout(debounce);
@@ -137,17 +138,19 @@
         product_type_id: product.product_type_id,
         runs: document.getElementById('cookbook-runs').value,
         product_me: document.getElementById('cookbook-product-me').value,
-        component_me: document.getElementById('cookbook-component-me').value
+        component_me: document.getElementById('cookbook-component-me').value,
+        character_id: characterSelect ? characterSelect.value : ''
       });
       try {
         const response = await fetch(postUrl, {method:'POST', headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'}, body});
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
-        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Quantity</th></tr></thead><tbody>' +
-          (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td></tr>').join('') : '<tr><td colspan="2" class="text-muted">None</td></tr>') +
+        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Character assets</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
+          (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
         output.innerHTML = '<h4>' + esc(data.product) + ' <small class="text-muted">· ' + data.runs + ' runs</small></h4>' +
           table(data.minerals, 'Minerals') + table(data.other_materials, 'Other required inputs') +
+          (data.inventory_character_id ? '<div class="alert alert-info">Material availability compared against the selected character’s cached assets (all locations).</div>' : '') +
           '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
       } catch (e) {
         output.innerHTML = '';
