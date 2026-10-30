@@ -174,18 +174,24 @@ class CookbookController extends Controller
             $oreStockRows = [];
             $stockMinerals = [];
             $yieldFactor = (float) $data['yield_percent'] / 100;
-
+            $oreQuantities = [];
             foreach ($refineryAssets as $asset) {
                 $typeId = (int) $asset->type_id;
+                $oreQuantities[$typeId] = ($oreQuantities[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+            }
+
+            foreach ($oreQuantities as $typeId => $quantity) {
                 $ore = $oreCatalog->get($typeId);
                 if (!$ore) {
                     continue;
                 }
                 $portion = max(1, (int) $ore->portionSize);
-                $quantity = max(0, (int) $asset->quantity);
                 $batches = intdiv($quantity, $portion);
                 if ($batches > 0) {
                     $materials = DB::table('invTypeMaterials')->where('typeID', $typeId)->get(['materialTypeID', 'quantity']);
+                    if ($materials->isEmpty()) {
+                        throw new RuntimeException('No reprocessing material data exists for refinery stock ' . $ore->typeName . '.');
+                    }
                     foreach ($materials as $material) {
                         $mineralId = (int) $material->materialTypeID;
                         $yield = (int) floor($batches * (int) $material->quantity * $yieldFactor);
@@ -195,7 +201,7 @@ class CookbookController extends Controller
                 $oreStockRows[$typeId] = [
                     'type_id' => $typeId,
                     'name' => $ore->typeName,
-                    'quantity' => ($oreStockRows[$typeId]['quantity'] ?? 0) + $quantity,
+                    'quantity' => $quantity,
                     'portion_size' => $portion,
                 ];
             }
