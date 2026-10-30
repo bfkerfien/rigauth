@@ -72,16 +72,24 @@
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
         <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion (temporary manufacturing-stock location) first, then base-grade compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
-        <div class="form-row align-items-start">
-          <div class="form-group col-md-8">
-            <label>Normal compressed ores to use for the remaining shortfall</label>
-            <div id="cookbook-plan-ore-options" class="row border rounded p-3 mx-0" style="max-height: 340px; overflow-y: auto;">
+        <div class="card border mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Ore basket options</strong>
+            <button id="cookbook-plan-ore" class="btn btn-success" type="button" disabled>Plan ore basket</button>
+          </div>
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 1rem;">
+              <a href="#" id="cookbook-ore-select-all">Select all</a>
+              <a href="#" id="cookbook-ore-deselect-all">Deselect all</a>
+            </div>
+            <div class="custom-control custom-checkbox mb-3">
+              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume">
+              <label class="custom-control-label" for="cookbook-ignore-low-volume">Ignore low-market-volume (Spodumain / Bezdnacine / Rakovene / Talassonite)</label>
+            </div>
+            <div id="cookbook-plan-ore-options" class="row mx-0" style="max-height: 420px; overflow-y: auto;">
               <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
             </div>
-            <small class="form-text text-muted">Only standard compressed asteroid ores are listed, grouped by ore section. Ice, moon ores and named quality variants (including Glistening) are excluded. Tick the ores you want the calculator to use.</small>
-          </div>
-          <div class="form-group col-md-4">
-            <button id="cookbook-plan-ore" class="btn btn-success btn-block" type="button" disabled>Calculate remaining ore needed</button>
+            <small class="form-text text-muted mt-2">Standard asteroid ores only. One checkbox per ore: ice, moon ores and named variants (including Glistening) are not included.</small>
           </div>
         </div>
         <div id="cookbook-ore-plan-output"></div>
@@ -241,17 +249,39 @@
             sections[section].push(item);
             return sections;
           }, {});
-          oreTypeOptions.innerHTML = Object.keys(oreSections).length ? Object.keys(oreSections).map(section =>
-            '<div class="col-12 cookbook-ore-section mb-3">' +
-              '<h5 class="border-bottom pb-2 mb-3">' + esc(section) + '</h5>' +
-              '<div class="row">' + oreSections[section].map(item =>
-                '<div class="col-md-6 col-lg-4 mb-2"><div class="custom-control custom-checkbox">' +
-                  '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '">' +
-                  '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(item.name) +
-                    ' <small class="text-muted d-block">' + Number(item.portion_size).toLocaleString() + ' units/batch</small></label>' +
-                '</div></div>'
-              ).join('') + '</div></div>'
-          ).join('') : '<div class="col-12 text-muted">No standard compressed asteroid ores were found in the SeAT SDE.</div>';
+          const sectionOrder = ['Simple ores', 'Coherent ores', 'Variegated ores', 'Complex ores', 'Abyssal ores', 'Mercoxit'];
+          oreTypeOptions.innerHTML = sectionOrder.filter(section => oreSections[section]).map(section =>
+            '<div class="col-md-6 mb-2"><div class="border rounded p-3 h-100 cookbook-ore-section">' +
+              '<div class="d-flex justify-content-between align-items-center mb-2"><strong>' + esc(section) + '</strong><small class="text-muted">' + oreSections[section].length + ' / ' + oreSections[section].length + '</small></div>' +
+              '<div class="d-flex flex-wrap" style="gap: .55rem 1rem;">' + oreSections[section].map(item => {
+                const oreName = item.name.replace(/^Compressed /, '');
+                return '<div class="custom-control custom-checkbox">' +
+                  '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '" data-ore-name="' + esc(oreName) + '" checked>' +
+                  '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(oreName) + '</label>' +
+                '</div>';
+              }).join('') + '</div></div></div>'
+          ).join('') || '<div class="col-12 text-muted">No standard compressed asteroid ores were found in the SeAT SDE.</div>';
+          const updateOrePicker = () => {
+            const ignoreLow = document.getElementById('cookbook-ignore-low-volume').checked;
+            const lowNames = ['Spodumain', 'Bezdnacine', 'Rakovene', 'Talassonite'];
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
+              const excluded = ignoreLow && lowNames.includes(input.dataset.oreName);
+              if (excluded) input.checked = false;
+              input.closest('.custom-control').style.display = excluded ? 'none' : '';
+            });
+          };
+          document.getElementById('cookbook-ignore-low-volume').addEventListener('change', updateOrePicker);
+          document.getElementById('cookbook-ore-select-all').addEventListener('click', event => {
+            event.preventDefault();
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
+              if (input.closest('.custom-control').style.display !== 'none') input.checked = true;
+            });
+          });
+          document.getElementById('cookbook-ore-deselect-all').addEventListener('click', event => {
+            event.preventDefault();
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => input.checked = false);
+          });
+          updateOrePicker();
           orePlanButton.disabled = !latestCalculation || !character.value;
         } catch (e) {
           status.textContent = e.message;
@@ -259,7 +289,7 @@
       });
 
       orePlanButton.addEventListener('click', async function () {
-        const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).map(input => input.value);
+        const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).filter(input => input.closest('.custom-control').style.display !== 'none').map(input => input.value);
         if (!latestCalculation || !character.value || !selectedOreIds.length) {
           orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and tick at least one normal compressed ore type first.</div>';
           return;
