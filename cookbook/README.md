@@ -28,8 +28,8 @@ The application refuses to fall back to global inventory if either BKG-Q2 struct
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
 - Deducts minerals already at The New Dominion (temporary manufacturing-stock location) from the blueprint requirement.
-- Shows a checkbox list of normal/base-grade compressed ores for the user to select from; +5%, +10% and +15% grade variants are excluded from inventory ore lists, refining baskets and additional-ore planning.
-- Calculates an additional mix from only the checked base-grade compressed ores to cover the remaining mineral shortfall, including units, complete batches and surplus.
+- Shows checkbox sections grouped by the SeAT SDE ore groups. The catalogue admits exactly the standard `Compressed <Ore>` type for each ore group, so there is one entry per ore; ice products, moon ores and named variants such as Glistening are excluded from inventory, reprocessing and additional-ore planning.
+- Calculates an additional mix from only the checked standard asteroid ores to cover the remaining mineral shortfall, including units, complete batches and surplus.
 
 The additional-ore calculation greedily selects from the user's chosen compressed ore types, recalculating mineral deficits after each ore type. It is a transparent coverage heuristic, not a mathematically optimal cost/volume solver. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
 
