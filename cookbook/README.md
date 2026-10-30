@@ -12,11 +12,22 @@ This is the native SeAT source-overlay implementation in `rigauth/cookbook/`. It
 - Uses only SDE data already loaded into SeAT; no guessed material quantities or market prices are displayed.
 
 Required SDE tables:
-- `invTypes`
+- `invTypes` (already maintained by SeAT)
 - `industryActivityProducts`
 - `industryActivityMaterials`
 
-If those tables are missing, the page explains that the SeAT SDE must be updated. The deploy script does not download or modify SDE data.
+The importer `cookbook/import-cookbook-sde.py` downloads CCP's current JSONL SDE, reads `blueprints.jsonl`, and imports manufacturing materials and products into the existing SeAT MariaDB database. It creates the two missing tables if needed and replaces only manufacturing activity rows (`activityID=1`). It does not alter `invTypes`, PI tables, ESI tables, or other activity rows. The row replacement is transactional.
+
+## Import manufacturing SDE data
+
+Run this on the server after pulling the branch. It reads the existing `/opt/seat-docker/.env` database settings and uses the existing `mariadb` Compose service. It does not print the database password. Python 3 and outbound HTTPS access are required.
+
+```bash
+cd /opt/rigauth
+python3 cookbook/import-cookbook-sde.py
+```
+
+The importer reports the number of imported manufacturing material and product rows. If it fails, do not deploy; paste the complete error output.
 
 ## Deploy
 
