@@ -63,7 +63,7 @@ echo "Checking SeAT manufacturing SDE data before deployment..."
 sudo docker compose -f "$COMPOSE" exec -T front php artisan tinker --execute='
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-foreach (["industryActivityMaterials", "industryActivityProducts"] as $table) {
+foreach (["industryActivityMaterials", "industryActivityProducts", "invTypeMaterials", "invGroups", "character_assets"] as $table) {
     if (!Schema::hasTable($table)) {
         fwrite(STDERR, "Missing table: ".$table."\n");
         exit(2);
@@ -71,11 +71,12 @@ foreach (["industryActivityMaterials", "industryActivityProducts"] as $table) {
 }
 $materials = DB::table("industryActivityMaterials")->where("activityID", 1)->count();
 $products = DB::table("industryActivityProducts")->where("activityID", 1)->count();
-if ($materials < 1 || $products < 1) {
+$reprocessing = DB::table("invTypeMaterials")->count();
+if ($materials < 1 || $products < 1 || $reprocessing < 1) {
     fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\\n");
     exit(2);
 }
-echo "Manufacturing SDE ready: ".$materials." material rows; ".$products." product rows.\\n";
+echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\\n";
 ' || {
   echo "STOP: import CCP manufacturing SDE data before deploying. No SeAT files have been changed."
   exit 1
@@ -140,8 +141,8 @@ printf '%s\n' "$ROUTES" | grep -q 'seatcore::cookbook.index' || {
 sudo docker compose -f "$COMPOSE" exec -T front php artisan view:cache
 
 echo
-echo "Cookbook native SeAT build planner deployed."
+echo "Cookbook native SeAT manufacturing, character inventory and compressed ore planner deployed."
 echo "Backup retained at $BACKUP"
 echo "Open SeAT and select Triglavian Cookbook from the sidebar."
-echo "Inventory aggregation and compressed-ore planning are not part of this first deployable increment."
+echo "Select a linked character to compare cached assets with blueprint requirements and populate the compressed-ore basket."
 SUCCESS=1
