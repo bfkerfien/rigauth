@@ -72,11 +72,13 @@
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
         <p class="text-muted">After calculating a blueprint above, this uses minerals at Draken Manufacturing first, then the compressed ore already stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
-        <div class="form-row align-items-end">
+        <div class="form-row align-items-start">
           <div class="form-group col-md-8">
-            <label for="cookbook-plan-ore-type">Compressed ore types to use for the remaining shortfall</label>
-            <select id="cookbook-plan-ore-type" class="form-control" multiple size="8"></select>
-            <small class="form-text text-muted">Select one or more compressed ore types. The planner will combine them to cover the remaining minerals.</small>
+            <label>Normal compressed ores to use for the remaining shortfall</label>
+            <div id="cookbook-plan-ore-options" class="row border rounded p-3 mx-0" style="max-height: 340px; overflow-y: auto;">
+              <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
+            </div>
+            <small class="form-text text-muted">Only base-grade compressed ores are listed. The +5% and +10% ore variants are excluded from the available choices. Tick each ore you want the calculator to use.</small>
           </div>
           <div class="form-group col-md-4">
             <button id="cookbook-plan-ore" class="btn btn-success btn-block" type="button" disabled>Calculate remaining ore needed</button>
@@ -191,7 +193,7 @@
       const inventoryTable = document.getElementById('cookbook-inventory-table');
       const reprocess = document.getElementById('cookbook-reprocess');
       const oreOutput = document.getElementById('cookbook-ore-output');
-      const oreTypeSelect = document.getElementById('cookbook-plan-ore-type');
+      const oreTypeOptions = document.getElementById('cookbook-plan-ore-options');
       const orePlanButton = document.getElementById('cookbook-plan-ore');
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
@@ -233,7 +235,13 @@
           const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
           const typeData = await typeResponse.json();
           if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
-          oreTypeSelect.innerHTML = '<option value="">Choose compressed ore…</option>' + typeData.items.map(item => '<option value="' + item.type_id + '">' + esc(item.name) + ' (' + Number(item.portion_size).toLocaleString() + ' units/batch)</option>').join('');
+          oreTypeOptions.innerHTML = typeData.items.length ? typeData.items.map(item =>
+            '<div class="col-md-6 col-lg-4 mb-2"><div class="custom-control custom-checkbox">' +
+              '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '">' +
+              '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(item.name) +
+                ' <small class="text-muted d-block">' + Number(item.portion_size).toLocaleString() + ' units/batch</small></label>' +
+            '</div></div>'
+          ).join('') : '<div class="col-12 text-muted">No base-grade compressed ores were found in the SeAT SDE.';
           orePlanButton.disabled = !latestCalculation || !character.value;
         } catch (e) {
           status.textContent = e.message;
@@ -241,9 +249,9 @@
       });
 
       orePlanButton.addEventListener('click', async function () {
-        const selectedOreIds = Array.from(oreTypeSelect.selectedOptions).map(option => option.value).filter(Boolean);
+        const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).map(input => input.value);
         if (!latestCalculation || !character.value || !selectedOreIds.length) {
-          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and select one or more compressed ore types first.</div>';
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and tick at least one normal compressed ore type first.</div>';
           return;
         }
         const needs = (latestCalculation.minerals || []).map(row => ({
