@@ -28,8 +28,8 @@ The application refuses to fall back to global inventory if either BKG-Q2 struct
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
 - Deducts minerals already at The New Dominion (temporary manufacturing-stock location) from the blueprint requirement.
-- Shows checkbox sections grouped by the SeAT SDE ore groups. The catalogue admits exactly the standard `Compressed <Ore>` type for each ore group, so there is one entry per ore; ice products, moon ores and named variants such as Glistening are excluded from inventory, reprocessing and additional-ore planning.
-- Calculates an additional mix from only the checked standard asteroid ores to cover the remaining mineral shortfall, including units, complete batches and surplus.
+- Recreates the standalone ore basket families and checkbox picker: **Simple ores** (Mordunium, Plagioclase, Pyroxeres, Scordite, Veldspar); **Coherent ores** (Griemeer, Hedbergite, Hemorphite, Jaspet, Kernite, Nocxite, Omber, Ytirium); **Variegated ores** (Crokite, Dark Ochre, Gneiss, Kylixium); **Complex ores** (Arkonor, Bistot, Ducinium, Eifyrium, Hezorime, Spodumain, Ueganite); **Abyssal ores** (Bezdnacine, Rakovene, Talassonite); and **Mercoxit** (Mercoxit). There is exactly one standard compressed type per listed ore. Ice, moon ores and named variants such as Glistening are not in the allowlist.
+- Includes Select all / Deselect all and the standalone low-market-volume exclusion toggle for Spodumain, Bezdnacine, Rakovene and Talassonite. Calculates an additional mix from only the checked standard asteroid ores to cover the remaining mineral shortfall, including units, complete batches and surplus.
 
 The additional-ore calculation greedily selects from the user's chosen compressed ore types, recalculating mineral deficits after each ore type. It is a transparent coverage heuristic, not a mathematically optimal cost/volume solver. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
 
