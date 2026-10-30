@@ -85,7 +85,7 @@
         </div>
         <div id="cookbook-ore-plan-output"></div>
         <small class="form-text text-muted">The planner uses the selected ore type for additional mining requirements. Existing compressed ore of every type at the refinery is counted first. This is a one-ore-type additional plan, not an optimization across multiple new ore types.</small>
-        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Character assets include all locations in that character's SeAT asset cache.</small>
+        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to BKG-Q2 — Draken Manufacturing and BKG-Q2 — Draken Barrel Refinery, including nested containers inside those structures.</small>
       @endif
     </div>
   </div>
