@@ -65,31 +65,222 @@ class CookbookController extends Controller
         $characterId = (int) $data['character_id'];
         $this->authorizeCharacter($characterId);
 
-        $items = DB::table('character_assets as assets')
-            ->join('invTypes as types', 'types.typeID', '=', 'assets.type_id')
+        try {
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+            $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
+            $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
+
+            $oreTypeIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
+            $oreTypes = $oreTypeIds
+                ? DB::table('invTypes')->whereIn('typeID', $oreTypeIds)->where('typeName', 'like', '%Compressed%')->get(['typeID', 'typeName', 'portionSize'])->keyBy('typeID')
+                : collect();
+
+            $oreTotals = [];
+            foreach ($refineryAssets as $asset) {
+                $type = $oreTypes->get((int) $asset->type_id);
+                if (!$type) {
+                    continue;
+                }
+                $typeId = (int) $asset->type_id;
+                if (!isset($oreTotals[$typeId])) {
+                    $oreTotals[$typeId] = [
+                        'type_id' => $typeId,
+                        'name' => $type->typeName,
+                        'portion_size' => max(1, (int) $type->portionSize),
+                        'quantity' => 0,
+                    ];
+                }
+                $oreTotals[$typeId]['quantity'] += max(0, (int) $asset->quantity);
+            }
+
+            $materialTotals = [];
+            foreach ($manufacturingAssets as $asset) {
+                $typeId = (int) $asset->type_id;
+                $materialTotals[$typeId] = ($materialTotals[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+            }
+
+            return response()->json([
+                'character_id' => $characterId,
+                'refinery_location' => 'BKG-Q2 — Draken Barrel Refinery',
+                'manufacturing_location' => 'BKG-Q2 — Draken Manufacturing',
+                'items' => array_values($oreTotals),
+                'materials' => $materialTotals,
+                'note' => 'Ore is read only from BKG-Q2 — Draken Barrel Refinery. Manufacturing material stock is read only from BKG-Q2 — Draken Manufacturing. Nested containers are included. Data comes from SeAT cached character assets and may be stale until ESI assets refresh.',
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function oreTypes(): JsonResponse
+    {
+        abort_unless(auth()->check(), 401);
+        abort_unless(Schema::hasTable('invTypes') && Schema::hasTable('invGroups') && Schema::hasTable('invTypeMaterials'), 503, 'SeAT ore and reprocessing SDE data is unavailable.');
+
+        $items = DB::table('invTypes as types')
             ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
-            ->where('assets.character_id', $characterId)
             ->where('groups.categoryID', self::ORE_CATEGORY_ID)
             ->where('types.typeName', 'like', '%Compressed%')
-            ->groupBy('assets.type_id', 'types.typeName', 'types.portionSize')
-            ->selectRaw('assets.type_id as type_id, types.typeName as name, types.portionSize as portion_size, SUM(assets.quantity) as quantity')
+            ->where('types.published', 1)
             ->orderBy('types.typeName')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'type_id' => (int) $item->type_id,
-                    'name' => $item->name,
-                    'portion_size' => max(1, (int) $item->portion_size),
-                    'quantity' => max(0, (int) $item->quantity),
-                ];
-            })
-            ->values();
+            ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size']);
 
-        return response()->json([
-            'character_id' => $characterId,
-            'items' => $items,
-            'note' => 'Inventory is read from SeAT cached character_assets. The cache can lag EVE; refresh the character assets in SeAT before relying on these quantities. All locations in this character cache are included.',
+        return response()->json(['items' => $items]);
+    }
+
+    public function orePlan(Request $request): JsonResponse
+    {
+        abort_unless(auth()->check(), 401);
+        abort_unless(Schema::hasTable('character_assets') && Schema::hasTable('invTypes') && Schema::hasTable('invTypeMaterials'), 503, 'SeAT character asset or reprocessing SDE data is unavailable.');
+
+        $data = $request->validate([
+            'character_id' => ['required', 'integer', 'min:1'],
+            'ore_type_id' => ['required', 'integer', 'min:1'],
+            'yield_percent' => ['required', 'numeric', 'gt:0', 'lte:100'],
+            'mineral_needs' => ['required', 'array', 'min:1', 'max:50'],
+            'mineral_needs.*.type_id' => ['required', 'integer', 'min:1'],
+            'mineral_needs.*.quantity' => ['required', 'integer', 'min:0', 'max:1000000000'],
         ]);
+
+        $characterId = (int) $data['character_id'];
+        $this->authorizeCharacter($characterId);
+
+        try {
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+            $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
+            $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
+
+            $needs = [];
+            foreach ($data['mineral_needs'] as $row) {
+                $typeId = (int) $row['type_id'];
+                $needs[$typeId] = max(0, (int) $row['quantity']);
+            }
+            $mineralStock = [];
+            foreach ($manufacturingAssets as $asset) {
+                $typeId = (int) $asset->type_id;
+                $mineralStock[$typeId] = ($mineralStock[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+            }
+            $deficits = [];
+            foreach ($needs as $typeId => $required) {
+                $deficits[$typeId] = max(0, $required - (int) ($mineralStock[$typeId] ?? 0));
+            }
+
+            $oreIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
+            $oreCatalog = $oreIds
+                ? DB::table('invTypes')->whereIn('typeID', $oreIds)->where('typeName', 'like', '%Compressed%')->get(['typeID', 'typeName', 'portionSize'])->keyBy('typeID')
+                : collect();
+            $oreStockRows = [];
+            $stockMinerals = [];
+            $yieldFactor = (float) $data['yield_percent'] / 100;
+
+            foreach ($refineryAssets as $asset) {
+                $typeId = (int) $asset->type_id;
+                $ore = $oreCatalog->get($typeId);
+                if (!$ore) {
+                    continue;
+                }
+                $portion = max(1, (int) $ore->portionSize);
+                $quantity = max(0, (int) $asset->quantity);
+                $batches = intdiv($quantity, $portion);
+                if ($batches > 0) {
+                    $materials = DB::table('invTypeMaterials')->where('typeID', $typeId)->get(['materialTypeID', 'quantity']);
+                    foreach ($materials as $material) {
+                        $mineralId = (int) $material->materialTypeID;
+                        $yield = (int) floor($batches * (int) $material->quantity * $yieldFactor);
+                        $stockMinerals[$mineralId] = ($stockMinerals[$mineralId] ?? 0) + $yield;
+                    }
+                }
+                $oreStockRows[$typeId] = [
+                    'type_id' => $typeId,
+                    'name' => $ore->typeName,
+                    'quantity' => ($oreStockRows[$typeId]['quantity'] ?? 0) + $quantity,
+                    'portion_size' => $portion,
+                ];
+            }
+
+            foreach ($deficits as $typeId => $quantity) {
+                $deficits[$typeId] = max(0, $quantity - (int) ($stockMinerals[$typeId] ?? 0));
+            }
+
+            $targetOre = DB::table('invTypes')
+                ->where('typeID', (int) $data['ore_type_id'])
+                ->where('typeName', 'like', '%Compressed%')
+                ->first(['typeID', 'typeName', 'portionSize']);
+            abort_unless($targetOre, 422, 'Select a compressed ore type from the SeAT SDE.');
+
+            $targetMaterials = DB::table('invTypeMaterials')
+                ->where('typeID', (int) $data['ore_type_id'])
+                ->get(['materialTypeID', 'quantity']);
+            abort_unless($targetMaterials->isNotEmpty(), 422, 'No reprocessing composition is available for the selected compressed ore.');
+
+            $perBatch = [];
+            foreach ($targetMaterials as $material) {
+                $mineralId = (int) $material->materialTypeID;
+                $perBatch[$mineralId] = (int) $material->quantity;
+            }
+
+            $requiredBatches = 0;
+            $uncovered = [];
+            foreach ($deficits as $mineralId => $remaining) {
+                if ($remaining <= 0) {
+                    continue;
+                }
+                $baseYield = (int) ($perBatch[$mineralId] ?? 0);
+                if ($baseYield <= 0 || $baseYield * $yieldFactor < 1) {
+                    $uncovered[$mineralId] = $remaining;
+                    continue;
+                }
+                $requiredBatches = max($requiredBatches, (int) ceil($remaining / ($baseYield * $yieldFactor)));
+            }
+            if ($uncovered) {
+                $names = DB::table('invTypes')->whereIn('typeID', array_keys($uncovered))->pluck('typeName', 'typeID')->all();
+                $labels = [];
+                foreach ($uncovered as $id => $quantity) {
+                    $labels[] = ($names[$id] ?? ('Type ' . $id)) . ': ' . number_format($quantity);
+                }
+                throw new RuntimeException('The selected ore cannot supply every remaining mineral. Choose another compressed ore: ' . implode('; ', $labels));
+            }
+
+            $additionalOutput = [];
+            foreach ($perBatch as $mineralId => $baseYield) {
+                $amount = (int) floor($requiredBatches * $baseYield * $yieldFactor);
+                $additionalOutput[$mineralId] = $amount;
+            }
+
+            $names = DB::table('invTypes')->whereIn('typeID', array_unique(array_merge(array_keys($needs), array_keys($stockMinerals), array_keys($additionalOutput))))->pluck('typeName', 'typeID')->all();
+            $mineralRows = [];
+            foreach ($needs as $mineralId => $required) {
+                $available = (int) ($mineralStock[$mineralId] ?? 0);
+                $fromOreStock = (int) ($stockMinerals[$mineralId] ?? 0);
+                $remaining = (int) ($deficits[$mineralId] ?? 0);
+                $fromNewOre = (int) ($additionalOutput[$mineralId] ?? 0);
+                $mineralRows[] = [
+                    'type_id' => $mineralId,
+                    'name' => $names[$mineralId] ?? ('Type ' . $mineralId),
+                    'required' => $required,
+                    'at_manufacturing' => $available,
+                    'from_refinery_ore_stock' => $fromOreStock,
+                    'remaining_before_new_ore' => $remaining,
+                    'from_additional_ore' => $fromNewOre,
+                    'surplus' => max(0, $fromNewOre - $remaining),
+                ];
+            }
+
+            return response()->json([
+                'selected_ore' => $targetOre->typeName,
+                'yield_percent' => (float) $data['yield_percent'],
+                'ore_stock' => array_values($oreStockRows),
+                'required_batches' => $requiredBatches,
+                'portion_size' => max(1, (int) $targetOre->portionSize),
+                'additional_ore_units' => $requiredBatches * max(1, (int) $targetOre->portionSize),
+                'minerals' => $mineralRows,
+                'note' => 'Ore stock at Draken Barrel Refinery is converted first, then existing minerals at Draken Manufacturing are deducted from blueprint requirements. Additional ore is the number of complete batches of the selected compressed ore needed to cover every remaining mineral; surplus is shown. This is a single-ore-type plan, not a multi-ore optimized mix.',
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 422);
+        }
     }
 
     public function reprocess(Request $request): JsonResponse
@@ -228,13 +419,11 @@ class CookbookController extends Controller
                 $characterId = (int) $data['character_id'];
                 $this->authorizeCharacter($characterId);
                 abort_unless(Schema::hasTable('character_assets'), 503, 'SeAT character asset cache is unavailable.');
-                $inventory = DB::table('character_assets')
-                    ->where('character_id', $characterId)
-                    ->groupBy('type_id')
-                    ->selectRaw('type_id, SUM(quantity) as quantity')
-                    ->pluck('quantity', 'type_id')
-                    ->map(fn ($quantity) => (int) $quantity)
-                    ->all();
+                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+                foreach ($this->assetsAtStructure($characterId, $manufacturingId) as $asset) {
+                    $typeId = (int) $asset->type_id;
+                    $inventory[$typeId] = ($inventory[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+                }
             }
 
             $mineralRows = $this->materialRows($minerals, $inventory);
@@ -253,6 +442,56 @@ class CookbookController extends Controller
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
         }
+    }
+
+    private function structureId(string $environmentKey, string $structureName): int
+    {
+        $configured = trim((string) env($environmentKey, ''));
+        if ($configured !== '' && ctype_digit($configured) && (int) $configured > 0) {
+            return (int) $configured;
+        }
+
+        foreach (['eve_names', 'eveNames'] as $table) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+            $columns = Schema::getColumnListing($table);
+            $idColumn = in_array('id', $columns, true) ? 'id' : (in_array('item_id', $columns, true) ? 'item_id' : null);
+            if (!$idColumn || !in_array('name', $columns, true)) {
+                continue;
+            }
+            $matches = DB::table($table)->where('name', $structureName)->limit(3)->pluck($idColumn);
+            if ($matches->count() === 1) {
+                return (int) $matches->first();
+            }
+            if ($matches->count() > 1) {
+                throw new RuntimeException('More than one EVE name matches ' . $structureName . '. Set ' . $environmentKey . ' in /opt/seat-docker/.env to the exact structure ID.');
+            }
+        }
+
+        throw new RuntimeException('Could not resolve the BKG-Q2 structure "' . $structureName . '" from SeAT name cache. Set ' . $environmentKey . ' in /opt/seat-docker/.env to that structure ID; no global inventory fallback is used.');
+    }
+
+    private function assetsAtStructure(int $characterId, int $structureId)
+    {
+        $assets = DB::table('character_assets')
+            ->where('character_id', $characterId)
+            ->get(['item_id', 'type_id', 'quantity', 'location_id']);
+
+        $parents = [];
+        foreach ($assets as $asset) {
+            $parents[(int) $asset->item_id] = (int) $asset->location_id;
+        }
+
+        return $assets->filter(function ($asset) use ($parents, $structureId) {
+            $locationId = (int) $asset->location_id;
+            $visited = [];
+            while (isset($parents[$locationId]) && !isset($visited[$locationId])) {
+                $visited[$locationId] = true;
+                $locationId = (int) $parents[$locationId];
+            }
+            return $locationId === $structureId;
+        })->values();
     }
 
     private function materialRows(array $materials, array $inventory = []): array
