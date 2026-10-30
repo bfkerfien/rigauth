@@ -77,7 +77,7 @@ class CookbookController extends Controller
     public function inventory(Request $request): JsonResponse
     {
         abort_unless(auth()->check(), 401);
-        abort_unless(Schema::hasTable('character_assets') && Schema::hasTable('invTypes') && Schema::hasTable('invGroups'), 503, 'SeAT character asset or SDE tables are unavailable.');
+        abort_unless(Schema::hasTable('character_assets') && Schema::hasTable('invTypes') && Schema::hasTable('invGroups') && Schema::hasTable('invTypeMaterials'), 503, 'SeAT character asset or SDE tables are unavailable.');
 
         $data = $request->validate(['character_id' => ['required', 'integer', 'min:1']]);
         $characterId = (int) $data['character_id'];
@@ -183,7 +183,6 @@ class CookbookController extends Controller
                         }
                     })
             ->where('types.published', 1)
-            ->orderBy('types.typeName')
             ->orderBy('groups.groupName')
             ->orderBy('types.typeName')
             ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size', 'groups.groupName as section']);
