@@ -16,7 +16,7 @@ The two BKG-Q2 facilities are deliberately treated separately:
 
 Character asset rows inside nested containers are traced to their root location, so hangar divisions and containers inside the configured structure are included. Assets in other stations, structures, ship cargo, personal hangars or corporation hangars are not counted. The dropdown selects the linked SeAT character whose personal asset cache is read. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
-Structure resolution uses SeAT's `eve_names` or `eveNames` name cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
+Structure resolution uses SeAT's `universe_structures` cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
 - `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
 - `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of Draken Manufacturing.
 
@@ -39,7 +39,7 @@ The additional-ore calculation uses one selected ore type for the new mining req
 - `industryActivityMaterials`
 - `invTypeMaterials`
 - `character_assets`
-- `eve_names` or `eveNames`, unless both structure IDs are explicitly configured in `/opt/seat-docker/.env`
+- `universe_structures`, unless both structure IDs are explicitly configured in `/opt/seat-docker/.env`
 
 The CCP SDE importer in `cookbook/import-cookbook-sde.py` imports manufacturing blueprint materials and products into the existing SeAT database. It does not create or populate SeAT's `invTypeMaterials`; that table must already be populated by SeAT's SDE import/update process.
 
