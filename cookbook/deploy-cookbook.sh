@@ -75,9 +75,11 @@ $reprocessing = DB::table("invTypeMaterials")->count();
 $structureCache = Schema::hasTable("universe_structures");
 $refineryId = env("COOKBOOK_REFINERY_STRUCTURE_ID");
 $manufacturingId = env("COOKBOOK_MANUFACTURING_STRUCTURE_ID");
+$refineryIdValid = is_string($refineryId) && ctype_digit($refineryId) && (int) $refineryId > 0;
+$manufacturingIdValid = is_string($manufacturingId) && ctype_digit($manufacturingId) && (int) $manufacturingId > 0;
 $refineryMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Barrel Refinery")->count() : 0;
 $manufacturingMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Manufacturing")->count() : 0;
-if ((!$refineryId && $refineryMatches !== 1) || (!$manufacturingId && $manufacturingMatches !== 1)) {
+if ((!$refineryIdValid && $refineryMatches !== 1) || (!$manufacturingIdValid && $manufacturingMatches !== 1)) {
     fwrite(STDERR, "Could not resolve both BKG-Q2 structures. Ensure SeAT has cached Draken Barrel Refinery and Draken Manufacturing in universe_structures, or set both structure IDs in /opt/seat-docker/.env.\n");
     exit(2);
 }
@@ -91,7 +93,7 @@ if ($reprocessing < 1) {
 }
 echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\n";
 ' || {
-  echo "STOP: import CCP manufacturing SDE data before deploying. No SeAT files have been changed."
+  echo "STOP: Cookbook preflight failed. Review the diagnostic above; no SeAT files have been changed."
   exit 1
 }
 
