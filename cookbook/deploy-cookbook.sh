@@ -61,8 +61,8 @@ fi
 
 echo "Checking SeAT manufacturing SDE data before deployment..."
 sudo docker compose -f "$COMPOSE" exec -T front php artisan tinker --execute='
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 foreach (["industryActivityMaterials", "industryActivityProducts"] as $table) {
     if (!Schema::hasTable($table)) {
         fwrite(STDERR, "Missing table: ".$table."\\n");
