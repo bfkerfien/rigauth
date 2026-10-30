@@ -142,7 +142,8 @@ class CookbookController extends Controller
 
         $data = $request->validate([
             'character_id' => ['required', 'integer', 'min:1'],
-            'ore_type_id' => ['required', 'integer', 'min:1'],
+            'ore_type_ids' => ['required', 'array', 'min:1', 'max:30'],
+            'ore_type_ids.*' => ['required', 'integer', 'min:1'],
             'yield_percent' => ['required', 'numeric', 'gt:0', 'lte:100'],
             'mineral_needs' => ['required', 'array', 'min:1', 'max:50'],
             'mineral_needs.*.type_id' => ['required', 'integer', 'min:1'],
@@ -173,6 +174,7 @@ class CookbookController extends Controller
                 $deficits[$typeId] = max(0, $required - (int) ($mineralStock[$typeId] ?? 0));
             }
 
+            // Sum every compressed ore stack at the refinery before calculating whole batches.
             $oreIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
             $oreCatalog = $oreIds
                 ? DB::table('invTypes as types')
@@ -183,15 +185,15 @@ class CookbookController extends Controller
                     ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
                     ->keyBy('typeID')
                 : collect();
-            $oreStockRows = [];
-            $stockMinerals = [];
-            $yieldFactor = (float) $data['yield_percent'] / 100;
             $oreQuantities = [];
             foreach ($refineryAssets as $asset) {
                 $typeId = (int) $asset->type_id;
                 $oreQuantities[$typeId] = ($oreQuantities[$typeId] ?? 0) + max(0, (int) $asset->quantity);
             }
 
+            $oreStockRows = [];
+            $stockMinerals = [];
+            $yieldFactor = (float) $data['yield_percent'] / 100;
             foreach ($oreQuantities as $typeId => $quantity) {
                 $ore = $oreCatalog->get($typeId);
                 if (!$ore) {
@@ -215,88 +217,153 @@ class CookbookController extends Controller
                     'name' => $ore->typeName,
                     'quantity' => $quantity,
                     'portion_size' => $portion,
+                    'complete_batches' => $batches,
+                    'leftover_units' => $quantity % $portion,
                 ];
             }
 
+            // Refinery ore is counted first, then only the residual mineral deficit is planned.
             foreach ($deficits as $typeId => $quantity) {
                 $deficits[$typeId] = max(0, $quantity - (int) ($stockMinerals[$typeId] ?? 0));
             }
 
-            $targetOre = DB::table('invTypes as types')
+            $selectedIds = array_values(array_unique(array_map('intval', $data['ore_type_ids'])));
+            $selectedOres = DB::table('invTypes as types')
                 ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
-                ->where('types.typeID', (int) $data['ore_type_id'])
+                ->whereIn('types.typeID', $selectedIds)
                 ->where('types.typeName', 'like', '%Compressed%')
-                ->first(['types.typeID', 'types.typeName', 'types.portionSize']);
-            abort_unless($targetOre, 422, 'Select a compressed ore type from the SeAT SDE.');
+                ->orderBy('types.typeName')
+                ->get(['types.typeID', 'types.typeName', 'types.portionSize']);
+            abort_unless($selectedOres->count() === count($selectedIds), 422, 'One or more selected types are not published compressed ore types.');
 
-            $targetMaterials = DB::table('invTypeMaterials')
-                ->where('typeID', (int) $data['ore_type_id'])
-                ->get(['materialTypeID', 'quantity']);
-            abort_unless($targetMaterials->isNotEmpty(), 422, 'No reprocessing composition is available for the selected compressed ore.');
-
-            $perBatch = [];
-            foreach ($targetMaterials as $material) {
-                $mineralId = (int) $material->materialTypeID;
-                $perBatch[$mineralId] = (int) $material->quantity;
+            $candidates = [];
+            foreach ($selectedOres as $ore) {
+                $materials = DB::table('invTypeMaterials')
+                    ->where('typeID', (int) $ore->typeID)
+                    ->get(['materialTypeID', 'quantity']);
+                abort_unless($materials->isNotEmpty(), 422, 'No reprocessing composition is available for ' . $ore->typeName . '.');
+                $composition = [];
+                foreach ($materials as $material) {
+                    $composition[(int) $material->materialTypeID] = (int) $material->quantity;
+                }
+                $candidates[(int) $ore->typeID] = [
+                    'type_id' => (int) $ore->typeID,
+                    'name' => $ore->typeName,
+                    'portion_size' => max(1, (int) $ore->portionSize),
+                    'composition' => $composition,
+                ];
             }
 
-            $requiredBatches = 0;
-            $uncovered = [];
-            foreach ($deficits as $mineralId => $remaining) {
-                if ($remaining <= 0) {
-                    continue;
+            // Greedily select the ore batch that covers the largest share of the current mineral deficit.
+            // Recalculate after each choice so the mix can switch ore types as minerals are satisfied.
+            $remaining = $deficits;
+            $plannedBatches = [];
+            $iterations = 0;
+            while (array_sum($remaining) > 0 && $iterations < 500) {
+                $iterations++;
+                $bestId = null;
+                $bestScore = 0.0;
+                foreach ($candidates as $candidateId => $candidate) {
+                    $score = 0.0;
+                    foreach ($remaining as $mineralId => $deficit) {
+                        if ($deficit <= 0) {
+                            continue;
+                        }
+                        $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
+                        if ($rawYield > 0) {
+                            $score += min($deficit, $rawYield * $yieldFactor) / $deficit;
+                        }
+                    }
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestId = $candidateId;
+                    }
                 }
-                $baseYield = (int) ($perBatch[$mineralId] ?? 0);
-                if ($baseYield <= 0 || $baseYield * $yieldFactor < 1) {
-                    $uncovered[$mineralId] = $remaining;
-                    continue;
+
+                if ($bestId === null) {
+                    break;
                 }
-                $requiredBatches = max($requiredBatches, (int) ceil($remaining / ($baseYield * $yieldFactor)));
+
+                $candidate = $candidates[$bestId];
+                $batchesNeededForNextCoverage = PHP_INT_MAX;
+                foreach ($remaining as $mineralId => $deficit) {
+                    $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
+                    if ($deficit > 0 && $rawYield > 0 && $rawYield * $yieldFactor >= 1) {
+                        $batchesNeededForNextCoverage = min(
+                            $batchesNeededForNextCoverage,
+                            (int) ceil($deficit / ($rawYield * $yieldFactor))
+                        );
+                    }
+                }
+                if ($batchesNeededForNextCoverage === PHP_INT_MAX || $batchesNeededForNextCoverage < 1) {
+                    break;
+                }
+
+                $plannedBatches[$bestId] = ($plannedBatches[$bestId] ?? 0) + $batchesNeededForNextCoverage;
+                foreach ($candidate['composition'] as $mineralId => $rawYield) {
+                    if (!array_key_exists($mineralId, $remaining) || $remaining[$mineralId] <= 0) {
+                        continue;
+                    }
+                    $produced = (int) floor($batchesNeededForNextCoverage * $rawYield * $yieldFactor);
+                    $remaining[$mineralId] = max(0, $remaining[$mineralId] - $produced);
+                }
             }
+
+            $uncovered = array_filter($remaining, fn ($quantity) => $quantity > 0);
             if ($uncovered) {
                 $names = DB::table('invTypes')->whereIn('typeID', array_keys($uncovered))->pluck('typeName', 'typeID')->all();
                 $labels = [];
                 foreach ($uncovered as $id => $quantity) {
                     $labels[] = ($names[$id] ?? ('Type ' . $id)) . ': ' . number_format($quantity);
                 }
-                throw new RuntimeException('The selected ore cannot supply every remaining mineral. Choose another compressed ore: ' . implode('; ', $labels));
+                throw new RuntimeException('The selected ore mix cannot cover these remaining minerals. Select additional compressed ore types: ' . implode('; ', $labels));
             }
 
-            $additionalOutput = [];
-            foreach ($perBatch as $mineralId => $baseYield) {
-                $amount = (int) floor($requiredBatches * $baseYield * $yieldFactor);
-                $additionalOutput[$mineralId] = $amount;
+            $planRows = [];
+            $newMineralOutput = [];
+            foreach ($plannedBatches as $typeId => $batches) {
+                $candidate = $candidates[$typeId];
+                $units = $batches * $candidate['portion_size'];
+                $planRows[] = [
+                    'type_id' => $typeId,
+                    'name' => $candidate['name'],
+                    'batches' => $batches,
+                    'portion_size' => $candidate['portion_size'],
+                    'additional_units' => $units,
+                ];
+                foreach ($candidate['composition'] as $mineralId => $rawYield) {
+                    $newMineralOutput[$mineralId] = ($newMineralOutput[$mineralId] ?? 0)
+                        + (int) floor($batches * $rawYield * $yieldFactor);
+                }
             }
 
-            $names = DB::table('invTypes')->whereIn('typeID', array_unique(array_merge(array_keys($needs), array_keys($stockMinerals), array_keys($additionalOutput))))->pluck('typeName', 'typeID')->all();
+            $allMineralIds = array_unique(array_merge(array_keys($needs), array_keys($stockMinerals), array_keys($newMineralOutput)));
+            $names = $allMineralIds ? DB::table('invTypes')->whereIn('typeID', $allMineralIds)->pluck('typeName', 'typeID')->all() : [];
             $mineralRows = [];
             foreach ($needs as $mineralId => $required) {
                 $available = (int) ($mineralStock[$mineralId] ?? 0);
                 $fromOreStock = (int) ($stockMinerals[$mineralId] ?? 0);
-                $remaining = (int) ($deficits[$mineralId] ?? 0);
-                $fromNewOre = (int) ($additionalOutput[$mineralId] ?? 0);
+                $remainingBeforeNewOre = max(0, $required - $available - $fromOreStock);
+                $fromNewOre = (int) ($newMineralOutput[$mineralId] ?? 0);
                 $mineralRows[] = [
                     'type_id' => $mineralId,
                     'name' => $names[$mineralId] ?? ('Type ' . $mineralId),
                     'required' => $required,
                     'at_manufacturing' => $available,
                     'from_refinery_ore_stock' => $fromOreStock,
-                    'remaining_before_new_ore' => $remaining,
+                    'remaining_before_new_ore' => $remainingBeforeNewOre,
                     'from_additional_ore' => $fromNewOre,
-                    'surplus' => max(0, $fromNewOre - $remaining),
+                    'surplus' => max(0, $fromNewOre - $remainingBeforeNewOre),
                 ];
             }
 
             return response()->json([
-                'selected_ore' => $targetOre->typeName,
+                'ore_plan' => $planRows,
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
-                'required_batches' => $requiredBatches,
-                'portion_size' => max(1, (int) $targetOre->portionSize),
-                'additional_ore_units' => $requiredBatches * max(1, (int) $targetOre->portionSize),
                 'minerals' => $mineralRows,
-                'note' => 'Ore stock at Draken Barrel Refinery is converted first, then existing minerals at Draken Manufacturing are deducted from blueprint requirements. Additional ore is the number of complete batches of the selected compressed ore needed to cover every remaining mineral; surplus is shown. This is a single-ore-type plan, not a multi-ore optimized mix.',
+                'note' => 'Existing minerals at Draken Manufacturing are deducted first. Complete batches of every compressed ore type already at Draken Barrel Refinery are then converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
