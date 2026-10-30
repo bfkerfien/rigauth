@@ -14,24 +14,27 @@ class CookbookController extends Controller
     private const ACTIVITY_MANUFACTURING = 1;
     private const MINERAL_TYPE_IDS = [34, 35, 36, 37, 38, 39, 40, 11399];
     private const ORE_CATEGORY_ID = 25;
-    // Keep the planner on base-grade compressed asteroid ores only.
-    // Exclude current II/III/IV grades and legacy +5/+10/+15 variant names.
-    private const NON_BASE_ORE_MARKERS = [
-        'II-Grade', 'III-Grade', 'IV-Grade',
-        'Concentrated', 'Dense', 'Condensed', 'Massive', 'Solid', 'Viscous',
-        'Azure', 'Rich', 'Silvery', 'Golden', 'Luminous', 'Fiery', 'Pure',
-        'Pristine', 'Vivid', 'Radiant', 'Vitric', 'Glazed', 'Lustrous', 'Glistening',
-        'Iridescent', 'Prismatic', 'Onyx', 'Obsidian', 'Sharp', 'Crystalline',
-        'Bright', 'Gleaming', 'Crimson', 'Prime', 'Triclinic', 'Monoclinic',
-        'Magma', 'Vitreous', 'Noble', 'Royal', 'Doped', 'Boosted', 'Plum',
-        'Prize', 'Bootleg', 'Firewater', 'Abyssal', 'Hadal', 'Clear', 'Inky',
-        'Opaque', 'Dull', 'Serrated', 'Kaolin', 'Argil', 'Adobe', 'Fragrant',
-        'Intoxicating', 'Foggy', 'Overcast', 'Stormy',
-        'Stable', 'Glossy', 'Opulent', 'Sparkling', 'Platinoid',
-        'Resplendent', 'Immaculate', 'Scintillating', 'Brilliant', 'Jet',
-        'Pellucid', 'Dazzling', 'Flawless', 'Cubic', 'Imperial', 'Augmented',
-        'Plunder', 'Moonshine', 'Ambrosial',
+    // These are the exact standard asteroid ores shown by the original standalone picker.
+    // Ice, moon ores and named/quality variants are intentionally absent.
+    private const STANDARD_ORE_SECTIONS = [
+        'Simple ores' => ['Mordunium', 'Plagioclase', 'Pyroxeres', 'Scordite', 'Veldspar'],
+        'Coherent ores' => ['Griemeer', 'Hedbergite', 'Hemorphite', 'Jaspet', 'Kernite', 'Nocxite', 'Omber', 'Ytirium'],
+        'Variegated ores' => ['Crokite', 'Dark Ochre', 'Gneiss', 'Kylixium'],
+        'Complex ores' => ['Arkonor', 'Bistot', 'Ducinium', 'Eifyrium', 'Hezorime', 'Spodumain', 'Ueganite'],
+        'Abyssal ores' => ['Bezdnacine', 'Rakovene', 'Talassonite'],
+        'Mercoxit' => ['Mercoxit'],
     ];
+
+    private static function standardCompressedOreNames(): array
+    {
+        $names = [];
+        foreach (self::STANDARD_ORE_SECTIONS as $ores) {
+            foreach ($ores as $ore) {
+                $names[] = 'Compressed ' . $ore;
+            }
+        }
+        return $names;
+    }
 
     public function index(): View
     {
@@ -95,25 +98,7 @@ class CookbookController extends Controller
                     ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreTypeIds)
-                    ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
-                    ->whereExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as ore_minerals')
-                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
-                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->whereNotExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as non_asteroid_products')
-                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
-                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->where(function ($query) {
-                        foreach (self::NON_BASE_ORE_MARKERS as $marker) {
-                            $query->where('types.typeName', 'not like', '%' . $marker . '%');
-                        }
-                    })
+                    ->whereIn('types.typeName', self::standardCompressedOreNames())
                     ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
                     ->keyBy('typeID')
                 : collect();
@@ -163,29 +148,21 @@ class CookbookController extends Controller
         $items = DB::table('invTypes as types')
             ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
             ->where('groups.categoryID', self::ORE_CATEGORY_ID)
-            ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
-                    ->whereExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as ore_minerals')
-                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
-                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->whereNotExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as non_asteroid_products')
-                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
-                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->where(function ($query) {
-                        foreach (self::NON_BASE_ORE_MARKERS as $marker) {
-                            $query->where('types.typeName', 'not like', '%' . $marker . '%');
-                        }
-                    })
+            ->whereIn('types.typeName', self::standardCompressedOreNames())
             ->where('types.published', 1)
-            ->orderBy('groups.groupName')
             ->orderBy('types.typeName')
-            ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size', 'groups.groupName as section']);
+            ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size'])
+            ->map(function ($item) {
+                $baseName = preg_replace('/^Compressed /', '', $item->name);
+                foreach (self::STANDARD_ORE_SECTIONS as $section => $ores) {
+                    if (in_array($baseName, $ores, true)) {
+                        $item->section = $section;
+                        break;
+                    }
+                }
+                return $item;
+            })
+            ->values();
 
         return response()->json(['items' => $items]);
     }
@@ -236,25 +213,7 @@ class CookbookController extends Controller
                     ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreIds)
-                    ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
-                    ->whereExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as ore_minerals')
-                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
-                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->whereNotExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as non_asteroid_products')
-                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
-                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->where(function ($query) {
-                        foreach (self::NON_BASE_ORE_MARKERS as $marker) {
-                            $query->where('types.typeName', 'not like', '%' . $marker . '%');
-                        }
-                    })
+                    ->whereIn('types.typeName', self::standardCompressedOreNames())
                     ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
                     ->keyBy('typeID')
                 : collect();
@@ -305,25 +264,7 @@ class CookbookController extends Controller
                 ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->whereIn('types.typeID', $selectedIds)
-                ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
-                    ->whereExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as ore_minerals')
-                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
-                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->whereNotExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as non_asteroid_products')
-                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
-                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->where(function ($query) {
-                        foreach (self::NON_BASE_ORE_MARKERS as $marker) {
-                            $query->where('types.typeName', 'not like', '%' . $marker . '%');
-                        }
-                    })
+                ->whereIn('types.typeName', self::standardCompressedOreNames())
                 ->orderBy('types.typeName')
                 ->get(['types.typeID', 'types.typeName', 'types.portionSize']);
             abort_unless($selectedOres->count() === count($selectedIds), 422, 'One or more selected types are not published compressed ore types.');
@@ -487,25 +428,7 @@ class CookbookController extends Controller
                 ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->where('types.typeID', $typeId)
-                ->where('types.typeName', 'like', '%Compressed%')
-                    ->whereRaw("types.typeName = CONCAT('Compressed ', REPLACE(groups.groupName, 'Compressed ', ''))")
-                    ->whereExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as ore_minerals')
-                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
-                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->whereNotExists(function ($materials) {
-                        $materials->select(DB::raw(1))
-                            ->from('invTypeMaterials as non_asteroid_products')
-                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
-                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
-                    })
-                    ->where(function ($query) {
-                        foreach (self::NON_BASE_ORE_MARKERS as $marker) {
-                            $query->where('types.typeName', 'not like', '%' . $marker . '%');
-                        }
-                    })
+                ->whereIn('types.typeName', self::standardCompressedOreNames())
                 ->first(['types.typeID', 'types.typeName', 'types.portionSize']);
             abort_unless($ore, 422, 'One selected item is not a compressed ore type in the SeAT SDE.');
 
