@@ -75,12 +75,18 @@ $reprocessing = DB::table("invTypeMaterials")->count();
 $structureCache = Schema::hasTable("universe_structures");
 $refineryId = env("COOKBOOK_REFINERY_STRUCTURE_ID");
 $manufacturingId = env("COOKBOOK_MANUFACTURING_STRUCTURE_ID");
-if (!$structureCache && (!$refineryId || !$manufacturingId)) {
-    fwrite(STDERR, "SeAT universe_structures cache is unavailable. Set COOKBOOK_REFINERY_STRUCTURE_ID and COOKBOOK_MANUFACTURING_STRUCTURE_ID in /opt/seat-docker/.env.\n");
+$refineryMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Barrel Refinery")->count() : 0;
+$manufacturingMatches = $structureCache ? DB::table("universe_structures")->where("name", "Draken Manufacturing")->count() : 0;
+if ((!$refineryId && $refineryMatches !== 1) || (!$manufacturingId && $manufacturingMatches !== 1)) {
+    fwrite(STDERR, "Could not resolve both BKG-Q2 structures. Ensure SeAT has cached Draken Barrel Refinery and Draken Manufacturing in universe_structures, or set both structure IDs in /opt/seat-docker/.env.\n");
     exit(2);
 }
-if ($materials < 1 || $products < 1 || $reprocessing < 1) {
-    fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\n");
+if ($materials < 1 || $products < 1) {
+    fwrite(STDERR, "Manufacturing SDE rows are missing. Run sudo python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\n");
+    exit(2);
+}
+if ($reprocessing < 1) {
+    fwrite(STDERR, "SeAT invTypeMaterials has no reprocessing rows. Update/import SeAT's SDE before deploying the compressed-ore planner.\n");
     exit(2);
 }
 echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\n";
