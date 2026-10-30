@@ -191,7 +191,7 @@
         if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
         latestCalculation = data;
         const planButton = document.getElementById('cookbook-plan-ore');
-        if (planButton && facilityInventoryLoaded) planButton.disabled = false;
+        updateOrePlanButton();
         const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
@@ -218,6 +218,9 @@
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
       let orePickerLoaded = false;
+      const updateOrePlanButton = () => {
+        orePlanButton.disabled = !(orePickerLoaded && facilityInventoryLoaded && latestCalculation && character.value);
+      };
 
       const loadOrePicker = async () => {
         if (orePickerLoaded) return;
@@ -277,8 +280,8 @@
             updateOreCounts();
           });
           updateOrePicker();
-          orePlanButton.disabled = !latestCalculation || !character.value;
           orePickerLoaded = true;
+          updateOrePlanButton();
       };
       loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
 
@@ -291,7 +294,7 @@
         orePlanOutput.innerHTML = '';
         status.textContent = 'Character changed. Reload facility inventory and recalculate the blueprint.';
         reprocess.disabled = true;
-        orePlanButton.disabled = true;
+        updateOrePlanButton();
       });
 
       inventoryButton.addEventListener('click', async function () {
@@ -311,12 +314,14 @@
           if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
           inventoryItems = data.items || [];
           facilityInventoryLoaded = true;
+          updateOrePlanButton();
           status.textContent = data.note || 'Loaded BKG-Q2 facility inventory.';
           inventoryTable.innerHTML = inventoryItems.length ? '<table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
             inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
             '</tbody></table>' : '<p class="text-muted">No compressed ore found at Draken Barrel Refinery for this character.</p>';
           reprocess.disabled = inventoryItems.length === 0;
           await loadOrePicker();
+          updateOrePlanButton();
         } catch (e) {
           status.textContent = e.message;
         }
