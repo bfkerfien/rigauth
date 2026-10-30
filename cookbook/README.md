@@ -1,58 +1,75 @@
 # Triglavian Cookbook — native SeAT integration
 
-This is the native SeAT source-overlay implementation in `rigauth/cookbook/`. It uses the authenticated SeAT session and the existing SeAT database. It does not install a standalone Node/Express service, create a separate database, create independent user accounts, store EVE tokens, or register a new EVE developer application.
+The Cookbook runs inside SeAT using the authenticated SeAT session, existing SeAT database, SDE tables and ESI-cached character assets. It does not create a standalone service, database, user account, OAuth application or separate token store.
 
-## First deployable increment
+## Included functionality
 
-- Adds a Triglavian Cookbook entry to the SeAT sidebar.
-- Adds authenticated routes under `/cookbook`.
-- Searches published manufacturing products that have a manufacturing activity blueprint in SeAT's SDE.
-- Recursively expands blueprint materials and separates minerals from other required inputs.
-- Applies the selected product ME to the top-level blueprint and component ME to recursively expanded component blueprints.
-- Uses only SDE data already loaded into SeAT; no guessed material quantities or market prices are displayed.
+### Manufacturing planner
+- Search published manufacturing products from the SeAT SDE.
+- Recursively expand blueprint materials and separate minerals from other required inputs.
+- Apply the entered product ME and component ME to the corresponding blueprint levels.
+- Compare each required material against the selected linked character's cached assets.
+- Show required quantity, cached quantity and remaining shortfall.
 
-Required SDE tables:
-- `invTypes` (already maintained by SeAT)
+### Character inventory selector
+- Uses SeAT-linked characters; the user cannot query a character that is not associated with their SeAT account.
+- Reads `character_assets` and includes all locations in that character's current SeAT asset cache.
+- The inventory view lists compressed ore assets and their cached quantities.
+- Asset quantities are only as fresh as SeAT's last successful ESI asset refresh. Refresh the character's assets in SeAT before relying on the results.
+
+### Compressed ore basket and refining estimate
+- Loads the selected character's compressed ore assets into an editable basket.
+- Lets the user adjust the quantity of each ore in the basket.
+- Uses each ore's SDE `portionSize` and `invTypeMaterials` reprocessing quantities.
+- Calculates complete batches, mineral output and leftover ore units.
+- Accepts the user's combined reprocessing yield percentage instead of inventing character skills, implants, structure rigs, bonuses or taxes.
+
+**Refining estimate limitation:** enter the actual combined yield percentage for the character and facility. This increment does not calculate that percentage from skill levels, implants, rigs, structure bonuses or tax. It also does not yet filter inventory to a specific structure or station; it uses all locations in the selected character's SeAT asset cache. It does not claim live Jita prices.
+
+## Required SeAT tables
+
+- `invTypes`
+- `invGroups`
 - `industryActivityProducts`
 - `industryActivityMaterials`
+- `invTypeMaterials`
+- `character_assets`
 
-The importer `cookbook/import-cookbook-sde.py` downloads CCP's current JSONL SDE, reads `blueprints.jsonl`, and imports manufacturing materials and products into the existing SeAT MariaDB database. It creates the two missing tables if needed and replaces only manufacturing activity rows (`activityID=1`). It does not alter `invTypes`, PI tables, ESI tables, or other activity rows. The row replacement is transactional.
+The CCP SDE importer in `cookbook/import-cookbook-sde.py` imports manufacturing blueprint materials and products into the existing SeAT database. It does not create or populate `invTypeMaterials`; that table must already be populated by SeAT's SDE import/update process.
 
 ## Import manufacturing SDE data
 
-Run this on the server after pulling the branch. It reads the existing `/opt/seat-docker/.env` database settings and uses the existing `mariadb` Compose service. It does not print the database password. Python 3 and outbound HTTPS access are required.
+Run on the server after pulling the branch. The script reads the existing `/opt/seat-docker/.env` and uses the existing MariaDB Compose service. Run with sudo so it can read the SeAT environment file:
 
 ```bash
 cd /opt/rigauth
-python3 cookbook/import-cookbook-sde.py
+sudo python3 cookbook/import-cookbook-sde.py
 ```
 
-The importer reports the number of imported manufacturing material and product rows. If it fails, do not deploy; paste the complete error output.
+The importer reports the number of imported manufacturing material and product rows. If it fails, do not deploy; capture the complete error output.
 
 ## Deploy
 
-On the server, from the existing checkout, fetch and switch to this feature branch:
-
 ```bash
-cd /opt/rigauth
+cd /opt/rigauth || exit 1
 git fetch origin
 git switch feature/cookbook-seat-integration 2>/dev/null || git switch -c feature/cookbook-seat-integration --track origin/feature/cookbook-seat-integration
 git pull --ff-only origin feature/cookbook-seat-integration
 git status --short --branch
-bash /opt/rigauth/cookbook/deploy-cookbook.sh
+bash cookbook/deploy-cookbook.sh
 ```
 
-The deployment script checks the repository, SeAT source paths, running front service, and bind mount; backs up every SeAT file it may change; installs the controller, route include and Blade view; registers routes and sidebar navigation idempotently; clears Laravel caches; verifies route registration; and caches views. On failure it restores the backed-up files and clears the route/view caches. It does not restart containers or run database migrations because this increment has no new tables.
+The deployment script checks the SeAT source paths, running front service, bind mount, required tables and populated manufacturing/reprocessing SDE data. It backs up each SeAT file it changes, installs the controller, route include and Blade view, registers routes and sidebar navigation idempotently, clears Laravel caches, verifies route registration and caches views. On failure it restores backed-up SeAT files. It does not restart containers or create a separate database.
 
 ## Test after deployment
 
-1. Sign in to SeAT.
-2. Open **Triglavian Cookbook** from the sidebar (or `/cookbook`).
-3. Search for a published manufacturing product, select it, and calculate materials.
-4. Confirm mineral and non-mineral inputs are shown separately.
+1. Sign in to SeAT and open **Triglavian Cookbook** from the sidebar.
+2. Search for a manufacturing product and calculate its material requirements.
+3. Select a linked character and calculate again; confirm the cached-assets and shortfall columns appear.
+4. In **Character inventory and compressed ore basket**, load that character's compressed ore assets.
+5. Adjust basket quantities if needed, enter the actual combined reprocessing yield percentage, and calculate mineral output.
+6. Refresh the character's ESI assets in SeAT before trusting inventory figures.
 
-## Explicit limitations in this increment
+## Remaining scope
 
-The recovered standalone project also had character asset aggregation for the Slyce Forge Sotiyo and a compressed-ore planner. Those features are **not** represented as complete here: they need to be connected to SeAT's actual ESI character-token and asset services, and to the SDE reprocessing data available in this installation. This increment deliberately does not query or invent asset quantities, mining stock, reprocessing yield, or Jita prices. The UI labels this limitation clearly.
-
-No standalone OAuth callback, client secret, token-encryption key, cookie/session store, Docker Compose project, or independent MySQL schema is required.
+This implementation does not yet reproduce any standalone-only behavior that depends on unavailable original project code or unconfirmed facility identifiers. In particular, it does not provide structure-specific asset filtering for BKG-Q2, automatic refining-skill/implant/rig yield derivation, or Jita market valuation. No inventory quantities, refining bonuses or prices are fabricated.
