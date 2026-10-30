@@ -73,10 +73,10 @@ $materials = DB::table("industryActivityMaterials")->where("activityID", 1)->cou
 $products = DB::table("industryActivityProducts")->where("activityID", 1)->count();
 $reprocessing = DB::table("invTypeMaterials")->count();
 if ($materials < 1 || $products < 1 || $reprocessing < 1) {
-    fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\\n");
+    fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\n");
     exit(2);
 }
-echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\\n";
+echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\n";
 ' || {
   echo "STOP: import CCP manufacturing SDE data before deploying. No SeAT files have been changed."
   exit 1
@@ -131,6 +131,7 @@ sidebar_path.write_text(sidebar)
 PY
 
 sudo docker compose -f "$COMPOSE" exec -T front php -l /var/www/seat/packages/eveseat/web/src/Http/Controllers/CookbookController.php
+sudo docker compose -f "$COMPOSE" exec -T front php -l /var/www/seat/packages/eveseat/web/src/Http/Routes/Cookbook.php
 sudo docker compose -f "$COMPOSE" exec -T front php artisan route:clear
 sudo docker compose -f "$COMPOSE" exec -T front php artisan view:clear
 ROUTES="$(sudo docker compose -f "$COMPOSE" exec -T front php artisan route:list --path=cookbook)"
