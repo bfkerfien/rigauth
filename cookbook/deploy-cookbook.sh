@@ -76,7 +76,7 @@ $nameCache = Schema::hasTable("eve_names") || Schema::hasTable("eveNames");
 $refineryId = env("COOKBOOK_REFINERY_STRUCTURE_ID");
 $manufacturingId = env("COOKBOOK_MANUFACTURING_STRUCTURE_ID");
 if (!$nameCache && (!$refineryId || !$manufacturingId)) {
-    fwrite(STDERR, "Structure name cache is unavailable. Set COOKBOOK_REFINERY_STRUCTURE_ID and COOKBOOK_MANUFACTURING_STRUCTURE_ID in /opt/seat-docker/.env.\\n");
+    fwrite(STDERR, "Structure name cache is unavailable. Set COOKBOOK_REFINERY_STRUCTURE_ID and COOKBOOK_MANUFACTURING_STRUCTURE_ID in /opt/seat-docker/.env.\n");
     exit(2);
 }
 if ($materials < 1 || $products < 1 || $reprocessing < 1) {
