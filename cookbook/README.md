@@ -6,19 +6,19 @@ The Cookbook runs inside SeAT using the authenticated SeAT session, existing SeA
 - Search published manufacturing products from the SeAT SDE.
 - Recursively expand blueprint materials and separate minerals from other inputs.
 - Apply entered product ME and component ME.
-- Compare requirements only against stock at **BKG-Q2 — Draken Manufacturing**.
+- Compare requirements only against stock at **BKG-Q2 — The New Dominion** (temporary manufacturing-stock location).
 - Show required quantity, facility stock and remaining mineral/material shortfall.
 
 ## Facility-scoped inventory
 The two BKG-Q2 facilities are deliberately treated separately:
 - **Ore:** only **BKG-Q2 — Draken Barrel Refinery**.
-- **Minerals and manufacturing inputs:** only **BKG-Q2 — Draken Manufacturing**.
+- **Minerals and manufacturing inputs:** only **BKG-Q2 — The New Dominion**, temporarily, as requested. This is not the dedicated Draken Manufacturing structure; replace it when the correct structure ID is known.
 
 Character asset rows inside nested containers are traced to their root location, so hangar divisions and containers inside the configured structure are included. Assets in other stations, structures, ship cargo, personal hangars or corporation hangars are not counted. The dropdown selects the linked SeAT character whose personal asset cache is read. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
 Structure resolution uses SeAT's `universe_structures` cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
 - `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
-- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of Draken Manufacturing.
+- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of the manufacturing-stock location. Currently using The New Dominion (`1032721770598`) temporarily.
 
 The application refuses to fall back to global inventory if either BKG-Q2 structure cannot be resolved.
 
@@ -27,7 +27,7 @@ The application refuses to fall back to global inventory if either BKG-Q2 struct
 - Uses SDE `portionSize` and `invTypeMaterials` reprocessing composition.
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
-- Deducts minerals already at Draken Manufacturing from the blueprint requirement.
+- Deducts minerals already at The New Dominion (temporary manufacturing-stock location) from the blueprint requirement.
 - Lets the user select multiple compressed ore types and calculates an additional ore mix to cover the remaining mineral shortfall, including units, complete batches and surplus.
 
 The additional-ore calculation greedily selects from the user's chosen compressed ore types, recalculating mineral deficits after each ore type. It is a transparent coverage heuristic, not a mathematically optimal cost/volume solver. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
@@ -68,7 +68,7 @@ The deployment script checks required SDE and asset tables, structure-name resol
 1. Sign in to SeAT and open **Triglavian Cookbook**.
 2. Select a linked character and load facility inventory.
 3. Confirm ore shown is only from Draken Barrel Refinery.
-4. Calculate a blueprint and confirm manufacturing stock is only from Draken Manufacturing.
+4. Calculate a blueprint and confirm manufacturing stock is only from The New Dominion (temporary location).
 5. Choose a compressed ore type and calculate the additional ore required.
 6. Refresh the character's ESI assets in SeAT before relying on the quantities.
 
