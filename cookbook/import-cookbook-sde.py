@@ -123,7 +123,7 @@ def main() -> int:
         )
 
         command = [
-            "docker", "compose", "exec", "-T", "-e", "MYSQL_PWD",
+            "sudo", "docker", "compose", "exec", "-T", "-e", "MYSQL_PWD",
             "mariadb", "mariadb", "--default-character-set=utf8mb4",
             "-u", db_user, db_name,
         ]
