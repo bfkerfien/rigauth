@@ -28,10 +28,10 @@ git fetch origin
 git switch feature/cookbook-seat-integration 2>/dev/null || git switch -c feature/cookbook-seat-integration --track origin/feature/cookbook-seat-integration
 git pull --ff-only origin feature/cookbook-seat-integration
 git status --short --branch
-sudo bash /opt/rigauth/cookbook/deploy-cookbook.sh
+bash /opt/rigauth/cookbook/deploy-cookbook.sh
 ```
 
-The script checks the repository, SeAT source paths, running front service, and bind mount; backs up every SeAT file it may change; installs the controller, route include and Blade view; registers routes and sidebar navigation idempotently; clears Laravel caches; verifies route registration; and caches views. On failure it restores the backed-up files and clears the route/view caches. It does not restart containers or run database migrations because this increment has no new tables.
+The deployment script checks the repository, SeAT source paths, running front service, and bind mount; backs up every SeAT file it may change; installs the controller, route include and Blade view; registers routes and sidebar navigation idempotently; clears Laravel caches; verifies route registration; and caches views. On failure it restores the backed-up files and clears the route/view caches. It does not restart containers or run database migrations because this increment has no new tables.
 
 ## Test after deployment
 
