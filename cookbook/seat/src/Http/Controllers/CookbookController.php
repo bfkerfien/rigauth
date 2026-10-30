@@ -104,9 +104,10 @@ class CookbookController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:0', 'max:1000000000'],
         ]);
 
-        $minerals = [];
-        $oreRows = [];
-        foreach ($data['items'] as $entry) {
+        try {
+            $minerals = [];
+            $oreRows = [];
+            foreach ($data['items'] as $entry) {
             $typeId = (int) $entry['type_id'];
             $quantity = (int) $entry['quantity'];
             if ($quantity < 1) {
@@ -171,12 +172,15 @@ class CookbookController extends Controller
         }
         usort($mineralRows, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
 
-        return response()->json([
-            'yield_percent' => (float) $data['yield_percent'],
-            'ores' => $oreRows,
-            'minerals' => $mineralRows,
-            'note' => 'Estimated SDE reprocessing output using the yield percentage you entered. Enter your actual combined facility and character yield; this planner does not infer skills, implants, rigs, tax, or structure bonuses. Only complete ore batches are processed; leftovers are shown.',
-        ]);
+            return response()->json([
+                'yield_percent' => (float) $data['yield_percent'],
+                'ores' => $oreRows,
+                'minerals' => $mineralRows,
+                'note' => 'Estimated SDE reprocessing output using the yield percentage you entered. Enter your actual combined facility and character yield; this planner does not infer skills, implants, rigs, tax, or structure bonuses. Only complete ore batches are processed; leftovers are shown.',
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 422);
+        }
     }
 
     public function calculate(Request $request): JsonResponse
@@ -347,10 +351,7 @@ class CookbookController extends Controller
         if (!$user) {
             return collect();
         }
-        if (method_exists($user, 'all_characters')) {
-            return $user->all_characters()->sortBy('name')->values();
-        }
-        return method_exists($user, 'characters') ? $user->characters : collect();
+        return method_exists($user, 'characters') ? $user->characters->sortBy('name')->values() : collect();
     }
 
     private function authorizeCharacter(int $characterId): void
