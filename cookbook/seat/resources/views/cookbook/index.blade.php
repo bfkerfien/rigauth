@@ -74,10 +74,9 @@
         <p class="text-muted">After calculating a blueprint above, this uses minerals at Draken Manufacturing first, then the compressed ore already stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
         <div class="form-row align-items-end">
           <div class="form-group col-md-8">
-            <label for="cookbook-plan-ore-type">Compressed ore to plan</label>
-            <select id="cookbook-plan-ore-type" class="form-control">
-              <option value="">Load character inventory first</option>
-            </select>
+            <label for="cookbook-plan-ore-type">Compressed ore types to use for the remaining shortfall</label>
+            <select id="cookbook-plan-ore-type" class="form-control" multiple size="8"></select>
+            <small class="form-text text-muted">Select one or more compressed ore types. The planner will combine them to cover the remaining minerals.</small>
           </div>
           <div class="form-group col-md-4">
             <button id="cookbook-plan-ore" class="btn btn-success btn-block" type="button" disabled>Calculate remaining ore needed</button>
@@ -227,8 +226,9 @@
       });
 
       orePlanButton.addEventListener('click', async function () {
-        if (!latestCalculation || !character.value || !oreTypeSelect.value) {
-          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and select a compressed ore type first.</div>';
+        const selectedOreIds = Array.from(oreTypeSelect.selectedOptions).map(option => option.value).filter(Boolean);
+        if (!latestCalculation || !character.value || !selectedOreIds.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and select one or more compressed ore types first.</div>';
           return;
         }
         const needs = (latestCalculation.minerals || []).map(row => ({
@@ -243,9 +243,9 @@
         const body = new URLSearchParams({
           _token: token,
           character_id: character.value,
-          ore_type_id: oreTypeSelect.value,
           yield_percent: document.getElementById('cookbook-yield').value
         });
+        selectedOreIds.forEach(id => body.append('ore_type_ids[]', id));
         needs.forEach((item, index) => {
           body.append('mineral_needs[' + index + '][type_id]', item.type_id);
           body.append('mineral_needs[' + index + '][quantity]', item.quantity);
@@ -255,10 +255,13 @@
           const data = await response.json();
           if (!response.ok) throw new Error(data.message || data.error || 'Ore planning failed.');
           const mineralRows = data.minerals.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.required).toLocaleString() + '</td><td class="text-right">' + Number(row.at_manufacturing).toLocaleString() + '</td><td class="text-right">' + Number(row.from_refinery_ore_stock).toLocaleString() + '</td><td class="text-right">' + Number(row.remaining_before_new_ore).toLocaleString() + '</td><td class="text-right">' + Number(row.from_additional_ore).toLocaleString() + '</td><td class="text-right">' + Number(row.surplus).toLocaleString() + '</td></tr>').join('');
-          const stockRows = data.ore_stock.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.portion_size).toLocaleString() + '</td></tr>').join('');
-          orePlanOutput.innerHTML = '<div class="alert alert-success"><strong>Additional ore required:</strong> ' + Number(data.additional_ore_units).toLocaleString() + ' units of ' + esc(data.selected_ore) + ' (' + Number(data.required_batches).toLocaleString() + ' complete batches)</div>' +
-            '<h5>Mineral coverage</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Mineral</th><th class="text-right">Required</th><th class="text-right">At manufacturing</th><th class="text-right">From refinery ore stock</th><th class="text-right">Still needed</th><th class="text-right">From new ore</th><th class="text-right">Surplus</th></tr></thead><tbody>' + mineralRows + '</tbody></table></div>' +
-            '<h5 class="mt-3">Compressed ore already at Draken Barrel Refinery</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ore</th><th class="text-right">Units</th><th class="text-right">Batch size</th></tr></thead><tbody>' + (stockRows || '<tr><td colspan="3">No compressed ore currently stored at the refinery.</td></tr>') + '</tbody></table></div>' +
+          const stockRows = data.ore_stock.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.complete_batches).toLocaleString() + '</td><td class="text-right">' + Number(row.leftover_units).toLocaleString() + '</td></tr>').join('');
+          const planRows = data.ore_plan.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.batches).toLocaleString() + '</td><td class="text-right">' + Number(row.portion_size).toLocaleString() + '</td><td class="text-right">' + Number(row.additional_units).toLocaleString() + '</td></tr>').join('');
+          const totalOreUnits = data.ore_plan.reduce((sum, row) => sum + Number(row.additional_units), 0);
+          orePlanOutput.innerHTML = '<div class="alert alert-success"><strong>Additional compressed ore to mine:</strong> ' + totalOreUnits.toLocaleString() + ' units across ' + data.ore_plan.length + ' ore type(s)</div>' +
+            '<h5>Additional ore requirements</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Batches</th><th class="text-right">Batch size</th><th class="text-right">Additional units</th></tr></thead><tbody>' + (planRows || '<tr><td colspan="4">No additional ore required.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">Mineral coverage</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Mineral</th><th class="text-right">Required</th><th class="text-right">At manufacturing</th><th class="text-right">From refinery ore stock</th><th class="text-right">Still needed</th><th class="text-right">From new ore</th><th class="text-right">Surplus</th></tr></thead><tbody>' + mineralRows + '</tbody></table></div>' +
+            '<h5 class="mt-3">Compressed ore already at Draken Barrel Refinery</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ore</th><th class="text-right">Units</th><th class="text-right">Complete batches</th><th class="text-right">Leftover units</th></tr></thead><tbody>' + (stockRows || '<tr><td colspan="4">No compressed ore currently stored at the refinery.</td></tr>') + '</tbody></table></div>' +
             '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
         } catch (e) {
           orePlanOutput.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
