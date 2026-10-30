@@ -59,6 +59,28 @@ if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \t]+
   echo "STOP: running SeAT front container has no bind mount covering $WEB; no changes made."; exit 1
 fi
 
+echo "Checking SeAT manufacturing SDE data before deployment..."
+sudo docker compose -f "$COMPOSE" exec -T front php artisan tinker --execute='
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Facades\\Schema;
+foreach (["industryActivityMaterials", "industryActivityProducts"] as $table) {
+    if (!Schema::hasTable($table)) {
+        fwrite(STDERR, "Missing table: ".$table."\\n");
+        exit(2);
+    }
+}
+$materials = DB::table("industryActivityMaterials")->where("activityID", 1)->count();
+$products = DB::table("industryActivityProducts")->where("activityID", 1)->count();
+if ($materials < 1 || $products < 1) {
+    fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\\n");
+    exit(2);
+}
+echo "Manufacturing SDE ready: ".$materials." material rows; ".$products." product rows.\\n";
+' || {
+  echo "STOP: import CCP manufacturing SDE data before deploying. No SeAT files have been changed."
+  exit 1
+}
+
 sudo mkdir -p "$BACKUP"
 for rel in "${FILES[@]}"; do
   if sudo test -f "$WEB/$rel"; then
