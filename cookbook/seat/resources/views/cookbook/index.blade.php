@@ -78,14 +78,14 @@
             <div id="cookbook-plan-ore-options" class="row border rounded p-3 mx-0" style="max-height: 340px; overflow-y: auto;">
               <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
             </div>
-            <small class="form-text text-muted">Only base-grade compressed ores are listed. The +5%, +10% and +15% grade variants are excluded from the choices and ore basket. Tick each ore you want the calculator to use.</small>
+            <small class="form-text text-muted">Only standard compressed asteroid ores are listed, grouped by ore section. Ice, moon ores and named quality variants (including Glistening) are excluded. Tick the ores you want the calculator to use.</small>
           </div>
           <div class="form-group col-md-4">
             <button id="cookbook-plan-ore" class="btn btn-success btn-block" type="button" disabled>Calculate remaining ore needed</button>
           </div>
         </div>
         <div id="cookbook-ore-plan-output"></div>
-        <small class="form-text text-muted">The planner uses only the checked base-grade ore types for additional mining requirements. Existing base-grade compressed ore at the refinery is counted first. You can check multiple ore types and the planner combines the selected types to cover the remaining mineral shortfall.</small>
+        <small class="form-text text-muted">The planner uses only the checked standard asteroid ores for additional mining requirements. Existing standard compressed asteroid ore at the refinery is counted first. You can check multiple ore types across the sections and the planner combines them to cover the remaining mineral shortfall.</small>
         <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to BKG-Q2 — Draken Manufacturing and BKG-Q2 — Draken Barrel Refinery, including nested containers inside those structures.</small>
       @endif
     </div>
@@ -235,13 +235,23 @@
           const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
           const typeData = await typeResponse.json();
           if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
-          oreTypeOptions.innerHTML = typeData.items.length ? typeData.items.map(item =>
-            '<div class="col-md-6 col-lg-4 mb-2"><div class="custom-control custom-checkbox">' +
-              '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '">' +
-              '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(item.name) +
-                ' <small class="text-muted d-block">' + Number(item.portion_size).toLocaleString() + ' units/batch</small></label>' +
-            '</div></div>'
-          ).join('') : '<div class="col-12 text-muted">No base-grade compressed ores were found in the SeAT SDE.</div>';
+          const oreSections = (typeData.items || []).reduce((sections, item) => {
+            const section = item.section || 'Asteroid ores';
+            if (!sections[section]) sections[section] = [];
+            sections[section].push(item);
+            return sections;
+          }, {});
+          oreTypeOptions.innerHTML = Object.keys(oreSections).length ? Object.keys(oreSections).map(section =>
+            '<div class="col-12 cookbook-ore-section mb-3">' +
+              '<h5 class="border-bottom pb-2 mb-3">' + esc(section) + '</h5>' +
+              '<div class="row">' + oreSections[section].map(item =>
+                '<div class="col-md-6 col-lg-4 mb-2"><div class="custom-control custom-checkbox">' +
+                  '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '">' +
+                  '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(item.name) +
+                    ' <small class="text-muted d-block">' + Number(item.portion_size).toLocaleString() + ' units/batch</small></label>' +
+                '</div></div>'
+              ).join('') + '</div></div>'
+          ).join('') : '<div class="col-12 text-muted">No standard compressed asteroid ores were found in the SeAT SDE.</div>';
           orePlanButton.disabled = !latestCalculation || !character.value;
         } catch (e) {
           status.textContent = e.message;
