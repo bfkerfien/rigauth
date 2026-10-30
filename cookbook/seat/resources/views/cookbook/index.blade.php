@@ -72,7 +72,19 @@
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
         <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion (temporary manufacturing-stock location) first, then base-grade compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
-        <div class="card border mb-3">
+        <style>
+          #cookbook-ore-basket { background: #0d1822; color: #d7e5f2; border: 1px solid #263847; }
+          #cookbook-ore-basket .card-header { background: #101e2a; border-bottom: 1px solid #263847; color: #f1f6fa; }
+          #cookbook-ore-basket .card-body { background: #0f1b26; }
+          #cookbook-ore-basket .cookbook-ore-section { background: #101e2a; border-color: #263847 !important; }
+          #cookbook-ore-basket .cookbook-ore-section strong { color: #eaf2f8; }
+          #cookbook-ore-basket .custom-control-label { color: #9fc1d9; }
+          #cookbook-ore-basket .custom-control-label::before { background-color: #07111a; border-color: #60798b; }
+          #cookbook-ore-basket .custom-control-input:checked ~ .custom-control-label::before { background-color: #68d9b8; border-color: #68d9b8; }
+          #cookbook-ore-basket a { color: #68e2c1; }
+          #cookbook-ore-basket .text-muted { color: #8ca8bc !important; }
+        </style>
+        <div class="card border mb-3" id="cookbook-ore-basket">
           <div class="card-header d-flex justify-content-between align-items-center">
             <strong>Ore basket options</strong>
             <button id="cookbook-plan-ore" class="btn btn-success" type="button" disabled>Plan ore basket</button>
