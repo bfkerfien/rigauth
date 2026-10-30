@@ -457,25 +457,20 @@ class CookbookController extends Controller
             return (int) $configured;
         }
 
-        foreach (['eve_names', 'eveNames'] as $table) {
-            if (!Schema::hasTable($table)) {
-                continue;
-            }
-            $columns = Schema::getColumnListing($table);
-            $idColumn = in_array('id', $columns, true) ? 'id' : (in_array('item_id', $columns, true) ? 'item_id' : null);
-            if (!$idColumn || !in_array('name', $columns, true)) {
-                continue;
-            }
-            $matches = DB::table($table)->where('name', $structureName)->limit(3)->pluck($idColumn);
+        if (Schema::hasTable('universe_structures')) {
+            $matches = DB::table('universe_structures')
+                ->where('name', $structureName)
+                ->limit(3)
+                ->pluck('structure_id');
             if ($matches->count() === 1) {
                 return (int) $matches->first();
             }
             if ($matches->count() > 1) {
-                throw new RuntimeException('More than one EVE name matches ' . $structureName . '. Set ' . $environmentKey . ' in /opt/seat-docker/.env to the exact structure ID.');
+                throw new RuntimeException('More than one SeAT universe structure matches ' . $structureName . '. Set ' . $environmentKey . ' in /opt/seat-docker/.env to the exact structure ID.');
             }
         }
 
-        throw new RuntimeException('Could not resolve the BKG-Q2 structure "' . $structureName . '" from SeAT name cache. Set ' . $environmentKey . ' in /opt/seat-docker/.env to that structure ID; no global inventory fallback is used.');
+        throw new RuntimeException('Could not resolve the BKG-Q2 structure "' . $structureName . '" from SeAT universe_structures. Confirm SeAT has cached this structure or set ' . $environmentKey . ' in /opt/seat-docker/.env to its structure ID; no global inventory fallback is used.');
     }
 
     private function assetsAtStructure(int $characterId, int $structureId)
