@@ -20,7 +20,7 @@ class CookbookController extends Controller
         'II-Grade', 'III-Grade', 'IV-Grade',
         'Concentrated', 'Dense', 'Condensed', 'Massive', 'Solid', 'Viscous',
         'Azure', 'Rich', 'Silvery', 'Golden', 'Luminous', 'Fiery', 'Pure',
-        'Pristine', 'Vivid', 'Radiant', 'Vitric', 'Glazed', 'Lustrous',
+        'Pristine', 'Vivid', 'Radiant', 'Vitric', 'Glazed', 'Lustrous', 'Glistening',
         'Iridescent', 'Prismatic', 'Onyx', 'Obsidian', 'Sharp', 'Crystalline',
         'Bright', 'Gleaming', 'Crimson', 'Prime', 'Triclinic', 'Monoclinic',
         'Magma', 'Vitreous', 'Noble', 'Royal', 'Doped', 'Boosted', 'Plum',
@@ -96,6 +96,18 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreTypeIds)
                     ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as ore_minerals')
+                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
+                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
+                    ->whereNotExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as non_asteroid_products')
+                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
+                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
                     ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
@@ -151,6 +163,18 @@ class CookbookController extends Controller
             ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
             ->where('groups.categoryID', self::ORE_CATEGORY_ID)
             ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as ore_minerals')
+                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
+                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
+                    ->whereNotExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as non_asteroid_products')
+                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
+                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
                     ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
@@ -158,7 +182,9 @@ class CookbookController extends Controller
                     })
             ->where('types.published', 1)
             ->orderBy('types.typeName')
-            ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size']);
+            ->orderBy('groups.groupName')
+            ->orderBy('types.typeName')
+            ->get(['types.typeID as type_id', 'types.typeName as name', 'types.portionSize as portion_size', 'groups.groupName as section']);
 
         return response()->json(['items' => $items]);
     }
@@ -210,6 +236,18 @@ class CookbookController extends Controller
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreIds)
                     ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as ore_minerals')
+                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
+                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
+                    ->whereNotExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as non_asteroid_products')
+                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
+                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
                     ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
@@ -266,6 +304,18 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->whereIn('types.typeID', $selectedIds)
                 ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as ore_minerals')
+                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
+                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
+                    ->whereNotExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as non_asteroid_products')
+                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
+                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
                     ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
@@ -435,6 +485,18 @@ class CookbookController extends Controller
                 ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                 ->where('types.typeID', $typeId)
                 ->where('types.typeName', 'like', '%Compressed%')
+                    ->whereExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as ore_minerals')
+                            ->whereColumn('ore_minerals.typeID', 'types.typeID')
+                            ->whereIn('ore_minerals.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
+                    ->whereNotExists(function ($materials) {
+                        $materials->select(DB::raw(1))
+                            ->from('invTypeMaterials as non_asteroid_products')
+                            ->whereColumn('non_asteroid_products.typeID', 'types.typeID')
+                            ->whereNotIn('non_asteroid_products.materialTypeID', self::MINERAL_TYPE_IDS);
+                    })
                     ->where(function ($query) {
                         foreach (self::NON_BASE_ORE_MARKERS as $marker) {
                             $query->where('types.typeName', 'not like', '%' . $marker . '%');
