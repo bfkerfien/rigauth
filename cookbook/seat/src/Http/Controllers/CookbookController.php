@@ -1,12 +1,12 @@
 <?php
 
-namespace Seat\\Web\\Http\\Controllers;
+namespace Seat\Web\Http\Controllers;
 
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
-use Illuminate\\View\\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 use RuntimeException;
 
 class CookbookController extends Controller
