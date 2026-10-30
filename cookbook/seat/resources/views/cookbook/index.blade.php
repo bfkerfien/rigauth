@@ -101,6 +101,7 @@
     const error = document.getElementById('cookbook-error');
     let product = null;
     let latestCalculation = null;
+    let facilityInventoryLoaded = false;
     let debounce = null;
 
     const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -165,6 +166,8 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
         latestCalculation = data;
+        const planButton = document.getElementById('cookbook-plan-ore');
+        if (planButton && facilityInventoryLoaded) planButton.disabled = false;
         const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
@@ -207,6 +210,7 @@
           const data = await response.json();
           if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
           inventoryItems = data.items || [];
+          facilityInventoryLoaded = true;
           status.textContent = data.note || 'Loaded BKG-Q2 facility inventory.';
           inventoryTable.innerHTML = inventoryItems.length ? '<table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
             inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
