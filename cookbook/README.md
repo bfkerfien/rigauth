@@ -28,9 +28,9 @@ The application refuses to fall back to global inventory if either BKG-Q2 struct
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
 - Deducts minerals already at Draken Manufacturing from the blueprint requirement.
-- Lets the user select a compressed ore type for the remaining shortfall and calculates additional ore units / complete batches required, with resulting surplus.
+- Lets the user select multiple compressed ore types and calculates an additional ore mix to cover the remaining mineral shortfall, including units, complete batches and surplus.
 
-The additional-ore calculation uses one selected ore type for the new mining requirement. It is not an optimizer that chooses a multi-ore blend. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
+The additional-ore calculation greedily selects from the user's chosen compressed ore types, recalculating mineral deficits after each ore type. It is a transparent coverage heuristic, not a mathematically optimal cost/volume solver. The user-entered yield is not inferred from skills, implants, rigs, taxes or structure bonuses. No market price is invented.
 
 ## Required SeAT tables
 - `invTypes`
