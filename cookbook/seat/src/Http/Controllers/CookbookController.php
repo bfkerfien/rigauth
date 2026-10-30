@@ -289,7 +289,7 @@ class CookbookController extends Controller
                 $batchesNeededForNextCoverage = PHP_INT_MAX;
                 foreach ($remaining as $mineralId => $deficit) {
                     $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
-                    if ($deficit > 0 && $rawYield > 0 && $rawYield * $yieldFactor >= 1) {
+                    if ($deficit > 0 && $rawYield > 0 && $rawYield * $yieldFactor > 0) {
                         $batchesNeededForNextCoverage = min(
                             $batchesNeededForNextCoverage,
                             (int) ceil($deficit / ($rawYield * $yieldFactor))
