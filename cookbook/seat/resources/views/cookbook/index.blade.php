@@ -218,40 +218,7 @@
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
 
-      character.addEventListener('change', function () {
-        facilityInventoryLoaded = false;
-        latestCalculation = null;
-        inventoryItems = [];
-        inventoryTable.innerHTML = '';
-        oreOutput.innerHTML = '';
-        orePlanOutput.innerHTML = '';
-        status.textContent = 'Character changed. Reload facility inventory and recalculate the blueprint.';
-        reprocess.disabled = true;
-        orePlanButton.disabled = true;
-      });
-
-      inventoryButton.addEventListener('click', async function () {
-        status.textContent = 'Loading cached assets from SeAT…';
-        inventoryTable.innerHTML = '';
-        oreOutput.innerHTML = '';
-        reprocess.disabled = true;
-        orePlanButton.disabled = true;
-        orePlanOutput.innerHTML = '';
-        try {
-          const response = await fetch(inventoryUrl, {
-            method: 'POST',
-            headers: {'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({_token: token, character_id: character.value})
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
-          inventoryItems = data.items || [];
-          facilityInventoryLoaded = true;
-          status.textContent = data.note || 'Loaded BKG-Q2 facility inventory.';
-          inventoryTable.innerHTML = inventoryItems.length ? '<table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
-            inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
-            '</tbody></table>' : '<p class="text-muted">No compressed ore found at Draken Barrel Refinery for this character.</p>';
-          reprocess.disabled = inventoryItems.length === 0;
+      const loadOrePicker = async () => {
           const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
           const typeData = await typeResponse.json();
           if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
@@ -309,6 +276,44 @@
           });
           updateOrePicker();
           orePlanButton.disabled = !latestCalculation || !character.value;
+      };
+      loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
+
+      character.addEventListener('change', function () {
+        facilityInventoryLoaded = false;
+        latestCalculation = null;
+        inventoryItems = [];
+        inventoryTable.innerHTML = '';
+        oreOutput.innerHTML = '';
+        orePlanOutput.innerHTML = '';
+        status.textContent = 'Character changed. Reload facility inventory and recalculate the blueprint.';
+        reprocess.disabled = true;
+        orePlanButton.disabled = true;
+      });
+
+      inventoryButton.addEventListener('click', async function () {
+        status.textContent = 'Loading cached assets from SeAT…';
+        inventoryTable.innerHTML = '';
+        oreOutput.innerHTML = '';
+        reprocess.disabled = true;
+        orePlanButton.disabled = true;
+        orePlanOutput.innerHTML = '';
+        try {
+          const response = await fetch(inventoryUrl, {
+            method: 'POST',
+            headers: {'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({_token: token, character_id: character.value})
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
+          inventoryItems = data.items || [];
+          facilityInventoryLoaded = true;
+          status.textContent = data.note || 'Loaded BKG-Q2 facility inventory.';
+          inventoryTable.innerHTML = inventoryItems.length ? '<table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
+            inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
+            '</tbody></table>' : '<p class="text-muted">No compressed ore found at Draken Barrel Refinery for this character.</p>';
+          reprocess.disabled = inventoryItems.length === 0;
+          await loadOrePicker();
         } catch (e) {
           status.textContent = e.message;
         }
