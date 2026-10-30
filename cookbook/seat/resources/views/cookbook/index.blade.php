@@ -117,6 +117,9 @@
       clearTimeout(debounce);
       const term = search.value.trim();
       product = null;
+      latestCalculation = null;
+      const orePlannerButton = document.getElementById('cookbook-plan-ore');
+      if (orePlannerButton) orePlannerButton.disabled = true;
       calculate.disabled = true;
       selected.textContent = 'Choose a product from the results.';
       if (term.length < 2) { results.innerHTML = ''; return; }
@@ -192,6 +195,18 @@
       const orePlanButton = document.getElementById('cookbook-plan-ore');
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
+
+      character.addEventListener('change', function () {
+        facilityInventoryLoaded = false;
+        latestCalculation = null;
+        inventoryItems = [];
+        inventoryTable.innerHTML = '';
+        oreOutput.innerHTML = '';
+        orePlanOutput.innerHTML = '';
+        status.textContent = 'Character changed. Reload facility inventory and recalculate the blueprint.';
+        reprocess.disabled = true;
+        orePlanButton.disabled = true;
+      });
 
       inventoryButton.addEventListener('click', async function () {
         status.textContent = 'Loading cached assets from SeAT…';
