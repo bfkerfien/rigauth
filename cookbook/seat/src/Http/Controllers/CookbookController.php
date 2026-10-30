@@ -66,8 +66,8 @@ class CookbookController extends Controller
         $this->authorizeCharacter($characterId);
 
         try {
-            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'Draken Barrel Refinery');
-            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
             $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
             $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
 
@@ -109,10 +109,10 @@ class CookbookController extends Controller
             return response()->json([
                 'character_id' => $characterId,
                 'refinery_location' => 'BKG-Q2 — Draken Barrel Refinery',
-                'manufacturing_location' => 'BKG-Q2 — Draken Manufacturing',
+                'manufacturing_location' => 'BKG-Q2 — The New Dominion (temporary manufacturing stock)',
                 'items' => array_values($oreTotals),
                 'materials' => $materialTotals,
-                'note' => 'Ore is read only from BKG-Q2 — Draken Barrel Refinery. Manufacturing material stock is read only from BKG-Q2 — Draken Manufacturing. Nested containers are included. Data comes from SeAT cached character assets and may be stale until ESI assets refresh.',
+                'note' => 'Ore is read only from BKG-Q2 — Draken Barrel Refinery. Manufacturing material stock is temporarily read only from BKG-Q2 — The New Dominion, pending identification of the dedicated Draken Manufacturing structure. Nested containers are included. Data comes from SeAT cached character assets and may be stale until ESI assets refresh.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -154,8 +154,8 @@ class CookbookController extends Controller
         $this->authorizeCharacter($characterId);
 
         try {
-            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'Draken Barrel Refinery');
-            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
             $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
             $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
 
@@ -363,7 +363,7 @@ class CookbookController extends Controller
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
                 'minerals' => $mineralRows,
-                'note' => 'Existing minerals at Draken Manufacturing are deducted first. Complete batches of every compressed ore type already at Draken Barrel Refinery are then converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
+                'note' => 'Existing minerals at the temporary manufacturing location, The New Dominion, are deducted first. Complete batches of every compressed ore type already at Draken Barrel Refinery are then converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -508,7 +508,7 @@ class CookbookController extends Controller
                 $characterId = (int) $data['character_id'];
                 $this->authorizeCharacter($characterId);
                 abort_unless(Schema::hasTable('character_assets'), 503, 'SeAT character asset cache is unavailable.');
-                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'Draken Manufacturing');
+                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
                 foreach ($this->assetsAtStructure($characterId, $manufacturingId) as $asset) {
                     $typeId = (int) $asset->type_id;
                     $inventory[$typeId] = ($inventory[$typeId] ?? 0) + max(0, (int) $asset->quantity);
