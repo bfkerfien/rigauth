@@ -72,6 +72,13 @@ foreach (["industryActivityMaterials", "industryActivityProducts", "invTypeMater
 $materials = DB::table("industryActivityMaterials")->where("activityID", 1)->count();
 $products = DB::table("industryActivityProducts")->where("activityID", 1)->count();
 $reprocessing = DB::table("invTypeMaterials")->count();
+$nameCache = Schema::hasTable("eve_names") || Schema::hasTable("eveNames");
+$refineryId = env("COOKBOOK_REFINERY_STRUCTURE_ID");
+$manufacturingId = env("COOKBOOK_MANUFACTURING_STRUCTURE_ID");
+if (!$nameCache && (!$refineryId || !$manufacturingId)) {
+    fwrite(STDERR, "Structure name cache is unavailable. Set COOKBOOK_REFINERY_STRUCTURE_ID and COOKBOOK_MANUFACTURING_STRUCTURE_ID in /opt/seat-docker/.env.\\n");
+    exit(2);
+}
 if ($materials < 1 || $products < 1 || $reprocessing < 1) {
     fwrite(STDERR, "Manufacturing SDE rows are missing. Run python3 /opt/rigauth/cookbook/import-cookbook-sde.py first.\n");
     exit(2);
