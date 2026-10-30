@@ -1,6 +1,6 @@
 <?php
 
-use Illuminate\\Support\\Facades\\Route;
+use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['auth', 'locale']], function () {
     Route::get('/cookbook', 'CookbookController@index')->name('seatcore::cookbook.index');
