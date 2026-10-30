@@ -73,7 +73,13 @@ class CookbookController extends Controller
 
             $oreTypeIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
             $oreTypes = $oreTypeIds
-                ? DB::table('invTypes')->whereIn('typeID', $oreTypeIds)->where('typeName', 'like', '%Compressed%')->get(['typeID', 'typeName', 'portionSize'])->keyBy('typeID')
+                ? DB::table('invTypes as types')
+                    ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
+                    ->where('groups.categoryID', self::ORE_CATEGORY_ID)
+                    ->whereIn('types.typeID', $oreTypeIds)
+                    ->where('types.typeName', 'like', '%Compressed%')
+                    ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
+                    ->keyBy('typeID')
                 : collect();
 
             $oreTotals = [];
@@ -169,7 +175,13 @@ class CookbookController extends Controller
 
             $oreIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
             $oreCatalog = $oreIds
-                ? DB::table('invTypes')->whereIn('typeID', $oreIds)->where('typeName', 'like', '%Compressed%')->get(['typeID', 'typeName', 'portionSize'])->keyBy('typeID')
+                ? DB::table('invTypes as types')
+                    ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
+                    ->where('groups.categoryID', self::ORE_CATEGORY_ID)
+                    ->whereIn('types.typeID', $oreIds)
+                    ->where('types.typeName', 'like', '%Compressed%')
+                    ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
+                    ->keyBy('typeID')
                 : collect();
             $oreStockRows = [];
             $stockMinerals = [];
@@ -210,10 +222,12 @@ class CookbookController extends Controller
                 $deficits[$typeId] = max(0, $quantity - (int) ($stockMinerals[$typeId] ?? 0));
             }
 
-            $targetOre = DB::table('invTypes')
-                ->where('typeID', (int) $data['ore_type_id'])
-                ->where('typeName', 'like', '%Compressed%')
-                ->first(['typeID', 'typeName', 'portionSize']);
+            $targetOre = DB::table('invTypes as types')
+                ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
+                ->where('groups.categoryID', self::ORE_CATEGORY_ID)
+                ->where('types.typeID', (int) $data['ore_type_id'])
+                ->where('types.typeName', 'like', '%Compressed%')
+                ->first(['types.typeID', 'types.typeName', 'types.portionSize']);
             abort_unless($targetOre, 422, 'Select a compressed ore type from the SeAT SDE.');
 
             $targetMaterials = DB::table('invTypeMaterials')
@@ -311,10 +325,12 @@ class CookbookController extends Controller
                 continue;
             }
 
-            $ore = DB::table('invTypes')
-                ->where('typeID', $typeId)
-                ->where('typeName', 'like', '%Compressed%')
-                ->first(['typeID', 'typeName', 'portionSize']);
+            $ore = DB::table('invTypes as types')
+                ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
+                ->where('groups.categoryID', self::ORE_CATEGORY_ID)
+                ->where('types.typeID', $typeId)
+                ->where('types.typeName', 'like', '%Compressed%')
+                ->first(['types.typeID', 'types.typeName', 'types.portionSize']);
             abort_unless($ore, 422, 'One selected item is not a compressed ore type in the SeAT SDE.');
 
             $batchSize = max(1, (int) $ore->portionSize);
