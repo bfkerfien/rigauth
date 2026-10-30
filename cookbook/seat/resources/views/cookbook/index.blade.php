@@ -217,8 +217,10 @@
       const orePlanButton = document.getElementById('cookbook-plan-ore');
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
+      let orePickerLoaded = false;
 
       const loadOrePicker = async () => {
+        if (orePickerLoaded) return;
           const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
           const typeData = await typeResponse.json();
           if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
@@ -276,6 +278,7 @@
           });
           updateOrePicker();
           orePlanButton.disabled = !latestCalculation || !character.value;
+          orePickerLoaded = true;
       };
       loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
 
