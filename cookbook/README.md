@@ -20,10 +20,13 @@ If those tables are missing, the page explains that the SeAT SDE must be updated
 
 ## Deploy
 
-On the server, after the branch has been pulled into the existing checkout:
+On the server, from the existing checkout, fetch and switch to this feature branch:
 
 ```bash
 cd /opt/rigauth
+git fetch origin
+git switch feature/cookbook-seat-integration 2>/dev/null || git switch -c feature/cookbook-seat-integration --track origin/feature/cookbook-seat-integration
+git pull --ff-only origin feature/cookbook-seat-integration
 git status --short --branch
 sudo bash /opt/rigauth/cookbook/deploy-cookbook.sh
 ```
