@@ -123,13 +123,14 @@ def main() -> int:
         )
 
         command = [
-            "docker", "compose", "exec", "-T",
-            "-e", f"MYSQL_PWD={db_password}",
+            "docker", "compose", "exec", "-T", "-e", "MYSQL_PWD",
             "mariadb", "mariadb", "--default-character-set=utf8mb4",
             "-u", db_user, db_name,
         ]
+        docker_env = os.environ.copy()
+        docker_env["MYSQL_PWD"] = db_password
         print("Importing manufacturing recipes into the existing SeAT database...")
-        process = subprocess.Popen(command, cwd=COMPOSE_DIR, stdin=subprocess.PIPE, text=True)
+        process = subprocess.Popen(command, cwd=COMPOSE_DIR, stdin=subprocess.PIPE, text=True, env=docker_env)
         try:
             assert process.stdin is not None
             process.stdin.write("".join(sql))
