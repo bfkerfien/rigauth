@@ -88,7 +88,7 @@ if ($materials < 1 || $products < 1) {
     exit(2);
 }
 if ($reprocessing < 1) {
-    fwrite(STDERR, "SeAT invTypeMaterials has no reprocessing rows. Update/import SeAT's SDE before deploying the compressed-ore planner.\n");
+    fwrite(STDERR, "SeAT invTypeMaterials has no reprocessing rows. Update/import SeAT SDE before deploying the compressed-ore planner.\n");
     exit(2);
 }
 echo "SDE ready: ".$materials." manufacturing material rows; ".$products." manufacturing product rows; ".$reprocessing." reprocessing rows.\n";
