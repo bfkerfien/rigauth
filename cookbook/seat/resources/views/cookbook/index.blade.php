@@ -264,7 +264,7 @@
           const sectionOrder = ['Simple ores', 'Coherent ores', 'Variegated ores', 'Complex ores', 'Abyssal ores', 'Mercoxit'];
           oreTypeOptions.innerHTML = sectionOrder.filter(section => oreSections[section]).map(section =>
             '<div class="col-md-6 mb-2"><div class="border rounded p-3 h-100 cookbook-ore-section">' +
-              '<div class="d-flex justify-content-between align-items-center mb-2"><strong>' + esc(section) + '</strong><small class="text-muted">' + oreSections[section].length + ' / ' + oreSections[section].length + '</small></div>' +
+              '<div class="d-flex justify-content-between align-items-center mb-2"><strong>' + esc(section) + '</strong><small class="text-muted cookbook-ore-count" data-section="' + esc(section) + '">0 / ' + oreSections[section].length + '</small></div>' +
               '<div class="d-flex flex-wrap" style="gap: .55rem 1rem;">' + oreSections[section].map(item => {
                 const oreName = item.name.replace(/^Compressed /, '');
                 return '<div class="custom-control custom-checkbox">' +
@@ -273,6 +273,17 @@
                 '</div>';
               }).join('') + '</div></div></div>'
           ).join('') || '<div class="col-12 text-muted">No standard compressed asteroid ores were found in the SeAT SDE.</div>';
+          const updateOreCounts = () => {
+            sectionOrder.forEach(section => {
+              const sectionCard = Array.from(oreTypeOptions.querySelectorAll('.cookbook-ore-section')).find(card => card.querySelector('.cookbook-ore-count') && card.querySelector('.cookbook-ore-count').dataset.section === section);
+              if (!sectionCard) return;
+              const boxes = Array.from(sectionCard.querySelectorAll('.cookbook-plan-ore-checkbox')).filter(input => input.closest('.custom-control').style.display !== 'none');
+              const count = boxes.filter(input => input.checked).length;
+              const label = sectionCard.querySelector('.cookbook-ore-count');
+              label.textContent = count + ' / ' + boxes.length;
+            });
+          };
+          oreTypeOptions.addEventListener('change', updateOreCounts);
           const updateOrePicker = () => {
             const ignoreLow = document.getElementById('cookbook-ignore-low-volume').checked;
             const lowNames = ['Spodumain', 'Bezdnacine', 'Rakovene', 'Talassonite'];
@@ -281,6 +292,7 @@
               if (excluded) input.checked = false;
               input.closest('.custom-control').style.display = excluded ? 'none' : '';
             });
+            updateOreCounts();
           };
           document.getElementById('cookbook-ignore-low-volume').addEventListener('change', updateOrePicker);
           document.getElementById('cookbook-ore-select-all').addEventListener('click', event => {
@@ -288,10 +300,12 @@
             oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
               if (input.closest('.custom-control').style.display !== 'none') input.checked = true;
             });
+            updateOreCounts();
           });
           document.getElementById('cookbook-ore-deselect-all').addEventListener('click', event => {
             event.preventDefault();
             oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => input.checked = false);
+            updateOreCounts();
           });
           updateOrePicker();
           orePlanButton.disabled = !latestCalculation || !character.value;
