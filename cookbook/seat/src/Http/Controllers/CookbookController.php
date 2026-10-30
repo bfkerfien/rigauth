@@ -475,24 +475,24 @@ class CookbookController extends Controller
 
     private function assetsAtStructure(int $characterId, int $structureId)
     {
-        $assets = DB::table('character_assets')
-            ->where('character_id', $characterId)
-            ->get(['item_id', 'type_id', 'quantity', 'location_id']);
+        // Anchor the query at the requested structure and recurse only into its containers.
+        // Assets at other locations are never loaded into the Cookbook inventory result.
+        $rows = DB::select(
+            'WITH RECURSIVE facility_assets AS (
+                SELECT item_id, type_id, quantity, location_id, 0 AS depth
+                FROM character_assets
+                WHERE character_id = ? AND location_id = ?
+                UNION ALL
+                SELECT child.item_id, child.type_id, child.quantity, child.location_id, parent.depth + 1 AS depth
+                FROM character_assets AS child
+                INNER JOIN facility_assets AS parent ON child.location_id = parent.item_id
+                WHERE child.character_id = ? AND parent.depth < 20
+            )
+            SELECT item_id, type_id, quantity, location_id FROM facility_assets',
+            [$characterId, $structureId, $characterId]
+        );
 
-        $parents = [];
-        foreach ($assets as $asset) {
-            $parents[(int) $asset->item_id] = (int) $asset->location_id;
-        }
-
-        return $assets->filter(function ($asset) use ($parents, $structureId) {
-            $locationId = (int) $asset->location_id;
-            $visited = [];
-            while (isset($parents[$locationId]) && !isset($visited[$locationId])) {
-                $visited[$locationId] = true;
-                $locationId = (int) $parents[$locationId];
-            }
-            return $locationId === $structureId;
-        })->values();
+        return collect($rows);
     }
 
     private function materialRows(array $materials, array $inventory = []): array
