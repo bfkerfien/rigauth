@@ -12,9 +12,9 @@ The Cookbook runs inside SeAT using the authenticated SeAT session, existing SeA
 ## Facility-scoped inventory
 The two BKG-Q2 facilities are deliberately treated separately:
 - **Ore:** only **BKG-Q2 — Draken Barrel Refinery**.
-- **Minerals and manufacturing inputs:** only **BKG-Q2 — The New Dominion**, temporarily, as requested. This is not the dedicated Draken Manufacturing structure; replace it when the correct structure ID is known.
+- **Minerals only:** only **BKG-Q2 — The New Dominion** (the temporary building). This is not the dedicated Draken Manufacturing structure; replace it when the correct structure ID is known.
 
-Character asset rows inside nested containers are traced to their root location, so hangar divisions and containers inside the configured structure are included. Assets in other stations, structures, ship cargo, personal hangars or corporation hangars are not counted. The dropdown selects the linked SeAT character whose personal asset cache is read. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
+Character asset rows inside nested inventory containers are traced to their root structure. Only ore and compressed ore are counted at Draken Barrel Refinery; only the eight EVE minerals (Tritanium through Morphite) are counted at The New Dominion temporary building. Other item types, assets at other stations/structures, and ship cargo are excluded. The dropdown selects the linked SeAT character whose personal asset cache is filtered independently against those two structure IDs. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
 Structure resolution uses SeAT's `universe_structures` cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
 - `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
@@ -23,7 +23,7 @@ Structure resolution uses SeAT's `universe_structures` cache when available. If 
 The application refuses to fall back to global inventory if either BKG-Q2 structure cannot be resolved.
 
 ## Compressed ore planner
-- Loads compressed ore stock from Draken Barrel Refinery only.
+- Loads ore and compressed ore inventory from Draken Barrel Refinery only. Raw ore is displayed; only supported standard compressed asteroid ores are included in reprocessing and ore-basket calculations.
 - Uses SDE `portionSize` and `invTypeMaterials` reprocessing composition.
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
