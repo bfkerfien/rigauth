@@ -87,7 +87,7 @@
         <div class="card border mb-3" id="cookbook-ore-basket">
           <div class="card-header d-flex justify-content-between align-items-center">
             <strong>Ore basket options</strong>
-            <button id="cookbook-plan-ore" class="btn btn-success" type="button" disabled>Plan ore basket</button>
+            <button id="planOre" class="button primary btn btn-success" type="button">Plan ore basket</button>
           </div>
           <div class="card-body">
             <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 1rem;">
@@ -140,8 +140,8 @@
       const term = search.value.trim();
       product = null;
       latestCalculation = null;
-      const orePlannerButton = document.getElementById('cookbook-plan-ore');
-      if (orePlannerButton) orePlannerButton.disabled = true;
+      const orePlannerButton = document.getElementById('planOre');
+      // Keep the standalone Plan Ore button available; its handler reports missing prerequisites.
       calculate.disabled = true;
       selected.textContent = 'Choose a product from the results.';
       if (term.length < 2) { results.innerHTML = ''; return; }
@@ -191,7 +191,7 @@
         if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
         latestCalculation = data;
         const planButton = document.getElementById('cookbook-plan-ore');
-        if (planButton) planButton.disabled = !(facilityInventoryLoaded && latestCalculation && characterSelect && characterSelect.value && document.querySelectorAll('.cookbook-plan-ore-checkbox').length > 0);
+        if (planButton) planButton.disabled = false;
         const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
@@ -219,7 +219,8 @@
       let inventoryItems = [];
       let orePickerLoaded = false;
       const updateOrePlanButton = () => {
-        orePlanButton.disabled = !(orePickerLoaded && facilityInventoryLoaded && latestCalculation && character.value);
+        // Match the standalone Cookbook: the button stays clickable and validates prerequisites on click.
+        orePlanButton.disabled = false;
       };
 
       const loadOrePicker = async () => {
@@ -302,7 +303,7 @@
         inventoryTable.innerHTML = '';
         oreOutput.innerHTML = '';
         reprocess.disabled = true;
-        orePlanButton.disabled = true;
+        orePlanButton.disabled = false;
         orePlanOutput.innerHTML = '';
         try {
           const response = await fetch(inventoryUrl, {
