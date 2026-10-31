@@ -99,11 +99,11 @@ class ReactionsController extends Controller
                     if (count($batch) < 1000) break;
                 }
                 $station = 60003760;
-                // Present prices from the trader's perspective:
-                // buyPrice = lowest sell order (what we pay to buy an item)
-                // sellPrice = highest buy order (what we receive when selling an item).
-                $buy = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && empty($o['is_buy_order']))->min('price');
-                $sell = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && !empty($o['is_buy_order']))->max('price');
+                // EVE market terminology:
+                // buyPrice = highest buy order (best bid).
+                // sellPrice = lowest sell order (best ask).
+                $buy = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && !empty($o['is_buy_order']))->max('price');
+                $sell = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && empty($o['is_buy_order']))->min('price');
                 $value = [
                     'typeId' => $typeId, 'buyPrice' => $buy, 'sellPrice' => $sell,
                     'splitPrice' => $buy !== null && $sell !== null ? ($buy + $sell) / 2 : null,
