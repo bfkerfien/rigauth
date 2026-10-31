@@ -30,6 +30,7 @@
         <div class="rx-field"><label for="rx-search">Product or input material</label><input id="rx-search" value="{{ $search }}" placeholder="Fullerite, Cytoserocin, product…"></div>
         <div class="rx-field"><label for="rx-run-count">Runs to calculate</label><input id="rx-run-count" type="number" min="1" step="1" value="1"></div>
         <div class="rx-field"><label>Valuation rules</label><div class="rx-chip">Inputs: Jita Split</div><div class="rx-chip">Outputs: Jita sell order − 5%</div></div>
+        <div class="rx-field"><label>Gas sourcing — applies across the entire planner</label><label class="rx-chip" style="display:flex;align-items:center;gap:8px"><input id="rx-amber-mined" type="checkbox" style="width:auto"> Mine Amber Cytoserocin (input cost = 0)</label><label class="rx-chip" style="display:flex;align-items:center;gap:8px"><input id="rx-golden-mined" type="checkbox" style="width:auto"> Mine Golden Cytoserocin (input cost = 0)</label></div>
         <div class="rx-settings-grid">
           <div class="rx-field"><label for="rx-transport">Transport ISK/m³</label><input id="rx-transport" type="number" min="0" value="500"></div>
           <div class="rx-field"><label for="rx-sell-tax">Sales tax %</label><input id="rx-sell-tax" type="number" min="0" max="100" step=".01" value="4.37"></div>
@@ -85,7 +86,7 @@ const root = document.getElementById('rx-app');
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;
+let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;\nfunction gasIsMined(name){const n=String(name||'').toLowerCase();return (n.includes('amber cytoserocin')&&$('rx-amber-mined').checked)||(n.includes('golden cytoserocin')&&$('rx-golden-mined').checked);}
 function setStatus(message, error=false){$('rx-market-status').textContent=message;$('rx-market-status').className='rx-status'+(error?' rx-error':'');}
 function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='biochemical' ? r.category==='biochemical' : activeTab==='moon' ? r.category==='moon' : activeTab==='molecular' ? r.category==='molecular' : false;}
 function filteredRecipes(){const q=$('rx-search').value.trim().toLowerCase();return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))));}
@@ -118,7 +119,7 @@ async function getPrices(names){
  return priceCache;
 }
 function isGas(name){return /Fullerite-|Mykoserocin|Cytoserocin|Polymer/i.test(name);}
-function unitPrice(name,kind){const p=priceCache[name];if(!p)return null;const field=kind==='Output'?'sellPrice':'splitPrice';if(p[field]===null||p[field]===undefined)return null;const value=Number(p[field]);return kind==='Output'?value*0.95:value;}
+function unitPrice(name,kind){if(kind!=='Output'&&gasIsMined(name))return 0;const p=priceCache[name];if(!p)return null;const field=kind==='Output'?'sellPrice':'splitPrice';if(p[field]===null||p[field]===undefined)return null;const value=Number(p[field]);return kind==='Output'?value*0.95:value;}
 function qtyRuns(){return Math.max(1,Math.floor(Number($('rx-run-count').value)||1));}
 function costAndProfit(r){
  const runs=qtyRuns(), materials=r.materials||[], products=r.products||[];
@@ -145,6 +146,7 @@ root.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('cli
 $('rx-search').addEventListener('input',render);
 $('rx-clear-search').addEventListener('click',()=>{$('rx-search').value='';render();});
 $('rx-run-count').addEventListener('change',()=>{render();});
+['rx-amber-mined','rx-golden-mined'].forEach(id=>$(id).addEventListener('change',()=>{if(activeTab==='golden')goldenLoaded=false;render();}));
 ['rx-transport','rx-sell-tax','rx-job-tax','rx-fuel-per-run'].forEach(id=>$(id).addEventListener('change',()=>{render();}));
 $('rx-inventory-search').addEventListener('input',()=>{const q=$('rx-inventory-search').value.toLowerCase();root.querySelectorAll('#rx-inventory tr[data-item]').forEach(row=>row.hidden=!row.dataset.item.includes(q));});
 root.querySelectorAll('.rx-inventory-pick').forEach(button=>button.addEventListener('click',()=>{$('rx-search').value=button.dataset.name;activeTab='gas';root.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab==='gas');b.setAttribute('aria-selected',b.dataset.tab==='gas'?'true':'false')});render();}));
@@ -191,14 +193,14 @@ async function loadGoldenTab(){
    if(!r)return '<section class="rx-card"><h3>'+esc(target)+'</h3><div class="rx-status rx-error">No matching recipe in local catalog.</div></section>';
    let inputs=0,outputs=0,missing=[];
    const rows=(r.materials||[]).map(m=>{
-    const isGolden=/golden cytoserocin/i.test(m.name), quote=priceCache[m.name], price=isGolden?(quote?.buyPrice==null?null:Number(quote.buyPrice)):(quote?.sellPrice==null?null:Number(quote.sellPrice)),qty=Number(m.quantity??m.per_run??0);
+    const isGolden=/golden cytoserocin/i.test(m.name), quote=priceCache[m.name], price=gasIsMined(m.name)?0:(isGolden?(quote?.buyPrice==null?null:Number(quote.buyPrice)):(quote?.sellPrice==null?null:Number(quote.sellPrice))),qty=Number(m.quantity??m.per_run??0);
     if(price===null||!Number.isFinite(price))missing.push(m.name);else inputs+=price*qty;
     return {kind:'Input',name:m.name,qty,price,cost:price===null?null:price*qty};
    });
    const outRows=(r.products||[]).map(p=>{const price=unitPrice(p.name,'Output'),qty=Number(p.quantity||0);if(price===null||!Number.isFinite(price))missing.push(p.name);else outputs+=price*qty;return {kind:'Output',name:p.name,qty,price,cost:price===null?null:price*qty};});
    const tax=inputs*.02,profit=missing.length?null:outputs-inputs-tax,margin=profit===null||inputs+tax<=0?null:profit/(inputs+tax)*100;
    const bulkRuns=2400;
-   const bulkInputs=(r.materials||[]).map(m=>{const qty=Number(m.quantity??m.per_run??0)*bulkRuns,isGolden=/golden cytoserocin/i.test(m.name),quote=priceCache[m.name],price=isGolden?(quote?.buyPrice==null?null:Number(quote.buyPrice)):(quote?.sellPrice==null?null:Number(quote.sellPrice));return {name:m.name,qty,price,total:price===null?null:price*qty,isGolden,perRun:Number(m.quantity??m.per_run??0)};});
+   const bulkInputs=(r.materials||[]).map(m=>{const qty=Number(m.quantity??m.per_run??0)*bulkRuns,isGolden=/golden cytoserocin/i.test(m.name),quote=priceCache[m.name],price=gasIsMined(m.name)?0:(isGolden?(quote?.buyPrice==null?null:Number(quote.buyPrice)):(quote?.sellPrice==null?null:Number(quote.sellPrice)));return {name:m.name,qty,price,total:price===null?null:price*qty,isGolden,perRun:Number(m.quantity??m.per_run??0)};});
    const bulkMissing=bulkInputs.filter(x=>x.price===null).map(x=>x.name);
    const bulkInputTotal=bulkInputs.reduce((n,x)=>n+(x.total??0),0),bulkTax=bulkInputTotal*.02,bulkOutputQty=(r.products||[]).reduce((n,p)=>n+Number(p.quantity||0),0)*bulkRuns,bulkOutputTotal=outputs*bulkRuns,bulkProfit=bulkMissing.length?null:bulkOutputTotal-bulkInputTotal-bulkTax;
    const bulkOutputUnit=bulkOutputQty>0?bulkOutputTotal/bulkOutputQty:0;
