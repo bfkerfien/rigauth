@@ -570,24 +570,56 @@ class CookbookController extends Controller
 
     private function assetsAtStructure(int $characterId, int $structureId)
     {
-        // Anchor the query at the requested structure and recurse only into its containers.
-        // Assets at other locations are never loaded into the Cookbook inventory result.
-        $rows = DB::select(
-            'WITH RECURSIVE facility_assets AS (
-                SELECT item_id, type_id, quantity, location_id, 0 AS depth
-                FROM character_assets
-                WHERE character_id = ? AND location_id = ?
-                UNION ALL
-                SELECT child.item_id, child.type_id, child.quantity, child.location_id, parent.depth + 1 AS depth
-                FROM character_assets AS child
-                INNER JOIN facility_assets AS parent ON child.location_id = parent.item_id
-                WHERE child.character_id = ? AND parent.depth < 20
-            )
-            SELECT item_id, type_id, quantity, location_id FROM facility_assets',
-            [$characterId, $structureId, $characterId]
-        );
+        // Walk container contents in bounded batches instead of a recursive SQL CTE.
+        // This avoids recursive-query stalls on large character asset trees and
+        // keeps the search strictly scoped to the selected character and structure.
+        $assets = collect();
+        $frontier = DB::table('character_assets')
+            ->where('character_id', $characterId)
+            ->where('location_id', $structureId)
+            ->get(['item_id', 'type_id', 'quantity', 'location_id']);
 
-        return collect($rows);
+        $visited = [];
+        $depth = 0;
+        $maxDepth = 20;
+        $maxAssets = 100000;
+
+        while ($frontier->isNotEmpty() && $depth <= $maxDepth) {
+            $newParents = [];
+            foreach ($frontier as $asset) {
+                $itemId = (int) $asset->item_id;
+                if (isset($visited[$itemId])) {
+                    continue;
+                }
+                $visited[$itemId] = true;
+                $assets->push($asset);
+                $newParents[] = $itemId;
+
+                if ($assets->count() >= $maxAssets) {
+                    throw new RuntimeException('The selected structure contains more than 100,000 cached asset entries; narrow the inventory scope before loading it.');
+                }
+            }
+
+            if (!$newParents || $depth >= $maxDepth) {
+                break;
+            }
+
+            $frontier = collect();
+            foreach (array_chunk($newParents, 500) as $parentIds) {
+                $children = DB::table('character_assets')
+                    ->where('character_id', $characterId)
+                    ->whereIn('location_id', $parentIds)
+                    ->get(['item_id', 'type_id', 'quantity', 'location_id']);
+                foreach ($children as $child) {
+                    if (!isset($visited[(int) $child->item_id])) {
+                        $frontier->push($child);
+                    }
+                }
+            }
+            $depth++;
+        }
+
+        return $assets;
     }
 
     private function materialRows(array $materials, array $inventory = []): array
