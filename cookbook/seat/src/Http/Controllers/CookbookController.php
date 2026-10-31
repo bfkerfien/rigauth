@@ -589,6 +589,16 @@ class CookbookController extends Controller
             return (int) $configured;
         }
 
+        // Verified Triglavian Consortium BKG-Q2 facility IDs. Environment values
+        // remain an override, but deployment does not depend on structure-name cache lookup.
+        $knownFacilityIds = [
+            'COOKBOOK_REFINERY_STRUCTURE_ID' => 1035861034790,
+            'COOKBOOK_MANUFACTURING_STRUCTURE_ID' => 1035860820236,
+        ];
+        if (isset($knownFacilityIds[$environmentKey])) {
+            return $knownFacilityIds[$environmentKey];
+        }
+
         if (Schema::hasTable('universe_structures') && Schema::hasColumn('universe_structures', 'name')) {
             // SeAT/EVE caches may store the structure's actual name without the
             // solar-system prefix used in the Cookbook label. Try exact first,
