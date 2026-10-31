@@ -38,7 +38,7 @@
   @endif
 
   <div class="card">
-    <div class="card-header"><h3 class="card-title">Character inventory and compressed ore basket</h3></div>
+    <div class="card-header"><h3 class="card-title">Facility inventory and compressed ore basket</h3></div>
     <div class="card-body">
       @if ($characters->isEmpty())
         <div class="alert alert-warning mb-0">No linked SeAT characters were found for this account. Link a character in SeAT before using inventory planning.</div>
@@ -53,10 +53,10 @@
             </select>
           </div>
           <div class="form-group col-md-4">
-            <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load complete character inventory</button>
+            <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load facility ore and minerals</button>
           </div>
         </div>
-        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character to load all cached assets across all locations, including nested containers.</div>
+        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character. Only Draken Barrel Refinery ore and The New Dominion minerals are counted.</div>
         <div id="cookbook-inventory-table" class="table-responsive"></div>
         <hr>
         <div class="form-row align-items-end">
@@ -71,7 +71,7 @@
         <div id="cookbook-ore-output"></div>
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
-        <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion (temporary manufacturing-stock location) first, then base-grade compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
+        <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion temporary building first, then ore and compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
         <style>
           #cookbook-ore-basket { background: #0d1822; color: #d7e5f2; border: 1px solid #263847; }
           #cookbook-ore-basket .card-header { background: #101e2a; border-bottom: 1px solid #263847; color: #f1f6fa; }
@@ -106,7 +106,7 @@
         </div>
         <div id="cookbook-ore-plan-output"></div>
         <small class="form-text text-muted">The planner uses only the checked standard asteroid ores for additional mining requirements. Existing standard compressed asteroid ore at the refinery is counted first. You can check multiple ore types across the sections and the planner combines them to cover the remaining mineral shortfall.</small>
-        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to BKG-Q2 — Draken Manufacturing and BKG-Q2 — Draken Barrel Refinery, including nested containers inside those structures.</small>
+        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to The New Dominion (minerals only) and Draken Barrel Refinery (ore and compressed ore only), including nested containers inside those structures.</small>
       @endif
     </div>
   </div>
@@ -192,7 +192,7 @@
         latestCalculation = data;
         const planButton = document.getElementById('planOre');
         if (planButton) planButton.disabled = false;
-        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
+        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">The New Dominion</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
         output.innerHTML = '<h4>' + esc(data.product) + ' <small class="text-muted">· ' + data.runs + ' runs</small></h4>' +
@@ -319,14 +319,16 @@
           const data = await response.json();
           if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
           inventoryItems = data.items || [];
-          const allAssets = data.assets || [];
+          const oreAssets = data.ore_assets || [];
+          const mineralAssets = data.mineral_assets || [];
           facilityInventoryLoaded = true;
           updateOrePlanButton();
-          status.textContent = (data.note || 'Loaded character inventory.') + ' ' + Number(data.asset_count || allAssets.length).toLocaleString() + ' cached asset rows.';
-          const fullInventoryTable = allAssets.length ? '<h5>Complete cached character inventory</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Item</th><th class="text-right">Quantity</th><th class="text-right">Type ID</th><th class="text-right">Location / container ID</th></tr></thead><tbody>' +
-            allAssets.map(asset => '<tr><td>' + esc(asset.name) + ' <small class="text-muted">(' + asset.item_id + ')</small></td><td class="text-right">' + Number(asset.quantity).toLocaleString() + '</td><td class="text-right">' + asset.type_id + '</td><td class="text-right">' + asset.location_id + '</td></tr>').join('') +
-            '</tbody></table></div>' : '<p class="text-muted">No cached assets found for this character. Check SeAT ESI asset refresh status.</p>';
-          const oreTable = inventoryItems.length ? '<h5 class="mt-3">Compressed ore available for reprocessing</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
+          status.textContent = (data.note || 'Loaded character inventory.') + ' ' + Number(data.ore_asset_count || oreAssets.length).toLocaleString() + ' refinery ore stacks; ' + Number(data.mineral_asset_count || mineralAssets.length).toLocaleString() + ' building mineral stacks.';
+          const facilityTable = (rows, heading) => rows.length ? '<h5>' + heading + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Item</th><th class="text-right">Quantity</th><th class="text-right">Type ID</th><th class="text-right">Location / container ID</th></tr></thead><tbody>' +
+            rows.map(asset => '<tr><td>' + esc(asset.name) + ' <small class="text-muted">(' + asset.item_id + ')</small></td><td class="text-right">' + Number(asset.quantity).toLocaleString() + '</td><td class="text-right">' + asset.type_id + '</td><td class="text-right">' + asset.location_id + '</td></tr>').join('') +
+            '</tbody></table></div>' : '<p class="text-muted">No matching stock found in this facility.</p>';
+          const fullInventoryTable = facilityTable(oreAssets, 'Drakens Refinery — ore and compressed ore only') + facilityTable(mineralAssets, 'Temp Building — minerals only');
+          const oreTable = inventoryItems.length ? '<h5 class="mt-3">Compressed ore available at Drakens Refinery for reprocessing</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
             inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
             '</tbody></table></div>' : '<p class="text-muted">No standard compressed asteroid ore found in this character cache.</p>';
           inventoryTable.innerHTML = fullInventoryTable + oreTable;
@@ -378,7 +380,7 @@
           orePlanOutput.innerHTML = '<div class="alert alert-success"><strong>Additional compressed ore to mine:</strong> ' + totalOreUnits.toLocaleString() + ' units across ' + data.ore_plan.length + ' ore type(s)</div>' +
             '<h5>Additional ore requirements</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Batches</th><th class="text-right">Batch size</th><th class="text-right">Additional units</th></tr></thead><tbody>' + (planRows || '<tr><td colspan="4">No additional ore required.</td></tr>') + '</tbody></table></div>' +
             '<h5 class="mt-3">Mineral coverage</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Mineral</th><th class="text-right">Required</th><th class="text-right">At manufacturing</th><th class="text-right">From existing compressed ore</th><th class="text-right">Still needed</th><th class="text-right">From new ore</th><th class="text-right">Surplus</th></tr></thead><tbody>' + mineralRows + '</tbody></table></div>' +
-            '<h5 class="mt-3">Compressed ore already in character inventory</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ore</th><th class="text-right">Units</th><th class="text-right">Complete batches</th><th class="text-right">Leftover units</th></tr></thead><tbody>' + (stockRows || '<tr><td colspan="4">No compressed ore currently stored at the refinery.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">Compressed ore already at Drakens Refinery</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ore</th><th class="text-right">Units</th><th class="text-right">Complete batches</th><th class="text-right">Leftover units</th></tr></thead><tbody>' + (stockRows || '<tr><td colspan="4">No compressed ore currently stored at the refinery.</td></tr>') + '</tbody></table></div>' +
             '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
         } catch (e) {
           orePlanOutput.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
