@@ -218,12 +218,15 @@
       const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
       let inventoryItems = [];
       let orePickerLoaded = false;
+      let orePickerLoading = false;
       const updateOrePlanButton = () => {
         if (orePlanButton) orePlanButton.disabled = false;
       };
 
       const loadOrePicker = async () => {
-        if (orePickerLoaded) return;
+        if (orePickerLoaded || orePickerLoading) return;
+        orePickerLoading = true;
+        try {
           const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
           const typeData = await typeResponse.json();
           if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
@@ -282,6 +285,9 @@
           updateOrePicker();
           orePickerLoaded = true;
           updateOrePlanButton();
+        } finally {
+          orePickerLoading = false;
+        }
       };
       loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
 
@@ -328,9 +334,13 @@
       });
 
       orePlanButton.addEventListener('click', async function () {
+        if (orePickerLoading) {
+          orePlanOutput.innerHTML = '<div class="alert alert-info">Compressed ore choices are still loading. Please wait a moment.</div>';
+          return;
+        }
         const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).filter(input => input.closest('.custom-control').style.display !== 'none').map(input => input.value);
-        if (!latestCalculation || !character.value || !selectedOreIds.length) {
-          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load a character, and tick at least one normal compressed ore type first.</div>';
+        if (!latestCalculation || !facilityInventoryLoaded || !character.value || !selectedOreIds.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load the selected character inventory, and tick at least one normal compressed ore type first.</div>';
           return;
         }
         const needs = (latestCalculation.minerals || []).map(row => ({
