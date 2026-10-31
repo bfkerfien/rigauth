@@ -55,6 +55,7 @@
         <button type="button" class="rx-tab" data-tab="moon" aria-selected="false">Moon Reactions</button>
         <button type="button" class="rx-tab" data-tab="molecular" aria-selected="false">Molecular-Forged</button>
         <button type="button" class="rx-tab" data-tab="manufacturing" aria-selected="false">Manufacturing</button>
+        <button type="button" class="rx-tab" data-tab="golden" aria-selected="false">Golden Cytoserocin</button>
       </nav>
       <div class="rx-kpis">
         <div class="rx-kpi"><span>Recipes shown</span><strong id="rx-count">{{ number_format($rows->count()) }}</strong></div>
@@ -62,6 +63,12 @@
         <div class="rx-kpi"><span>Pricing source</span><strong style="font-size:13px">Jita IV-4 · ESI</strong></div>
       </div>
       <div id="rx-recipe-list"></div>
+      <section class="rx-panel" id="rx-golden-panel" hidden>
+        <h2>Golden Cytoserocin reactions</h2>
+        <p class="rx-help">60-day Jita market history and full reaction economics. Golden Cytoserocin is valued at Jita sell (opportunity cost), other inputs at Jita buy, outputs at Jita sell, with a 2% reaction tax on input value.</p>
+        <div id="rx-golden-history"><div class="rx-status">Loading 60-day market history…</div></div>
+        <div id="rx-golden-recipes"><div class="rx-status">Finding the two Golden Cytoserocin reaction recipes…</div></div>
+      </section>
       <section class="rx-panel" id="rx-manufacturing-panel" hidden>
         <h2>Manufacturing chain lookup</h2><p class="rx-help">Look up a capital component or other manufactured item using SeAT’s local EVE blueprint data.</p>
         <form id="rx-manufacturing-form" class="rx-inline"><input id="rx-manufacturing-product" placeholder="e.g. Capital Armor Plates" style="flex:1;min-width:220px"><button type="submit">Load recipe</button></form>
@@ -78,7 +85,7 @@ const root = document.getElementById('rx-app');
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null;
+let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;
 function setStatus(message, error=false){$('rx-market-status').textContent=message;$('rx-market-status').className='rx-status'+(error?' rx-error':'');}
 function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='biochemical' ? r.category==='biochemical' : activeTab==='moon' ? r.category==='moon' : activeTab==='molecular' ? r.category==='molecular' : false;}
 function filteredRecipes(){const q=$('rx-search').value.trim().toLowerCase();return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))));}
@@ -88,6 +95,8 @@ function render(){
  $('rx-count').textContent=fmt(list.length);
  $('rx-owned-count').textContent=fmt(list.filter(r=>ownedCount(r)>0).length);
  $('rx-manufacturing-panel').hidden=activeTab!=='manufacturing';
+ $('rx-golden-panel').hidden=activeTab!=='golden';
+ if(activeTab==='golden'){ $('rx-recipe-list').innerHTML=''; if(!goldenLoaded)loadGoldenTab(); return; }
  if(activeTab==='manufacturing'){ $('rx-recipe-list').innerHTML=''; return; }
  if(!list.length){$('rx-recipe-list').innerHTML='<div class="rx-empty">No recipes match this tab and search. Try another material or tab.</div>';return;}
  $('rx-recipe-list').innerHTML=list.map((r,i)=>{
@@ -155,6 +164,45 @@ $('rx-manufacturing-form').addEventListener('submit',async e=>{
 });
 
 /* Reaction leaderboard and inventory-aware operating materials */
+
+async function loadGoldenTab(){
+ goldenLoaded=true;
+ const historyNames=['Compressed Golden Cytoserocin','Pure Standard Crash Booster','Reaction-orienting Neurolink Stabilizers'];
+ const historyBox=$('rx-golden-history'), recipeBox=$('rx-golden-recipes');
+ try{
+  const response=await fetch('/reactions/history?names='+encodeURIComponent(historyNames.join(',')),{headers:{'Accept':'application/json'}});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'Market history unavailable');
+  const colors=['#65d9f5','#ffb36a','#b7a2ff'];
+  historyBox.innerHTML=historyNames.map((name,index)=>{
+   const item=data.history?.[name], points=item?.points||[];
+   if(!item||!Array.isArray(points)||!points.length)return '<section class="rx-card"><h3>'+esc(name)+'</h3><div class="rx-status rx-error">'+esc(item?.error||'No 60-day ESI history returned for this exact type.')+'</div></section>';
+   const vals=points.map(p=>Number(p.average)).filter(Number.isFinite), min=Math.min(...vals),max=Math.max(...vals),span=Math.max(1,max-min),w=760,h=150;
+   const line=points.map((p,i)=>{const x=points.length<2?0:i*w/(points.length-1),y=h-((Number(p.average)-min)/span)*(h-18)-9;return x.toFixed(1)+','+y.toFixed(1)}).join(' ');
+   return '<section class="rx-card"><div class="rx-inline rx-between"><h3>'+esc(item.typeName||name)+'</h3><span class="rx-pill">'+points.length+' actual daily records</span></div><div class="rx-scroll" style="padding:8px"><svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="60 day Jita average price history for '+esc(name)+'" style="width:100%;height:auto;min-width:320px"><polyline fill="none" stroke="'+colors[index]+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="'+line+'"/></svg></div><div class="rx-inline rx-between rx-help"><span>'+esc(points[0].date)+'</span><span>Low avg: '+fmt(min)+' ISK · High avg: '+fmt(max)+' ISK</span><span>'+esc(points[points.length-1].date)+'</span></div></section>';
+  }).join('');
+ }catch(e){historyBox.innerHTML='<div class="rx-status rx-error">Could not load 60-day ESI history: '+esc(e.message)+'</div>';}
+ try{
+  const targets=['Pure Standard Crash Booster','Reaction-orienting Neurolink Stabilizers'];
+  const matches=recipes.filter(r=>(r.products||[]).some(p=>targets.some(t=>p.name.toLowerCase()===t.toLowerCase()))||targets.some(t=>(r.product||'').toLowerCase()===t.toLowerCase()));
+  if(!matches.length){recipeBox.innerHTML='<div class="rx-status rx-error">The installed 120-recipe catalog does not contain either requested output. No recipe has been fabricated.</div>';return;}
+  await getPrices(matches.flatMap(r=>[...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]));
+  const targetCards=targets.map(target=>{
+   const r=matches.find(x=>(x.products||[]).some(p=>p.name.toLowerCase()===target.toLowerCase())||(x.product||'').toLowerCase()===target.toLowerCase());
+   if(!r)return '<section class="rx-card"><h3>'+esc(target)+'</h3><div class="rx-status rx-error">No matching recipe in local catalog.</div></section>';
+   let inputs=0,outputs=0,missing=[];
+   const rows=(r.materials||[]).map(m=>{
+    const isGas=/golden cytoserocin/i.test(m.name), price=unitPrice(m.name,isGas?'Output':'Input'),qty=Number(m.quantity??m.per_run??0);
+    if(price===null||!Number.isFinite(price))missing.push(m.name);else inputs+=price*qty;
+    return {kind:'Input',name:m.name,qty,price,cost:price===null?null:price*qty};
+   });
+   const outRows=(r.products||[]).map(p=>{const price=unitPrice(p.name,'Output'),qty=Number(p.quantity||0);if(price===null||!Number.isFinite(price))missing.push(p.name);else outputs+=price*qty;return {kind:'Output',name:p.name,qty,price,cost:price===null?null:price*qty};});
+   const tax=inputs*.02,profit=missing.length?null:outputs-inputs-tax,margin=profit===null||inputs+tax<=0?null:profit/(inputs+tax)*100;
+   return '<section class="rx-card"><div class="rx-inline rx-between"><h3>'+esc(target)+'</h3><span class="rx-pill">'+esc(r.group||r.category||'Reaction recipe')+'</span></div><div class="rx-kpis"><div class="rx-kpi"><span>Input cost / run</span><strong>'+fmt(inputs)+' ISK</strong></div><div class="rx-kpi"><span>Output value / run</span><strong>'+fmt(outputs)+' ISK</strong></div><div class="rx-kpi"><span>2% reaction tax</span><strong>'+fmt(tax)+' ISK</strong></div><div class="rx-kpi"><span>Net profit / run</span><strong class="'+(profit!==null&&profit>=0?'rx-positive':'rx-warning')+'">'+(profit===null?'Unavailable':fmt(profit)+' ISK')+'</strong></div><div class="rx-kpi"><span>Profit / total input + tax</span><strong>'+(margin===null?'Unavailable':fmt(margin)+'%')+'</strong></div></div><div class="rx-scroll"><table><thead><tr><th>Type</th><th>Material / product</th><th>Qty per run</th><th>Price source</th><th>Unit ISK</th><th>Total ISK</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>Input</td><td>'+esc(x.name)+'</td><td>'+fmt(x.qty)+'</td><td>'+( /golden cytoserocin/i.test(x.name)?'Jita sell (gas value)':'Jita buy')+'</td><td>'+(x.price===null?'—':fmt(x.price))+'</td><td>'+(x.cost===null?'Unavailable':fmt(x.cost))+'</td></tr>').join('')+outRows.map(x=>'<tr><td>Output</td><td>'+esc(x.name)+'</td><td>'+fmt(x.qty)+'</td><td>Jita sell</td><td>'+(x.price===null?'—':fmt(x.price))+'</td><td>'+(x.cost===null?'Unavailable':fmt(x.cost))+'</td></tr>').join('')+'<tr><td colspan="5">Reaction tax (2% of input value)</td><td>'+fmt(tax)+'</td></tr></tbody></table></div>'+(missing.length?'<div class="rx-status rx-error" style="margin-top:10px">Profit withheld: missing Jita prices for '+missing.map(esc).join(', ')+'.</div>':'<p class="rx-help">Single-run estimate from the local reaction catalog. Prices are live Jita IV-4 order quotes; history graph uses actual ESI daily average records.</p>')+'</section>';
+  }).join('');
+  recipeBox.innerHTML=targetCards;
+ }catch(e){recipeBox.innerHTML='<div class="rx-status rx-error">Could not calculate reaction profitability: '+esc(e.message)+'</div>';}
+}
+
 function prevalentMaterial(r){
  const candidates=(r.materials||[]).filter(m=>isGas(m.name)&&Number(m.per_run)>0);
  candidates.sort((a,b)=>Number(b.per_run)-Number(a.per_run)||a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
