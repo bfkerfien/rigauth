@@ -6,19 +6,19 @@ The Cookbook runs inside SeAT using the authenticated SeAT session, existing SeA
 - Search published manufacturing products from the SeAT SDE.
 - Recursively expand blueprint materials and separate minerals from other inputs.
 - Apply entered product ME and component ME.
-- Compare requirements only against stock at **BKG-Q2 — The New Dominion** (temporary manufacturing-stock location).
+- Compare requirements only against stock at **BKG-Q2 — Draken Manufacturing** (temporary manufacturing-stock location).
 - Show required quantity, facility stock and remaining mineral/material shortfall.
 
 ## Facility-scoped inventory
 The two BKG-Q2 facilities are deliberately treated separately:
 - **Ore:** only **BKG-Q2 — Draken Barrel Refinery**.
-- **Minerals only:** only **BKG-Q2 — The New Dominion** (the temporary building). This is not the dedicated Draken Manufacturing structure; replace it when the correct structure ID is known.
+- **Minerals only:** only **BKG-Q2 — Draken Manufacturing** (the temporary building). 
 
-Character asset rows inside nested inventory containers are traced to their root structure. Only ore and compressed ore are counted at Draken Barrel Refinery; only the eight EVE minerals (Tritanium through Morphite) are counted at The New Dominion temporary building. Other item types, assets at other stations/structures, and ship cargo are excluded. The dropdown selects the linked SeAT character whose personal asset cache is filtered independently against those two structure IDs. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
+Character asset rows inside nested inventory containers are traced to their root structure. Only ore and compressed ore are counted at Draken Barrel Refinery; only the eight EVE minerals (Tritanium through Morphite) are counted at Draken Manufacturing facility. Other item types, assets at other stations/structures, and ship cargo are excluded. The dropdown selects the linked SeAT character whose personal asset cache is filtered independently against those two structure IDs. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
 Structure resolution uses SeAT's `universe_structures` cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
 - `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
-- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of the manufacturing-stock location. Currently using The New Dominion (`1032721770598`) temporarily.
+- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of the manufacturing-stock location. Resolve Draken Manufacturing by exact name from SeAT `universe_structures`, or set the exact structure ID in `.env`.
 
 The application refuses to fall back to global inventory if either BKG-Q2 structure cannot be resolved.
 
@@ -27,7 +27,7 @@ The application refuses to fall back to global inventory if either BKG-Q2 struct
 - Uses SDE `portionSize` and `invTypeMaterials` reprocessing composition.
 - Applies the entered combined refining yield percentage.
 - Calculates complete batches and mineral output from the ore already stored at the refinery.
-- Deducts minerals already at The New Dominion (temporary manufacturing-stock location) from the blueprint requirement.
+- Deducts minerals already at Draken Manufacturing from the blueprint requirement.
 - Recreates the standalone ore basket families and checkbox picker: **Simple ores** (Mordunium, Plagioclase, Pyroxeres, Scordite, Veldspar); **Coherent ores** (Griemeer, Hedbergite, Hemorphite, Jaspet, Kernite, Nocxite, Omber, Ytirium); **Variegated ores** (Crokite, Dark Ochre, Gneiss, Kylixium); **Complex ores** (Arkonor, Bistot, Ducinium, Eifyrium, Hezorime, Spodumain, Ueganite); **Abyssal ores** (Bezdnacine, Rakovene, Talassonite); and **Mercoxit** (Mercoxit). There is exactly one standard compressed type per listed ore. Ice, moon ores and named variants such as Glistening are not in the allowlist.
 - Includes Select all / Deselect all and the standalone low-market-volume exclusion toggle for Spodumain, Bezdnacine, Rakovene and Talassonite. Calculates an additional mix from only the checked standard asteroid ores to cover the remaining mineral shortfall, including units, complete batches and surplus.
 
@@ -69,7 +69,7 @@ The deployment script checks required SDE and asset tables, structure-name resol
 1. Sign in to SeAT and open **Triglavian Cookbook**.
 2. Select a linked character and load facility inventory.
 3. Confirm ore shown is only from Draken Barrel Refinery.
-4. Calculate a blueprint and confirm manufacturing stock is only from The New Dominion (temporary location).
+4. Calculate a blueprint and confirm manufacturing stock is only from Draken Manufacturing.
 5. Choose a compressed ore type and calculate the additional ore required.
 6. Refresh the character's ESI assets in SeAT before relying on the quantities.
 
