@@ -56,7 +56,7 @@
             <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load facility ore and minerals</button>
           </div>
         </div>
-        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character. Only Draken Barrel Refinery ore and The New Dominion minerals are counted.</div>
+        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character. Only Draken Barrel Refinery ore and Draken Manufacturing minerals are counted.</div>
         <div id="cookbook-inventory-table" class="table-responsive"></div>
         <hr>
         <div class="form-row align-items-end">
@@ -71,7 +71,7 @@
         <div id="cookbook-ore-output"></div>
         <hr>
         <h4>Calculate additional compressed ore needed for this build</h4>
-        <p class="text-muted">After calculating a blueprint above, this uses minerals at The New Dominion temporary building first, then ore and compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
+        <p class="text-muted">After calculating a blueprint above, this uses minerals at Draken Manufacturing manufacturing facility first, then ore and compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
         <style>
           #cookbook-ore-basket { background: #0d1822; color: #d7e5f2; border: 1px solid #263847; }
           #cookbook-ore-basket .card-header { background: #101e2a; border-bottom: 1px solid #263847; color: #f1f6fa; }
@@ -106,7 +106,7 @@
         </div>
         <div id="cookbook-ore-plan-output"></div>
         <small class="form-text text-muted">The planner uses only the checked standard asteroid ores for additional mining requirements. Existing standard compressed asteroid ore at the refinery is counted first. You can check multiple ore types across the sections and the planner combines them to cover the remaining mineral shortfall.</small>
-        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to The New Dominion (minerals only) and Draken Barrel Refinery (ore and compressed ore only), including nested containers inside those structures.</small>
+        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to Draken Manufacturing (minerals only) and Draken Barrel Refinery (ore and compressed ore only), including nested containers inside those structures.</small>
       @endif
     </div>
   </div>
@@ -192,12 +192,12 @@
         latestCalculation = data;
         const planButton = document.getElementById('planOre');
         if (planButton) planButton.disabled = false;
-        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">The New Dominion</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
+        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
         output.innerHTML = '<h4>' + esc(data.product) + ' <small class="text-muted">· ' + data.runs + ' runs</small></h4>' +
           table(data.minerals, 'Minerals') + table(data.other_materials, 'Other required inputs') +
-          (data.inventory_character_id ? '<div class="alert alert-info">Material availability is checked only at BKG-Q2 — The New Dominion (temporary manufacturing-stock location). Ore stock is checked separately at BKG-Q2 — Draken Barrel Refinery.</div>' : '') +
+          (data.inventory_character_id ? '<div class="alert alert-info">Material availability is checked only at BKG-Q2 — Draken Manufacturing (manufacturing-stock location). Ore stock is checked separately at BKG-Q2 — Draken Barrel Refinery.</div>' : '') +
           '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
       } catch (e) {
         output.innerHTML = '';
