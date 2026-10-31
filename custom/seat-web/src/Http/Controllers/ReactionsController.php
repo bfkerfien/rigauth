@@ -62,7 +62,7 @@ class ReactionsController extends Controller
                 $prices[$name] = ['typeId' => null, 'buyPrice' => null, 'sellPrice' => null, 'splitPrice' => null, 'volume' => null, 'source' => 'Item type not found in local EVE data'];
                 continue;
             }
-            $cached = Cache::get('reaction.jita.price.'.$typeId);
+            $cached = Cache::get('reaction.jita.price.v2.'.$typeId);
             if (is_array($cached)) {
                 $prices[$name] = $cached;
             } else {
@@ -99,8 +99,11 @@ class ReactionsController extends Controller
                     if (count($batch) < 1000) break;
                 }
                 $station = 60003760;
-                $buy = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && !empty($o['is_buy_order']))->max('price');
-                $sell = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && empty($o['is_buy_order']))->min('price');
+                // Present prices from the trader's perspective:
+                // buyPrice = lowest sell order (what we pay to buy an item)
+                // sellPrice = highest buy order (what we receive when selling an item).
+                $buy = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && empty($o['is_buy_order']))->min('price');
+                $sell = collect($orders)->filter(fn ($o) => (int) ($o['location_id'] ?? 0) === $station && !empty($o['is_buy_order']))->max('price');
                 $value = [
                     'typeId' => $typeId, 'buyPrice' => $buy, 'sellPrice' => $sell,
                     'splitPrice' => $buy !== null && $sell !== null ? ($buy + $sell) / 2 : null,
@@ -108,7 +111,7 @@ class ReactionsController extends Controller
                     'price' => $sell, 'source' => 'ESI Jita IV-4 CNAP orders',
                     'updatedAt' => now()->timestamp * 1000,
                 ];
-                Cache::put('reaction.jita.price.'.$typeId, $value, 300);
+                Cache::put('reaction.jita.price.v2.'.$typeId, $value, 300);
                 foreach ($names as $name) {
                     if (($idsByName[mb_strtolower($name)] ?? null) === $typeId) $prices[$name] = $value;
                 }
