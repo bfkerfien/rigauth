@@ -220,7 +220,7 @@ class CookbookController extends Controller
                 $deficits[$typeId] = max(0, $required - (int) ($mineralStock[$typeId] ?? 0));
             }
 
-            // Sum every compressed ore stack at the refinery before calculating whole batches.
+            // Sum every eligible compressed ore stack across the selected character's cached locations before calculating whole batches.
             $oreIds = $characterAssets->pluck('type_id')->unique()->values()->all();
             $oreCatalog = $oreIds
                 ? DB::table('invTypes as types')
@@ -250,7 +250,7 @@ class CookbookController extends Controller
                 if ($batches > 0) {
                     $materials = DB::table('invTypeMaterials')->where('typeID', $typeId)->get(['materialTypeID', 'quantity']);
                     if ($materials->isEmpty()) {
-                        throw new RuntimeException('No reprocessing material data exists for refinery stock ' . $ore->typeName . '.');
+                        throw new RuntimeException('No reprocessing material data exists for cached compressed ore stock ' . $ore->typeName . '.');
                     }
                     foreach ($materials as $material) {
                         $mineralId = (int) $material->materialTypeID;
@@ -389,7 +389,7 @@ class CookbookController extends Controller
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
                 'minerals' => $mineralRows,
-                'note' => 'Existing minerals at the temporary manufacturing location, The New Dominion, are deducted first. Complete batches of every compressed ore type already at Draken Barrel Refinery are then converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
+                'note' => 'Existing minerals and compressed ore across all cached locations for the selected character are deducted first. Complete compressed-ore batches are converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
