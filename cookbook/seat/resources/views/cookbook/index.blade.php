@@ -339,8 +339,8 @@
           return;
         }
         const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).filter(input => input.closest('.custom-control').style.display !== 'none').map(input => input.value);
-        if (!latestCalculation || !facilityInventoryLoaded || !character.value || !selectedOreIds.length) {
-          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, load the selected character inventory, and tick at least one normal compressed ore type first.</div>';
+        if (!latestCalculation || !character.value || !selectedOreIds.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, select a character, and tick at least one normal compressed ore type first.</div>';
           return;
         }
         const needs = (latestCalculation.minerals || []).map(row => ({
