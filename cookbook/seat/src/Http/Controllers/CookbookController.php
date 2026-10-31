@@ -139,7 +139,7 @@ class CookbookController extends Controller
 
             $compressedTotals = [];
             foreach ($oreRows as $row) {
-                if (!$row['is_compressed']) continue;
+                if (!$row['is_compressed'] || !in_array($row['name'], self::standardCompressedOreNames(), true)) continue;
                 $id = $row['type_id'];
                 if (!isset($compressedTotals[$id])) {
                     $compressedTotals[$id] = [
@@ -336,8 +336,8 @@ class CookbookController extends Controller
                 $bestScore = 0.0;
                 foreach ($candidates as $candidateId => $candidate) {
                     $yieldSum = 0.0;
-                    foreach ($needs as $need) {
-                        $mineralId = (int) $need['type_id'];
+                    foreach ($needs as $mineralId => $required) {
+                        $mineralId = (int) $mineralId;
                         $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
                         if ($rawYield > 0 && ($remaining[$mineralId] ?? 0) > 0) {
                             $yieldSum += min((float) $remaining[$mineralId], $rawYield * $yieldFactor);
@@ -351,8 +351,8 @@ class CookbookController extends Controller
                 if ($bestId === null) break;
                 $candidate = $candidates[$bestId];
                 $batchesNeeded = PHP_INT_MAX;
-                foreach ($needs as $need) {
-                    $mineralId = (int) $need['type_id'];
+                foreach ($needs as $mineralId => $required) {
+                    $mineralId = (int) $mineralId;
                     $perBatch = (int) ($candidate['composition'][$mineralId] ?? 0) * $yieldFactor;
                     if (($remaining[$mineralId] ?? 0) > 0 && $perBatch > 0) {
                         $batchesNeeded = min($batchesNeeded, (int) ceil($remaining[$mineralId] / $perBatch));
@@ -360,8 +360,8 @@ class CookbookController extends Controller
                 }
                 if ($batchesNeeded === PHP_INT_MAX || $batchesNeeded < 1) break;
                 $plannedBatches[$bestId] = ($plannedBatches[$bestId] ?? 0) + $batchesNeeded;
-                foreach ($needs as $need) {
-                    $mineralId = (int) $need['type_id'];
+                foreach ($needs as $mineralId => $required) {
+                    $mineralId = (int) $mineralId;
                     if (($remaining[$mineralId] ?? 0) <= 0) continue;
                     $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
                     $remaining[$mineralId] = max(0, $remaining[$mineralId] - ($batchesNeeded * $rawYield * $yieldFactor));
