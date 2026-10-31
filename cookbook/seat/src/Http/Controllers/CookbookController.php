@@ -88,7 +88,7 @@ class CookbookController extends Controller
 
         try {
             $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
-            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - Draken Manufacturing');
 
             // Walk each configured facility independently. Never read the character's global asset list.
             $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
@@ -166,7 +166,7 @@ class CookbookController extends Controller
                 'mineral_asset_count' => count($mineralRows),
                 'items' => array_values($compressedTotals),
                 'materials' => $mineralTotals,
-                'note' => 'Draken Barrel Refinery: ore and compressed ore only. The New Dominion temporary building: minerals only. Nested containers are included within each selected structure; all other locations and item categories are excluded.',
+                'note' => 'Draken Barrel Refinery: ore and compressed ore only. Draken Manufacturing manufacturing facility: minerals only. Nested containers are included within each selected structure; all other locations and item categories are excluded.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -220,7 +220,7 @@ class CookbookController extends Controller
 
         try {
             $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
-            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - Draken Manufacturing');
             $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
             $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
 
@@ -411,7 +411,7 @@ class CookbookController extends Controller
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
                 'minerals' => $mineralRows,
-                'note' => 'Only minerals at The New Dominion temporary building are deducted as existing mineral stock. Only raw and compressed ore at Draken Barrel Refinery is considered refinery stock; compressed standard asteroid ores are reprocessed. Other stations and item categories are excluded.',
+                'note' => 'Only minerals at Draken Manufacturing manufacturing facility are deducted as existing mineral stock. Only raw and compressed ore at Draken Barrel Refinery is considered refinery stock; compressed standard asteroid ores are reprocessed. Other stations and item categories are excluded.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -556,7 +556,7 @@ class CookbookController extends Controller
                 $characterId = (int) $data['character_id'];
                 $this->authorizeCharacter($characterId);
                 abort_unless(Schema::hasTable('character_assets'), 503, 'SeAT character asset cache is unavailable.');
-                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
+                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - Draken Manufacturing');
                 foreach ($this->assetsAtStructure($characterId, $manufacturingId) as $asset) {
                     $typeId = (int) $asset->type_id;
                     if (!in_array($typeId, self::MINERAL_TYPE_IDS, true)) continue;
