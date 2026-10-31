@@ -167,7 +167,7 @@ $('rx-manufacturing-form').addEventListener('submit',async e=>{
 
 async function loadGoldenTab(){
  goldenLoaded=true;
- const historyNames=['Compressed Golden Cytoserocin','Pure Standard Crash Booster','Reaction-orienting Neurolink Stabilizers'];
+ const historyNames=['Compressed Golden Cytoserocin','Pure Standard Crash Booster','Reaction-Orienting Neurolink Stabilizer'];
  const historyBox=$('rx-golden-history'), recipeBox=$('rx-golden-recipes');
  try{
   const response=await fetch('/reactions/history?names='+encodeURIComponent(historyNames.join(',')),{headers:{'Accept':'application/json'}});
@@ -182,7 +182,7 @@ async function loadGoldenTab(){
   }).join('');
  }catch(e){historyBox.innerHTML='<div class="rx-status rx-error">Could not load 60-day ESI history: '+esc(e.message)+'</div>';}
  try{
-  const targets=['Pure Standard Crash Booster','Reaction-orienting Neurolink Stabilizers'];
+  const targets=['Pure Standard Crash Booster','Reaction-Orienting Neurolink Stabilizer'];
   const matches=recipes.filter(r=>(r.products||[]).some(p=>targets.some(t=>p.name.toLowerCase()===t.toLowerCase()))||targets.some(t=>(r.product||'').toLowerCase()===t.toLowerCase()));
   if(!matches.length){recipeBox.innerHTML='<div class="rx-status rx-error">The installed 120-recipe catalog does not contain either requested output. No recipe has been fabricated.</div>';return;}
   await getPrices(matches.flatMap(r=>[...(r.materials||[]).map(m=>m.name),...(r.products||[]).map(p=>p.name)]));
@@ -225,9 +225,11 @@ function filteredRecipes(){
 }
 function render(){
  const list=filteredRecipes();
- $('rx-count').textContent=fmt(list.length);
- $('rx-owned-count').textContent=fmt(list.filter(r=>(r.materials||[]).some(m=>m.owned>0)).length);
+ $('rx-count').textContent=activeTab==='golden'?'2':fmt(list.length);
+ $('rx-owned-count').textContent=activeTab==='golden'?'—':fmt(list.filter(r=>(r.materials||[]).some(m=>m.owned>0)).length);
  $('rx-manufacturing-panel').hidden=activeTab!=='manufacturing';
+ $('rx-golden-panel').hidden=activeTab!=='golden';
+ if(activeTab==='golden'){$('rx-recipe-list').innerHTML='';if(!goldenLoaded)loadGoldenTab();return;}
  if(activeTab==='manufacturing'){$('rx-recipe-list').innerHTML='';return;}
  if(!list.length){$('rx-recipe-list').innerHTML='<div class="rx-empty">No recipes match this tab and search.</div>';return;}
  const ranked=list.filter(r=>perRunProfit(r)!==null).slice(0,8), max=Math.max(1,...ranked.map(r=>Math.abs(perRunProfit(r))));
