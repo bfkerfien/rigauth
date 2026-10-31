@@ -100,6 +100,13 @@ if "seatcore::reactions.recipe" not in routes:
         raise SystemExit("STOP: Could not uniquely locate the market proxy route to add the recipe proxy.")
     routes = routes.replace(market_route, market_route + "\n        Route::get('/reactions/recipe', 'ReactionsController@recipe')->name('seatcore::reactions.recipe');", 1)
 
+history_route = "Route::get('/reactions/history', 'ReactionsController@history')->name('seatcore::reactions.history');"
+if "seatcore::reactions.history" not in routes:
+    recipe_route = "Route::get('/reactions/recipe', 'ReactionsController@recipe')->name('seatcore::reactions.recipe');"
+    if routes.count(recipe_route) != 1:
+        raise SystemExit("STOP: Could not uniquely locate the recipe proxy route to add the history proxy.")
+    routes = routes.replace(recipe_route, recipe_route + "\\n        " + history_route, 1)
+
 sidebar_anchor = "        @can('global.superuser')"
 sidebar_addition = (
     "        <li class=\"nav-item\">\n"
