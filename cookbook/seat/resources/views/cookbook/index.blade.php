@@ -53,10 +53,10 @@
             </select>
           </div>
           <div class="form-group col-md-4">
-            <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load compressed ore assets</button>
+            <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load complete character inventory</button>
           </div>
         </div>
-        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character and load their cached compressed ore inventory.</div>
+        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character to load all cached assets across all locations, including nested containers.</div>
         <div id="cookbook-inventory-table" class="table-responsive"></div>
         <hr>
         <div class="form-row align-items-end">
@@ -319,12 +319,17 @@
           const data = await response.json();
           if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
           inventoryItems = data.items || [];
+          const allAssets = data.assets || [];
           facilityInventoryLoaded = true;
           updateOrePlanButton();
-          status.textContent = data.note || 'Loaded BKG-Q2 facility inventory.';
-          inventoryTable.innerHTML = inventoryItems.length ? '<table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
+          status.textContent = (data.note || 'Loaded character inventory.') + ' ' + Number(data.asset_count || allAssets.length).toLocaleString() + ' cached asset rows.';
+          const fullInventoryTable = allAssets.length ? '<h5>Complete cached character inventory</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Item</th><th class="text-right">Quantity</th><th class="text-right">Type ID</th><th class="text-right">Location / container ID</th></tr></thead><tbody>' +
+            allAssets.map(asset => '<tr><td>' + esc(asset.name) + ' <small class="text-muted">(' + asset.item_id + ')</small></td><td class="text-right">' + Number(asset.quantity).toLocaleString() + '</td><td class="text-right">' + asset.type_id + '</td><td class="text-right">' + asset.location_id + '</td></tr>').join('') +
+            '</tbody></table></div>' : '<p class="text-muted">No cached assets found for this character. Check SeAT ESI asset refresh status.</p>';
+          const oreTable = inventoryItems.length ? '<h5 class="mt-3">Compressed ore available for reprocessing</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
             inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
-            '</tbody></table>' : '<p class="text-muted">No compressed ore found at Draken Barrel Refinery for this character.</p>';
+            '</tbody></table></div>' : '<p class="text-muted">No standard compressed asteroid ore found in this character cache.</p>';
+          inventoryTable.innerHTML = fullInventoryTable + oreTable;
           reprocess.disabled = inventoryItems.length === 0;
           await loadOrePicker();
           updateOrePlanButton();
