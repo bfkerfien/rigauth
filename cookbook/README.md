@@ -17,8 +17,10 @@ The two BKG-Q2 facilities are deliberately treated separately:
 Character asset rows inside nested inventory containers are traced to their root structure. Only ore and compressed ore are counted at Draken Barrel Refinery; only the eight EVE minerals (Tritanium through Morphite) are counted at Draken Manufacturing facility. Other item types, assets at other stations/structures, and ship cargo are excluded. The dropdown selects the linked SeAT character whose personal asset cache is filtered independently against those two structure IDs. The cache can be stale until SeAT successfully refreshes that character's ESI assets.
 
 Structure resolution uses SeAT's `universe_structures` cache when available. If the installation does not have either cache, configure these IDs in `/opt/seat-docker/.env`:
-- `COOKBOOK_REFINERY_STRUCTURE_ID` — item ID of Draken Barrel Refinery.
-- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — item ID of the manufacturing-stock location. Resolve Draken Manufacturing by exact name from SeAT `universe_structures`, or set the exact structure ID in `.env`.
+- `COOKBOOK_REFINERY_STRUCTURE_ID` — optional override; verified default is `1035861034790` (Draken Barrel Refinery).
+- `COOKBOOK_MANUFACTURING_STRUCTURE_ID` — optional override; verified default is `1035860820236` (Draken Manufacturing).
+
+The verified IDs are built into the Cookbook, so the facility lookup does not depend on SeAT having both names in `universe_structures`. Server environment values override these defaults if the structures are ever replaced.
 
 The application refuses to fall back to global inventory if either BKG-Q2 structure cannot be resolved.
 
