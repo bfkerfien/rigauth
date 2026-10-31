@@ -607,9 +607,8 @@ class CookbookController extends Controller
 
     private function assetsAtStructure(int $characterId, int $structureId)
     {
-        // Walk container contents in bounded batches instead of a recursive SQL CTE.
-        // This avoids recursive-query stalls on large character asset trees and
-        // keeps the search strictly scoped to the selected character and structure.
+        // Start only at the configured structure. Recurse through inventory containers,
+        // never through ships, so ore/minerals in docked ship cargo are not counted.
         $assets = collect();
         $frontier = DB::table('character_assets')
             ->where('character_id', $characterId)
@@ -623,23 +622,33 @@ class CookbookController extends Controller
 
         while ($frontier->isNotEmpty() && $depth <= $maxDepth) {
             $newParents = [];
+            $frontierTypeIds = $frontier->pluck('type_id')->unique()->values()->all();
+            $containerTypes = $frontierTypeIds
+                ? DB::table('invTypes as types')
+                    ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
+                    ->whereIn('types.typeID', $frontierTypeIds)
+                    ->where('groups.groupName', 'like', '%Container%')
+                    ->pluck('types.typeID')
+                    ->map(fn ($id) => (int) $id)
+                    ->all()
+                : [];
+            $containerTypeLookup = array_fill_keys($containerTypes, true);
+
             foreach ($frontier as $asset) {
                 $itemId = (int) $asset->item_id;
-                if (isset($visited[$itemId])) {
-                    continue;
-                }
+                if (isset($visited[$itemId])) continue;
                 $visited[$itemId] = true;
                 $assets->push($asset);
-                $newParents[] = $itemId;
 
+                if (isset($containerTypeLookup[(int) $asset->type_id])) {
+                    $newParents[] = $itemId;
+                }
                 if ($assets->count() >= $maxAssets) {
                     throw new RuntimeException('The selected structure contains more than 100,000 cached asset entries; narrow the inventory scope before loading it.');
                 }
             }
 
-            if (!$newParents || $depth >= $maxDepth) {
-                break;
-            }
+            if (!$newParents || $depth >= $maxDepth) break;
 
             $frontier = collect();
             foreach (array_chunk($newParents, 500) as $parentIds) {
@@ -648,9 +657,7 @@ class CookbookController extends Controller
                     ->whereIn('location_id', $parentIds)
                     ->get(['item_id', 'type_id', 'quantity', 'location_id']);
                 foreach ($children as $child) {
-                    if (!isset($visited[(int) $child->item_id])) {
-                        $frontier->push($child);
-                    }
+                    if (!isset($visited[(int) $child->item_id])) $frontier->push($child);
                 }
             }
             $depth++;
