@@ -87,68 +87,86 @@ class CookbookController extends Controller
         $this->authorizeCharacter($characterId);
 
         try {
-            // SeAT's character_assets cache already contains the character's asset rows,
-            // including items inside containers. Do not restrict this to two named structures.
-            $allAssets = DB::table('character_assets')
-                ->where('character_id', $characterId)
-                ->get(['item_id', 'type_id', 'quantity', 'location_id']);
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
 
-            $typeIds = $allAssets->pluck('type_id')->unique()->values()->all();
-            $typeNames = $typeIds
-                ? DB::table('invTypes')->whereIn('typeID', $typeIds)->pluck('typeName', 'typeID')->all()
+            // Walk each configured facility independently. Never read the character's global asset list.
+            $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
+            $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
+
+            $allTypeIds = $refineryAssets->pluck('type_id')->merge($manufacturingAssets->pluck('type_id'))->unique()->values()->all();
+            $typeNames = $allTypeIds
+                ? DB::table('invTypes')->whereIn('typeID', $allTypeIds)->pluck('typeName', 'typeID')->all()
                 : [];
-            $inventoryRows = $allAssets->map(function ($asset) use ($typeNames) {
-                return [
-                    'item_id' => (int) $asset->item_id,
-                    'type_id' => (int) $asset->type_id,
-                    'name' => $typeNames[(int) $asset->type_id] ?? ('Type ' . (int) $asset->type_id),
-                    'quantity' => max(0, (int) $asset->quantity),
-                    'location_id' => (int) $asset->location_id,
-                ];
-            })->values();
 
-            $oreTypeIds = $allAssets->pluck('type_id')->unique()->values()->all();
+            $oreTypeIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
             $oreTypes = $oreTypeIds
                 ? DB::table('invTypes as types')
                     ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
                     ->where('groups.categoryID', self::ORE_CATEGORY_ID)
                     ->whereIn('types.typeID', $oreTypeIds)
-                    ->whereIn('types.typeName', self::standardCompressedOreNames())
                     ->get(['types.typeID', 'types.typeName', 'types.portionSize'])
                     ->keyBy('typeID')
                 : collect();
 
-            $oreTotals = [];
-            foreach ($allAssets as $asset) {
-                $type = $oreTypes->get((int) $asset->type_id);
-                if (!$type) {
-                    continue;
-                }
+            $oreRows = [];
+            foreach ($refineryAssets as $asset) {
                 $typeId = (int) $asset->type_id;
-                if (!isset($oreTotals[$typeId])) {
-                    $oreTotals[$typeId] = [
-                        'type_id' => $typeId,
-                        'name' => $type->typeName,
-                        'portion_size' => max(1, (int) $type->portionSize),
-                        'quantity' => 0,
-                    ];
-                }
-                $oreTotals[$typeId]['quantity'] += max(0, (int) $asset->quantity);
+                if (!$oreTypes->has($typeId)) continue;
+                $oreRows[] = [
+                    'item_id' => (int) $asset->item_id,
+                    'type_id' => $typeId,
+                    'name' => $typeNames[$typeId] ?? ('Type ' . $typeId),
+                    'quantity' => max(0, (int) $asset->quantity),
+                    'location_id' => (int) $asset->location_id,
+                    'portion_size' => max(1, (int) $oreTypes->get($typeId)->portionSize),
+                    'is_compressed' => stripos($typeNames[$typeId] ?? '', 'Compressed ') === 0,
+                ];
             }
 
-            $materialTotals = [];
-            foreach ($allAssets as $asset) {
+            $mineralRows = [];
+            foreach ($manufacturingAssets as $asset) {
                 $typeId = (int) $asset->type_id;
-                $materialTotals[$typeId] = ($materialTotals[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+                if (!in_array($typeId, self::MINERAL_TYPE_IDS, true)) continue;
+                $mineralRows[] = [
+                    'item_id' => (int) $asset->item_id,
+                    'type_id' => $typeId,
+                    'name' => $typeNames[$typeId] ?? ('Type ' . $typeId),
+                    'quantity' => max(0, (int) $asset->quantity),
+                    'location_id' => (int) $asset->location_id,
+                ];
+            }
+
+            $compressedTotals = [];
+            foreach ($oreRows as $row) {
+                if (!$row['is_compressed']) continue;
+                $id = $row['type_id'];
+                if (!isset($compressedTotals[$id])) {
+                    $compressedTotals[$id] = [
+                        'type_id' => $id, 'name' => $row['name'],
+                        'portion_size' => $row['portion_size'], 'quantity' => 0,
+                    ];
+                }
+                $compressedTotals[$id]['quantity'] += $row['quantity'];
+            }
+
+            $mineralTotals = [];
+            foreach ($mineralRows as $row) {
+                $id = $row['type_id'];
+                $mineralTotals[$id] = ($mineralTotals[$id] ?? 0) + $row['quantity'];
             }
 
             return response()->json([
                 'character_id' => $characterId,
-                'asset_count' => $inventoryRows->count(),
-                'assets' => $inventoryRows,
-                'items' => array_values($oreTotals),
-                'materials' => $materialTotals,
-                'note' => 'Showing all cached assets for this character across all locations, including nested containers. Blueprint materials and compressed ore are counted across those cached locations. Data may be stale until SeAT completes the character asset ESI refresh.',
+                'refinery_structure_id' => $refineryId,
+                'manufacturing_structure_id' => $manufacturingId,
+                'ore_assets' => $oreRows,
+                'mineral_assets' => $mineralRows,
+                'ore_asset_count' => count($oreRows),
+                'mineral_asset_count' => count($mineralRows),
+                'items' => array_values($compressedTotals),
+                'materials' => $mineralTotals,
+                'note' => 'Draken Barrel Refinery: ore and compressed ore only. The New Dominion temporary building: minerals only. Nested containers are included within each selected structure; all other locations and item categories are excluded.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -201,9 +219,10 @@ class CookbookController extends Controller
         $this->authorizeCharacter($characterId);
 
         try {
-            $characterAssets = DB::table('character_assets')
-                ->where('character_id', $characterId)
-                ->get(['item_id', 'type_id', 'quantity', 'location_id']);
+            $refineryId = $this->structureId('COOKBOOK_REFINERY_STRUCTURE_ID', 'BKG-Q2 - Draken Barrel Refinery');
+            $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
+            $refineryAssets = $this->assetsAtStructure($characterId, $refineryId);
+            $manufacturingAssets = $this->assetsAtStructure($characterId, $manufacturingId);
 
             $needs = [];
             foreach ($data['mineral_needs'] as $row) {
@@ -211,8 +230,9 @@ class CookbookController extends Controller
                 $needs[$typeId] = max(0, (int) $row['quantity']);
             }
             $mineralStock = [];
-            foreach ($characterAssets as $asset) {
+            foreach ($manufacturingAssets as $asset) {
                 $typeId = (int) $asset->type_id;
+                if (!in_array($typeId, self::MINERAL_TYPE_IDS, true)) continue;
                 $mineralStock[$typeId] = ($mineralStock[$typeId] ?? 0) + max(0, (int) $asset->quantity);
             }
             $deficits = [];
@@ -221,7 +241,7 @@ class CookbookController extends Controller
             }
 
             // Sum every eligible compressed ore stack across the selected character's cached locations before calculating whole batches.
-            $oreIds = $characterAssets->pluck('type_id')->unique()->values()->all();
+            $oreIds = $refineryAssets->pluck('type_id')->unique()->values()->all();
             $oreCatalog = $oreIds
                 ? DB::table('invTypes as types')
                     ->join('invGroups as groups', 'groups.groupID', '=', 'types.groupID')
@@ -232,9 +252,11 @@ class CookbookController extends Controller
                     ->keyBy('typeID')
                 : collect();
             $oreQuantities = [];
-            foreach ($allAssets as $asset) {
+            foreach ($refineryAssets as $asset) {
                 $typeId = (int) $asset->type_id;
-                $oreQuantities[$typeId] = ($oreQuantities[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+                if ($oreCatalog->has($typeId)) {
+                    $oreQuantities[$typeId] = ($oreQuantities[$typeId] ?? 0) + max(0, (int) $asset->quantity);
+                }
             }
 
             $oreStockRows = [];
@@ -389,7 +411,7 @@ class CookbookController extends Controller
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
                 'minerals' => $mineralRows,
-                'note' => 'Existing minerals and compressed ore across all cached locations for the selected character are deducted first. Complete compressed-ore batches are converted at the entered yield. The remaining mineral deficits are covered by the selected compressed ore mix. The suggested mix uses a transparent greedy coverage calculation; it is not guaranteed to be the mathematically cheapest or lowest-volume mix.',
+                'note' => 'Only minerals at The New Dominion temporary building are deducted as existing mineral stock. Only raw and compressed ore at Draken Barrel Refinery is considered refinery stock; compressed standard asteroid ores are reprocessed. Other stations and item categories are excluded.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
@@ -534,11 +556,10 @@ class CookbookController extends Controller
                 $characterId = (int) $data['character_id'];
                 $this->authorizeCharacter($characterId);
                 abort_unless(Schema::hasTable('character_assets'), 503, 'SeAT character asset cache is unavailable.');
-                $characterAssets = DB::table('character_assets')
-                    ->where('character_id', $characterId)
-                    ->get(['item_id', 'type_id', 'quantity', 'location_id']);
-                foreach ($characterAssets as $asset) {
+                $manufacturingId = $this->structureId('COOKBOOK_MANUFACTURING_STRUCTURE_ID', 'BKG-Q2 - The New Dominion');
+                foreach ($this->assetsAtStructure($characterId, $manufacturingId) as $asset) {
                     $typeId = (int) $asset->type_id;
+                    if (!in_array($typeId, self::MINERAL_TYPE_IDS, true)) continue;
                     $inventory[$typeId] = ($inventory[$typeId] ?? 0) + max(0, (int) $asset->quantity);
                 }
             }
