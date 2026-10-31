@@ -287,69 +287,49 @@ class CookbookController extends Controller
                 ];
             }
 
-            // Greedily select the ore batch that covers the largest share of the current mineral deficit.
-            // Recalculate after each choice so the mix can switch ore types as minerals are satisfied.
+            // Standalone Cookbook basket algorithm: choose the selected compressed
+            // ore that covers the greatest amount of current mineral demand, then take
+            // whole batches until that ore's next relevant mineral is satisfied.
+            // The original default is blend; market-price optimization is not available.
             $remaining = $deficits;
             $plannedBatches = [];
             $iterations = 0;
-            while (array_sum($remaining) > 0 && $iterations < 500) {
+            while (array_sum($remaining) > 0.001 && $iterations < 400) {
                 $iterations++;
                 $bestId = null;
                 $bestScore = 0.0;
                 foreach ($candidates as $candidateId => $candidate) {
-                    $score = 0.0;
-                    foreach ($remaining as $mineralId => $deficit) {
-                        if ($deficit <= 0) {
-                            continue;
-                        }
+                    $yieldSum = 0.0;
+                    foreach ($needs as $need) {
+                        $mineralId = (int) $need['type_id'];
                         $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
-                        if ($rawYield > 0) {
-                            $score += min($deficit, $rawYield * $yieldFactor) / $deficit;
+                        if ($rawYield > 0 && ($remaining[$mineralId] ?? 0) > 0) {
+                            $yieldSum += min((float) $remaining[$mineralId], $rawYield * $yieldFactor);
                         }
                     }
-                    if ($score > $bestScore) {
-                        $bestScore = $score;
+                    if ($yieldSum > $bestScore) {
+                        $bestScore = $yieldSum;
                         $bestId = $candidateId;
                     }
                 }
-
-                if ($bestId === null) {
-                    break;
-                }
-
+                if ($bestId === null) break;
                 $candidate = $candidates[$bestId];
-                $batchesNeededForNextCoverage = PHP_INT_MAX;
-                foreach ($remaining as $mineralId => $deficit) {
+                $batchesNeeded = PHP_INT_MAX;
+                foreach ($needs as $need) {
+                    $mineralId = (int) $need['type_id'];
+                    $perBatch = (int) ($candidate['composition'][$mineralId] ?? 0) * $yieldFactor;
+                    if (($remaining[$mineralId] ?? 0) > 0 && $perBatch > 0) {
+                        $batchesNeeded = min($batchesNeeded, (int) ceil($remaining[$mineralId] / $perBatch));
+                    }
+                }
+                if ($batchesNeeded === PHP_INT_MAX || $batchesNeeded < 1) break;
+                $plannedBatches[$bestId] = ($plannedBatches[$bestId] ?? 0) + $batchesNeeded;
+                foreach ($needs as $need) {
+                    $mineralId = (int) $need['type_id'];
+                    if (($remaining[$mineralId] ?? 0) <= 0) continue;
                     $rawYield = (int) ($candidate['composition'][$mineralId] ?? 0);
-                    if ($deficit > 0 && $rawYield > 0 && $rawYield * $yieldFactor > 0) {
-                        $batchesNeededForNextCoverage = min(
-                            $batchesNeededForNextCoverage,
-                            (int) ceil($deficit / ($rawYield * $yieldFactor))
-                        );
-                    }
+                    $remaining[$mineralId] = max(0, $remaining[$mineralId] - ($batchesNeeded * $rawYield * $yieldFactor));
                 }
-                if ($batchesNeededForNextCoverage === PHP_INT_MAX || $batchesNeededForNextCoverage < 1) {
-                    break;
-                }
-
-                $plannedBatches[$bestId] = ($plannedBatches[$bestId] ?? 0) + $batchesNeededForNextCoverage;
-                foreach ($candidate['composition'] as $mineralId => $rawYield) {
-                    if (!array_key_exists($mineralId, $remaining) || $remaining[$mineralId] <= 0) {
-                        continue;
-                    }
-                    $produced = (int) floor($batchesNeededForNextCoverage * $rawYield * $yieldFactor);
-                    $remaining[$mineralId] = max(0, $remaining[$mineralId] - $produced);
-                }
-            }
-
-            $uncovered = array_filter($remaining, fn ($quantity) => $quantity > 0);
-            if ($uncovered) {
-                $names = DB::table('invTypes')->whereIn('typeID', array_keys($uncovered))->pluck('typeName', 'typeID')->all();
-                $labels = [];
-                foreach ($uncovered as $id => $quantity) {
-                    $labels[] = ($names[$id] ?? ('Type ' . $id)) . ': ' . number_format($quantity);
-                }
-                throw new RuntimeException('The selected ore mix cannot cover these remaining minerals. Select additional compressed ore types: ' . implode('; ', $labels));
             }
 
             $planRows = [];

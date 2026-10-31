@@ -191,7 +191,7 @@
         if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
         latestCalculation = data;
         const planButton = document.getElementById('cookbook-plan-ore');
-        if (planButton) planButton.disabled = !(facilityInventoryLoaded && latestCalculation && characterSelect && characterSelect.value);
+        if (planButton) planButton.disabled = !(facilityInventoryLoaded && latestCalculation && characterSelect && characterSelect.value && document.querySelectorAll('.cookbook-plan-ore-checkbox').length > 0);
         const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
           (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
           '</tbody></table></div>';
