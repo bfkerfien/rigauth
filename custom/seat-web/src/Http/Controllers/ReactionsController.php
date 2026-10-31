@@ -120,6 +120,36 @@ class ReactionsController extends Controller
         ]);
     }
 
+
+    public function history(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $names = collect(explode(',', (string) $request->query('names', '')))
+            ->map(fn ($name) => trim($name))->filter()->unique()->take(10)->values();
+        if ($names->isEmpty()) return response()->json(['error' => 'Provide item names.'], 400);
+        if (!Schema::hasTable('invTypes')) return response()->json(['error' => 'Local EVE type data is unavailable.'], 503);
+
+        $result = [];
+        foreach ($names as $name) {
+            $type = DB::table('invTypes')->whereRaw('LOWER(typeName) = ?', [mb_strtolower($name)])->first(['typeID', 'typeName']);
+            if (!$type) {
+                $type = DB::table('invTypes')->where('typeName', 'like', '%'.$name.'%')->orderByRaw('CASE WHEN LOWER(typeName) LIKE ? THEN 0 ELSE 1 END', [mb_strtolower($name).'%'])->first(['typeID', 'typeName']);
+            }
+            if (!$type) { $result[$name] = ['error' => 'Item type not found in local EVE data.']; continue; }
+            $cacheKey = 'reaction.jita.history.'.(int) $type->typeID;
+            $history = Cache::remember($cacheKey, 3600, function () use ($type) {
+                $response = Http::acceptJson()->timeout(20)->withHeaders(['User-Agent' => 'Triglavian-Consortium-SeAT-Reactions'])
+                    ->get('https://esi.evetech.net/latest/markets/10000002/history/', ['type_id' => (int) $type->typeID]);
+                if (!$response->successful() || !is_array($response->json())) return null;
+                $cutoff = now()->subDays(59)->toDateString();
+                return collect($response->json())->filter(fn ($point) => ($point['date'] ?? '') >= $cutoff)
+                    ->sortBy('date')->values()->all();
+            });
+            $result[$name] = ['typeId' => (int) $type->typeID, 'typeName' => $type->typeName, 'points' => $history, 'source' => 'ESI Jita region market history'];
+        }
+        return response()->json(['regionId' => 10000002, 'days' => 60, 'history' => $result]);
+    }
+
     public function recipe(Request $request)
     {
         abort_unless(auth()->check(), 401);
