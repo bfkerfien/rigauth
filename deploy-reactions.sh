@@ -105,7 +105,7 @@ if "seatcore::reactions.history" not in routes:
     recipe_route = "Route::get('/reactions/recipe', 'ReactionsController@recipe')->name('seatcore::reactions.recipe');"
     if routes.count(recipe_route) != 1:
         raise SystemExit("STOP: Could not uniquely locate the recipe proxy route to add the history proxy.")
-    routes = routes.replace(recipe_route, recipe_route + "\\n        " + history_route, 1)
+    routes = routes.replace(recipe_route, recipe_route + "\n        " + history_route, 1)
 
 sidebar_anchor = "        @can('global.superuser')"
 sidebar_addition = (
