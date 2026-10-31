@@ -191,7 +191,7 @@ async function loadGoldenTab(){
    if(!r)return '<section class="rx-card"><h3>'+esc(target)+'</h3><div class="rx-status rx-error">No matching recipe in local catalog.</div></section>';
    let inputs=0,outputs=0,missing=[];
    const rows=(r.materials||[]).map(m=>{
-    const isGas=/golden cytoserocin/i.test(m.name), price=unitPrice(m.name,isGas?'Output':'Input'),qty=Number(m.quantity??m.per_run??0);
+    const isGas=/golden cytoserocin/i.test(m.name), quote=priceCache[m.name], price=isGas?(quote?.sellPrice==null?null:Number(quote.sellPrice)):(quote?.buyPrice==null?null:Number(quote.buyPrice)),qty=Number(m.quantity??m.per_run??0);
     if(price===null||!Number.isFinite(price))missing.push(m.name);else inputs+=price*qty;
     return {kind:'Input',name:m.name,qty,price,cost:price===null?null:price*qty};
    });
