@@ -589,20 +589,34 @@ class CookbookController extends Controller
             return (int) $configured;
         }
 
-        if (Schema::hasTable('universe_structures')) {
-            $matches = DB::table('universe_structures')
+        if (Schema::hasTable('universe_structures') && Schema::hasColumn('universe_structures', 'name')) {
+            // SeAT/EVE caches may store the structure's actual name without the
+            // solar-system prefix used in the Cookbook label. Try exact first,
+            // then a unique suffix/name match; never guess if it is ambiguous.
+            $shortName = preg_replace('/^BKG-Q2\\s*[-–—:]\\s*/i', '', $structureName);
+            $exact = DB::table('universe_structures')
                 ->where('name', $structureName)
+                ->limit(2)
+                ->pluck('structure_id');
+
+            if ($exact->count() === 1) {
+                return (int) $exact->first();
+            }
+
+            $matches = DB::table('universe_structures')
+                ->where('name', 'like', '%' . addcslashes($shortName, '%_') . '%')
                 ->limit(3)
                 ->pluck('structure_id');
+
             if ($matches->count() === 1) {
                 return (int) $matches->first();
             }
             if ($matches->count() > 1) {
-                throw new RuntimeException('More than one SeAT universe structure matches ' . $structureName . '. Set ' . $environmentKey . ' in /opt/seat-docker/.env to the exact structure ID.');
+                throw new RuntimeException('More than one cached SeAT structure matches "' . $shortName . '". Set ' . $environmentKey . ' in /opt/seat-docker/.env to the exact structure ID.');
             }
         }
 
-        throw new RuntimeException('Could not resolve the BKG-Q2 structure "' . $structureName . '" from SeAT universe_structures. Confirm SeAT has cached this structure or set ' . $environmentKey . ' in /opt/seat-docker/.env to its structure ID; no global inventory fallback is used.');
+        throw new RuntimeException('Could not resolve the BKG-Q2 structure "' . $structureName . '" from SeAT universe_structures. SeAT may cache the name without the BKG-Q2 prefix, or the structure may not be cached yet. Set ' . $environmentKey . ' in /opt/seat-docker/.env to its exact structure ID; no global inventory fallback is used.');
     }
 
     private function assetsAtStructure(int $characterId, int $structureId)
