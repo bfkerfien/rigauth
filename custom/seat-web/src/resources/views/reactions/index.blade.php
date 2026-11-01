@@ -86,7 +86,8 @@ const root = document.getElementById('rx-app');
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;\nfunction gasIsMined(name){const n=String(name||'').toLowerCase();return (n.includes('amber cytoserocin')&&$('rx-amber-mined').checked)||(n.includes('golden cytoserocin')&&$('rx-golden-mined').checked);}
+let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;
+function gasIsMined(name){const n=String(name||'').toLowerCase();return (n.includes('amber cytoserocin')&&$('rx-amber-mined').checked)||(n.includes('golden cytoserocin')&&$('rx-golden-mined').checked);}
 function setStatus(message, error=false){$('rx-market-status').textContent=message;$('rx-market-status').className='rx-status'+(error?' rx-error':'');}
 function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='biochemical' ? r.category==='biochemical' : activeTab==='moon' ? r.category==='moon' : activeTab==='molecular' ? r.category==='molecular' : false;}
 function filteredRecipes(){const q=$('rx-search').value.trim().toLowerCase();return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))));}
