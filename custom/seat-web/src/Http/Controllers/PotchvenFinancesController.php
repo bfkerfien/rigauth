@@ -150,7 +150,8 @@ class PotchvenFinancesController extends Controller
             ? $db->table('fin_app_settings')->where('setting_key', '180_day_timer_reset_at')->value('setting_value')
             : null;
         $timerResetAt = $timerResetAt ? Carbon::parse($timerResetAt) : now();
-        $monthlyCountdown = max(0, 180 - (int) $timerResetAt->diffInDays(now()));
+        $elapsedCalendarDays = (int) $timerResetAt->copy()->startOfDay()->diffInDays(now()->startOfDay());
+        $monthlyCountdown = max(0, 180 - $elapsedCalendarDays);
         $siteRevenue = $sites * 45000000;
 
         return view('web::potchven-finances.index', compact(
