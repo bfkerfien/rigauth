@@ -310,14 +310,22 @@
       <div class="row">
         @foreach([
           ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
-          ['Estimated profit this period', number_format($siteRevenue - $expenses, 0).' ISK', 'fa-balance-scale'],
+          ['Personal assets + wallets − 90M', number_format($personalNetValue, 0).' ISK', 'fa-user-shield'],
           ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK', 'fa-shield-alt'],
-          ['Estimated assets', number_format($assetValue, 0).' ISK', 'fa-cubes'],
+          ['Corporation hangars 2, 4, 5 & 6', number_format($corporationHangarValue, 0).' ISK', 'fa-cubes'],
         ] as $metric)
           <div class="col-lg-3 col-md-4 col-sm-6">
             <div class="tf-metric">
               <div class="tf-metric-label"><i class="fas {{ $metric[2] }} mr-1"></i> {{ $metric[0] }}</div>
               <div class="tf-metric-value">{{ $metric[1] }}</div>
+              @if($metric[0] === 'Personal assets + wallets − 90M')
+                <div class="tf-muted small mt-1">Three tracked characters · all personal locations · includes wallet balances · one 90M ISK deduction</div>
+              @elseif($metric[0] === 'Corporation hangars 2, 4, 5 & 6')
+                <div class="tf-muted small mt-1">All corporation offices · Jita sell valuation · Asset Manager inventory</div>
+              @endif
+              @if(!$assetManagerAvailable && in_array($metric[0], ['Personal assets + wallets − 90M', 'Corporation hangars 2, 4, 5 & 6'], true))
+                <div class="tf-muted small mt-1">Asset Manager tables are not installed yet; value will populate after Asset Manager sync.</div>
+              @endif
             </div>
           </div>
         @endforeach
