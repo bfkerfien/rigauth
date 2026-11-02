@@ -171,22 +171,48 @@ class PotchvenFinancesController extends Controller
                 $table->timestamp('updated_at')->useCurrent();
             });
         }
+
+        // This control is deliberately independent: it changes only the 180-day countdown.
+        DB::table('fin_app_settings')->updateOrInsert(
+            ['setting_key' => '180_day_timer_reset_at'],
+            ['setting_value' => now()->toDateTimeString(), 'updated_at' => now()]
+        );
+
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'The 180-day timer has been reset. The financial-period counter, telemetry baseline, wallet reporting period, and historical records were not changed.');
+    }
+
+    public function resetFinancialPeriod(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        $schema = Schema::connection(DB::getDefaultConnection());
+        if (!$schema->hasTable('fin_app_settings')) {
+            $schema->create('fin_app_settings', function ($table) {
+                $table->string('setting_key', 100)->primary();
+                $table->string('setting_value', 255);
+                $table->timestamp('updated_at')->useCurrent();
+            });
+        }
+
         $resetAt = now()->toDateTimeString();
         $telemetryQuantity = $this->telemetryQuantity();
-        foreach (['180_day_timer_reset_at', 'finance_period_start_at'] as $settingKey) {
-            DB::table('fin_app_settings')->updateOrInsert(
-                ['setting_key' => $settingKey],
-                ['setting_value' => $resetAt, 'updated_at' => now()]
-            );
-        }
+
+        // Restart the financial counter and its wallet-expense reporting window.
+        DB::table('fin_app_settings')->updateOrInsert(
+            ['setting_key' => 'finance_period_start_at'],
+            ['setting_value' => $resetAt, 'updated_at' => now()]
+        );
+
+        // Capture current CorpSAG3 telemetry so only newly earned sites count.
         if ($telemetryQuantity !== null) {
             DB::table('fin_app_settings')->updateOrInsert(
                 ['setting_key' => 'telemetry_baseline_quantity'],
                 ['setting_value' => (string) $telemetryQuantity, 'updated_at' => now()]
             );
         }
+
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'New financial reporting period started. Telemetry site counts, revenue, expenses, and the 180-day countdown now start from zero. Historical wallet and site records were preserved; outstanding SRP obligations remain payable.');
+            ->with('success', 'The financial period has been reset. Days Since Financial Reset is now day 1, the telemetry counter starts from its current baseline, and wallet expenses are counted from this date. The 180-day countdown, live wallet balances, historical wallet entries, site records, and outstanding SRP obligations were preserved.');
     }
 
     public function addSiteWithoutLoot(): RedirectResponse
