@@ -6,6 +6,14 @@
 
 @section('full')
 <style>
+  body:has(.trig-finance), body:has(.trig-finance) .content-wrapper,
+  body:has(.trig-finance) .content, body:has(.trig-finance) .content-header {
+    background-color: #17191c !important;
+    color: #e8e3dc;
+  }
+  body:has(.trig-finance) .content-wrapper { background:linear-gradient(145deg,#25282c 0%,#17191c 48%,#0c0e10 100%) !important; }
+  body:has(.trig-finance) .content { background:transparent !important; }
+  body:has(.trig-finance) .content-header { background:transparent !important; }
   .trig-finance {
     --tf-bg: #101316;
     --tf-panel: #191e22;
@@ -19,6 +27,17 @@
     color: var(--tf-text);
     margin: -4px 0 22px;
   }
+  .trig-finance .tf-cycle {
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+    margin:-22px 0 22px; padding:17px 24px;
+    background:linear-gradient(105deg,#24272b 0%,#171a1e 58%,#101214 100%);
+    border:1px solid rgba(201,164,112,.35); border-left:5px solid var(--tf-gold);
+    border-radius:4px; box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  .trig-finance .tf-cycle-title { color:#f1ece4; font-size:16px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin:4px 0; }
+  .trig-finance .tf-cycle-count { display:flex; align-items:baseline; gap:10px; margin-left:auto; margin-right:12px; white-space:nowrap; }
+  .trig-finance .tf-cycle-number { color:#f2d4a4; font-size:clamp(42px,6vw,66px); line-height:.95; font-weight:800; letter-spacing:-.05em; text-shadow:0 0 20px rgba(201,164,112,.18); font-variant-numeric:tabular-nums; }
+  .trig-finance .tf-cycle-unit { color:var(--tf-gold); font-size:10px; font-weight:700; letter-spacing:.14em; }
   .trig-finance .tf-hero {
     position: relative; overflow: hidden; display: flex; align-items: center;
     justify-content: space-between; min-height: 190px; padding: 30px 34px;
@@ -66,7 +85,7 @@
   .trig-finance .btn-tf-gold:hover { color:#111; background:#e0c08e; }
   .trig-finance .tf-muted { color:var(--tf-muted); }
   .trig-finance .tf-pill { display:inline-block; padding:3px 8px; border:1px solid var(--tf-line); border-radius:2px; color:var(--tf-gold); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
-  @media(max-width:575px) {
+  @media(max-width:767px) {\n    .trig-finance .tf-cycle { align-items:flex-start; flex-wrap:wrap; margin-top:-14px; padding:16px; }\n    .trig-finance .tf-cycle-count { margin:0; }\n  }\n  @media(max-width:575px) {
     .trig-finance .tf-hero { padding:22px 18px; min-height:150px; }
     .trig-finance .tf-hero h2 { font-size:21px; }
     .trig-finance .tf-sigil { width:92px; height:95px; }
@@ -116,15 +135,21 @@
     @endforeach
   </div>
 
-  <div class="tf-panel tf-period">
-    <div class="tf-panel-body d-flex justify-content-between align-items-center flex-wrap">
-      <div><div class="tf-kicker">Reporting cycle</div><strong>Financial reporting period</strong><p class="mb-0 tf-muted">Period started: {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d H:i:s T') }}. Reset starts a new reporting period and restarts the 180-day countdown.</p></div>
-      <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Start a new financial reporting period? Revenue, expenses and site totals will restart from zero. Historical records will be preserved and outstanding SRP obligations will remain.')">
-        @csrf
-        <button type="submit" class="btn btn-tf-gold mt-2"><i class="fas fa-redo-alt"></i> Reset Financial Period</button>
-      </form>
+  <section class="tf-cycle">
+    <div class="tf-cycle-copy">
+      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
+      <div class="tf-cycle-title">Financial reporting period</div>
+      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
     </div>
-  </div>
+    <div class="tf-cycle-count">
+      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
+      <span class="tf-cycle-unit">DAYS REMAINING</span>
+    </div>
+    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
+      @csrf
+      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
+    </form>
+  </section>
 
   <section class="tf-panel">
     <div class="tf-panel-head"><h3>SRP transfers & operational controls</h3></div>
