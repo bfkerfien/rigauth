@@ -163,9 +163,9 @@
       <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
       <span class="tf-cycle-unit">DAYS REMAINING</span>
     </div>
-    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
+    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset only the 180-day countdown to 180 days? The financial-period counter and wallet reporting baseline will remain unchanged.')">
       @csrf
-      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
+      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset 180-Day Timer</button>
     </form>
   </section>
 
@@ -182,6 +182,12 @@
         <div class="tf-metric">
           <div class="tf-metric-label"><i class="fas {{ $metric[2] }} mr-1"></i> {{ $metric[0] }}</div>
           <div class="tf-metric-value">{{ $metric[1] }}</div>
+          @if($metric[0] === 'Days since financial reset')
+            <form method="POST" action="{{ route('seatcore::potchven-finances.period.reset') }}" class="mt-3" onsubmit="return confirm('Reset the financial-period counter and wallet reporting baseline? The 180-day countdown and live wallet balances will not change. Historical entries, site records, and outstanding SRP obligations will be preserved.')">
+              @csrf
+              <button type="submit" class="btn btn-tf"><i class="fas fa-wallet"></i> Reset Financial Period</button>
+            </form>
+          @endif
         </div>
       </div>
     @endforeach
