@@ -69,7 +69,7 @@ class SyncAssetOwner implements ShouldQueue
                 throw new \RuntimeException('Snapshot completeness or owner validation failed.');
             }
 
-            $repository->replaceOwnerSnapshot($snapshot->ownerKind, $snapshot->ownerId, $snapshot->rows);
+            $repository->replaceOwnerSnapshot($snapshot->ownerKind, $snapshot->ownerId, $snapshot);
 
             DB::table('assetmgr_sync_state')
                 ->where('owner_kind', $this->ownerKind)->where('owner_id', $this->ownerId)->where('dataset', 'assets')
