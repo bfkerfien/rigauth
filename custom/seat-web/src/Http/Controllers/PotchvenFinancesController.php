@@ -152,7 +152,7 @@ class PotchvenFinancesController extends Controller
         $timerResetAt = $timerResetAt ? Carbon::parse($timerResetAt) : now();
         $elapsedCalendarDays = (int) $timerResetAt->copy()->startOfDay()->diffInDays(now()->startOfDay());
         $monthlyCountdown = max(0, 180 - $elapsedCalendarDays);
-        $siteRevenue = $sites * 45000000;
+        $siteRevenue = $sites * 27000000;
 
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
