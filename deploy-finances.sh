@@ -15,7 +15,7 @@ rollback() {
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: deployment did not complete; restoring backed-up files."
-    for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+    for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/resources/views/layouts/app.blade.php"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -50,7 +50,7 @@ if ! printf '%s\\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \\t
 fi
 
 sudo mkdir -p "$BACKUP"
-for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/resources/views/layouts/app.blade.php"; do
   if sudo test -f "$WEB/$rel"; then
     sudo mkdir -p "$BACKUP/$(dirname "$rel")"
     sudo cp -a "$WEB/$rel" "$BACKUP/$rel"
