@@ -7,7 +7,7 @@
 @section('full')
 <div class="row">
   @foreach([
-    ['Sites this period (Nani I telemetry ÷ 60)', number_format($sites)],
+    ['Sites this period (Hangar 3 telemetry ÷ 60)', number_format($sites)],
     ['Average sites per day', number_format($sites / $daysElapsed, 2)],
     ['Site revenue this period', number_format($siteRevenue, 0).' ISK'],
     ['Character expenses this period', number_format($expenses, 0).' ISK'],
@@ -58,7 +58,7 @@
 <tr><td>{{ $owner->display_name }}</td><td>{{ ucfirst($owner->owner_type) }}</td><td>{{ $owner->eve_id }}</td><td>{{ ($owner->is_active ?? true) ? 'Yes' : 'No' }}</td></tr>
 @empty<tr><td colspan="4" class="text-muted">No finance owners imported.</td></tr>@endforelse
 </tbody></table></div></div>
-<div class="alert alert-info">The Sites This Period and Site Revenue metrics use qualifying telemetry items in Nani I Corporation Office Hangar 1 (CorpSAG1), divided by 60; they do not use Ipowimo’s personal hangar. The recent site events below separately reconcile corporation reward payouts: three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group, while incomplete groups are flagged for review and the unpaid portion of the expected 27,000,000 ISK is listed as an SRP transfer obligation. Run the finance sync to refresh both asset and payout data.</div>
+<div class="alert alert-info">The Sites This Period and Site Revenue metrics use corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3) across all stations, divided by 60. Hangar Divisions 1 and 2 and all other divisions are excluded. The recent site events below separately reconcile corporation reward payouts: three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group, while incomplete groups are flagged for review and the unpaid portion of the expected 27,000,000 ISK is listed as an SRP transfer obligation. Run the finance sync to refresh both asset and payout data.</div>
 <div class="card"><div class="card-header"><h3 class="card-title">Recent wallet entries</h3></div><div class="card-body table-responsive">
 <table class="table table-striped table-sm"><thead><tr><th>Date</th><th>Owner</th><th>Reference</th><th>Description</th><th>Amount (ISK)</th><th>Operating expense</th></tr></thead><tbody>
 @forelse($entries as $entry)

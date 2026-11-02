@@ -23,9 +23,8 @@ class PotchvenFinancesController extends Controller
 
 
     /**
-     * Total qualifying telemetry reports in Corporation Office Hangar 1 at Nani I.
-     * ESI's CorpSAG1 flag is corporation hangar division 1; it is independent of
-     * the wallet division used for operating expenses.
+     * Total telemetry units in Corporation Hangar Division 3 across all stations.
+     * Type 89219 is the corporation telemetry item; each 60 units represents one site.
      */
     private function telemetryQuantity($atOrBefore = null): ?int
     {
@@ -35,15 +34,6 @@ class PotchvenFinancesController extends Controller
             if (!$schema->hasTable($table)) {
                 return null;
             }
-        }
-
-        $stationId = (int) env('FIN_TELEMETRY_STATION_ID', 60011173);
-        $typeIds = array_values(array_unique(array_filter(array_map(
-            'intval',
-            explode(',', (string) env('FIN_TELEMETRY_TYPE_IDS', '87222,87258'))
-        ), fn ($id) => $id > 0)));
-        if (!$stationId || !$typeIds) {
-            return null;
         }
 
         $ownerId = $db->table('fin_owners')
@@ -63,27 +53,12 @@ class PotchvenFinancesController extends Controller
             return null;
         }
 
-        // Corporation hangar items are often located inside an OfficeFolder item.
-        // In that case the telemetry item's location_id is the folder's item_id,
-        // while the folder's location_id is the station ID. Match both direct
-        // station placement and the office-folder parent relationship.
         return (int) $db->table('fin_asset_items as i')
             ->join('fin_asset_snapshots as s', 's.id', '=', 'i.snapshot_id')
             ->where('s.owner_id', $ownerId)
             ->where('s.captured_at', $latestCapturedAt)
-            ->whereIn('i.item_type_id', $typeIds)
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(i.raw_payload, '$.location_flag')) = ?", ['CorpSAG1'])
-            ->where(function ($query) use ($stationId) {
-                $query->where('i.location_id', $stationId)
-                    ->orWhereExists(function ($parent) use ($stationId) {
-                        $parent->select(DB::raw('1'))
-                            ->from('fin_asset_items as folder')
-                            ->whereColumn('folder.snapshot_id', 'i.snapshot_id')
-                            ->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(folder.raw_payload, '$.item_id')) AS UNSIGNED) = i.location_id")
-                            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(folder.raw_payload, '$.location_flag')) = ?", ['OfficeFolder'])
-                            ->where('folder.location_id', $stationId);
-                    });
-            })
+            ->where('i.item_type_id', 89219)
+            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(i.raw_payload, '$.location_flag')) = ?", ['CorpSAG3'])
             ->sum('i.quantity');
     }
 
