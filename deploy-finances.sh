@@ -47,7 +47,7 @@ done
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || { echo "STOP: SeAT front service is not running."; exit 1; }
 
 MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' seat-docker-front-1)"
-if ! printf '%s\\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \\t]+|[ \\t]+$/, "", src); if (src != "" && index(web, src) == 1) found=1 } END { exit(found ? 0 : 1) }'; then
+if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \t]+|[ \t]+$/, "", src); if (src != "" && index(web, src) == 1) found=1 } END { exit(found ? 0 : 1) }'; then
   echo "STOP: running SeAT container has no bind mount covering $WEB; no changes made."; exit 1
 fi
 
@@ -82,7 +82,7 @@ if route_include not in routes:
     market_include = "include __DIR__ . '/Routes/Market.php';"
     if market_include not in routes:
         raise SystemExit("STOP: could not find the native Market route include; refusing to guess where to add Potchven Finances.")
-    routes = routes.replace(market_include, market_include + "\\n        " + route_include, 1)
+    routes = routes.replace(market_include, market_include + "\n        " + route_include, 1)
     routes_path.write_text(routes)
     print("Added Potchven Finances route include.")
 else:
@@ -110,7 +110,7 @@ if changed:
     sidebar_path.write_text("".join(lines))
 
 layout = layout_path.read_text()
-body_pattern = re.compile(r'(<body\\s+class=")([^"]*\\bsidebar-mini\\b)([^"]*)(")')
+body_pattern = re.compile(r'(<body\s+class=")([^"]*\bsidebar-mini\b)([^"]*)(")')
 match = body_pattern.search(layout)
 if not match:
     if 'layout-fixed' in layout and '<body' in layout:
@@ -136,8 +136,8 @@ done
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
 ROUTE_OUTPUT="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=potchven-finances)"
-printf '%s\\n' "$ROUTE_OUTPUT"
-printf '%s\\n' "$ROUTE_OUTPUT" | grep -q 'potchven-finances' || { echo "ERROR: finance routes not registered."; exit 1; }
+printf '%s\n' "$ROUTE_OUTPUT"
+printf '%s\n' "$ROUTE_OUTPUT" | grep -q 'potchven-finances' || { echo "ERROR: finance routes not registered."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
