@@ -8,6 +8,7 @@ BACKUP="/root/rigauth-finances-backup-$STAMP"
 SUCCESS=0
 ROLLBACK_ENABLED=0
 FILES=("src/Http/Controllers/PotchvenFinancesController.php" "src/Http/Routes/PotchvenFinances.php" "src/resources/views/potchven-finances/index.blade.php")
+ASSET_REL="public/img/potchven-triglavian-gate-banner.jpg"
 LAYOUT="src/resources/views/layouts/app.blade.php"
 ROUTES="src/Http/routes.php"
 SIDEBAR="src/resources/views/includes/sidebar.blade.php"
@@ -17,7 +18,7 @@ rollback() {
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: deployment did not complete; restoring backed-up files."
-    for rel in "${FILES[@]}" "$ROUTES" "$SIDEBAR" "$LAYOUT"; do
+    for rel in "${FILES[@]}" "$ASSET_REL" "$ROUTES" "$SIDEBAR" "$LAYOUT"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -40,7 +41,7 @@ git fetch origin
 [[ "$(git branch --show-current)" == "finances/seat-integration" ]] || git switch finances/seat-integration
 git pull --ff-only origin finances/seat-integration
 
-for rel in "${FILES[@]}"; do
+for rel in "${FILES[@]}" "$ASSET_REL"; do
   [[ -f "$REPO/custom/seat-web/$rel" ]] || { echo "STOP: required source file missing: $REPO/custom/seat-web/$rel"; exit 1; }
 done
 [[ -d "$WEB" && -f "$WEB/$ROUTES" && -f "$WEB/$SIDEBAR" && -f "$WEB/$LAYOUT" ]] || { echo "STOP: expected SeAT source files missing."; exit 1; }
@@ -132,6 +133,9 @@ PY
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
 done
+# Publish the banner into the package public directory; asset() resolves this URL.
+sudo install -D -m 0644 "$REPO/custom/seat-web/$ASSET_REL" "$WEB/$ASSET_REL"
+echo "Installed finance banner: $WEB/$ASSET_REL"
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
