@@ -94,6 +94,21 @@
     .trig-finance .tf-hero h2 { font-size:21px; }
     .trig-finance .tf-sigil { width:92px; height:95px; }
   }
+  /* Override the SeAT/AdminLTE page surfaces as well as the finance cards. */
+  html:has(.trig-finance), body:has(.trig-finance),
+  body:has(.trig-finance) .wrapper,
+  body:has(.trig-finance) .content-wrapper,
+  body:has(.trig-finance) .content,
+  body:has(.trig-finance) .content-header,
+  body:has(.trig-finance) .main-footer {
+    background:#080a0e !important; background-image:none !important; color:#f4f1ed !important;
+  }
+  body:has(.trig-finance) .content-wrapper { background:radial-gradient(ellipse at 50% 0%,#171014 0%,#0b0d11 48%,#07090c 100%) !important; }
+  body:has(.trig-finance) .content-header { border-bottom:1px solid rgba(255,55,43,.25); }
+  body:has(.trig-finance) .content-header h1,
+  body:has(.trig-finance) .content-header .breadcrumb,
+  body:has(.trig-finance) .content-header .breadcrumb a { color:#f4f1ed !important; }
+
   /* Cinematic Triglavian dashboard skin — tuned to the approved mockup. */
   .trig-finance {
     --tf-bg:#090b0f; --tf-panel:#11151a; --tf-panel-hi:#1a1e24;
@@ -157,7 +172,7 @@
 
 <div class="trig-finance">
   <section class="tf-hero" aria-label="Triglavian gate in deep space">
-    <img src="https://raw.githubusercontent.com/bfkerfien/rigauth/finances/seat-integration/custom/seat-web/public/img/potchven-triglavian-gate-banner.jpg?v=7286343"
+    <img src="{{ asset('img/potchven-triglavian-gate-banner.jpg') }}"
          alt="A monumental Triglavian gate with a glowing red triangular core in deep space">
   </section>
 
