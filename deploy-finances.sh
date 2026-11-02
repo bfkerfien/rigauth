@@ -9,11 +9,13 @@ SUCCESS=0
 ROLLBACK_ENABLED=0
 FILES=("src/Http/Controllers/PotchvenFinancesController.php" "src/Http/Routes/PotchvenFinances.php" "src/resources/views/potchven-finances/index.blade.php")
 ASSET_REL="public/img/potchven-triglavian-gate-banner.jpg"
+NAV_ICON_REL="public/img/potchven-navbar-icon.svg"
 LAYOUT="src/resources/views/layouts/app.blade.php"
 ROUTES="src/Http/routes.php"
 SIDEBAR="src/resources/views/includes/sidebar.blade.php"
 CONTAINER="seat-docker-front-1"
 PUBLIC_BANNER="/var/www/seat/public/img/potchven-triglavian-gate-banner.jpg"
+PUBLIC_NAV_ICON="/var/www/seat/public/img/potchven-navbar-icon.svg"
 
 rollback() {
   rc=$?
@@ -48,7 +50,7 @@ git fetch origin
 [[ "$(git branch --show-current)" == "finances/seat-integration" ]] || git switch finances/seat-integration
 git pull --ff-only origin finances/seat-integration
 
-for rel in "${FILES[@]}" "$ASSET_REL"; do
+for rel in "${FILES[@]}" "$ASSET_REL" "$NAV_ICON_REL"; do
   [[ -f "$REPO/custom/seat-web/$rel" ]] || { echo "STOP: required source file missing: $REPO/custom/seat-web/$rel"; exit 1; }
 done
 [[ -d "$WEB" && -f "$WEB/$ROUTES" && -f "$WEB/$SIDEBAR" && -f "$WEB/$LAYOUT" ]] || { echo "STOP: expected SeAT source files missing."; exit 1; }
@@ -105,17 +107,22 @@ sidebar = sidebar_path.read_text()
 marker = "route('seatcore::potchven-finances.index')"
 if marker not in sidebar:
     raise SystemExit("STOP: Potchven Finances sidebar entry is missing; refusing to insert into an unknown custom menu layout.")
-triangle = '<svg class="nav-icon" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" style="vertical-align:-0.12em"><path d="M12 2.4 21.1 19H2.9L12 2.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 2.4V12M12 12 5.1 16.2M12 12l6.9 4.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+triangle_marker = '<svg class="nav-icon" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" style="vertical-align:-0.12em"><path d="M12 2.4 21.1 19H2.9L12 2.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 2.4V12M12 12 5.1 16.2M12 12l6.9 4.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+custom_icon = '<img class="nav-icon" src="{{ asset(\'img/potchven-navbar-icon.svg\') }}" alt="" aria-hidden="true" style="width:1.25em;height:1.25em;object-fit:contain;vertical-align:-0.28em;border-radius:0.22em">'
 lines = sidebar.splitlines(keepends=True)
 changed = False
 for i, line in enumerate(lines):
     if marker in line:
-        if triangle in line:
-            print("Triglavian triangle sidebar icon already present.")
-        elif '<i class="nav-icon fas fa-coins"></i>' in line:
-            lines[i] = line.replace('<i class="nav-icon fas fa-coins"></i>', triangle, 1)
+        if "potchven-navbar-icon.svg" in line:
+            print("Custom Potchven navbar icon already present.")
+        elif triangle_marker in line:
+            lines[i] = line.replace(triangle_marker, custom_icon, 1)
             changed = True
-            print("Replaced Potchven Finances coin icon with Triglavian triangle.")
+            print("Replaced inline Potchven triangle with custom navbar icon.")
+        elif '<i class="nav-icon fas fa-coins"></i>' in line:
+            lines[i] = line.replace('<i class="nav-icon fas fa-coins"></i>', custom_icon, 1)
+            changed = True
+            print("Replaced Potchven coin icon with custom navbar icon.")
         else:
             raise SystemExit("STOP: found Potchven Finances menu entry, but its icon differs from the expected coin icon; refusing to alter it.")
         break
@@ -148,9 +155,11 @@ done
 # Keep the package asset and also publish it to Laravel's actual Apache
 # document root. The latter is not a bind mount, so repeat this on every deploy.
 sudo install -D -m 0644 "$REPO/custom/seat-web/$ASSET_REL" "$WEB/$ASSET_REL"
+sudo install -D -m 0644 "$REPO/custom/seat-web/$NAV_ICON_REL" "$WEB/$NAV_ICON_REL"
 sudo docker exec "$CONTAINER" mkdir -p /var/www/seat/public/img
 sudo docker cp "$REPO/custom/seat-web/$ASSET_REL" "$CONTAINER:$PUBLIC_BANNER"
-echo "Installed finance banner in package public directory and Laravel document root."
+sudo docker cp "$REPO/custom/seat-web/$NAV_ICON_REL" "$CONTAINER:$PUBLIC_NAV_ICON"
+echo "Installed finance banner and custom Potchven navbar icon."
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
