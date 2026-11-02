@@ -93,6 +93,22 @@
 </style>
 
 <div class="trig-finance">
+  <section class="tf-cycle">
+    <div class="tf-cycle-copy">
+      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
+      <div class="tf-cycle-title">Financial reporting period</div>
+      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
+    </div>
+    <div class="tf-cycle-count">
+      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
+      <span class="tf-cycle-unit">DAYS REMAINING</span>
+    </div>
+    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
+      @csrf
+      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
+    </form>
+  </section>
+
   <section class="tf-hero">
     <div style="position:relative;z-index:1">
       <div class="tf-kicker">Triglavian Consortium · Pochven Operations</div>
@@ -135,21 +151,7 @@
     @endforeach
   </div>
 
-  <section class="tf-cycle">
-    <div class="tf-cycle-copy">
-      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
-      <div class="tf-cycle-title">Financial reporting period</div>
-      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
-    </div>
-    <div class="tf-cycle-count">
-      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
-      <span class="tf-cycle-unit">DAYS REMAINING</span>
-    </div>
-    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
-      @csrf
-      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
-    </form>
-  </section>
+
 
   <section class="tf-panel">
     <div class="tf-panel-head"><h3>SRP transfers & operational controls</h3></div>
