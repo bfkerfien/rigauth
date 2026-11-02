@@ -35,6 +35,11 @@ rollback() {
     elif sudo test -f "$BACKUP/laravel-public-banner.__MISSING"; then
       sudo docker exec "$CONTAINER" rm -f "$PUBLIC_BANNER" >/dev/null 2>&1 || true
     fi
+    if sudo test -f "$BACKUP/laravel-public-navbar-icon.svg"; then
+      sudo docker cp "$BACKUP/laravel-public-navbar-icon.svg" "$CONTAINER:$PUBLIC_NAV_ICON" >/dev/null 2>&1 || true
+    elif sudo test -f "$BACKUP/laravel-public-navbar-icon.__MISSING"; then
+      sudo docker exec "$CONTAINER" rm -f "$PUBLIC_NAV_ICON" >/dev/null 2>&1 || true
+    fi
     sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear >/dev/null 2>&1 || true
     sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear >/dev/null 2>&1 || true
     echo "Backup retained at $BACKUP"
@@ -75,6 +80,11 @@ if sudo docker exec "$CONTAINER" test -f "$PUBLIC_BANNER"; then
   sudo docker cp "$CONTAINER:$PUBLIC_BANNER" "$BACKUP/laravel-public-banner.jpg"
 else
   sudo touch "$BACKUP/laravel-public-banner.__MISSING"
+fi
+if sudo docker exec "$CONTAINER" test -f "$PUBLIC_NAV_ICON"; then
+  sudo docker cp "$CONTAINER:$PUBLIC_NAV_ICON" "$BACKUP/laravel-public-navbar-icon.svg"
+else
+  sudo touch "$BACKUP/laravel-public-navbar-icon.__MISSING"
 fi
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
