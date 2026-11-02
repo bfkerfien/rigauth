@@ -164,6 +164,26 @@
     .trig-finance .tf-hero { height:118px; min-height:0; padding:0; }
   }
 
+
+  /* Potchven page: dark charcoal SeAT top navigation with a restrained red edge. */
+  body:has(.trig-finance) .main-header,
+  body:has(.trig-finance) .main-header.navbar,
+  body:has(.trig-finance) .main-header .navbar {
+    background:linear-gradient(180deg,#292b2f 0%,#202226 100%) !important;
+    background-color:#242629 !important;
+    border-bottom:2px solid #a8322d !important;
+    box-shadow:0 2px 12px rgba(0,0,0,.35),0 1px 8px rgba(190,45,38,.16) !important;
+  }
+  body:has(.trig-finance) .main-header .navbar-nav > li > a,
+  body:has(.trig-finance) .main-header .navbar-custom-menu > .navbar-nav > li > a {
+    color:#e5e1dc !important;
+  }
+  body:has(.trig-finance) .main-header .navbar-nav > li > a:hover,
+  body:has(.trig-finance) .main-header .navbar-custom-menu > .navbar-nav > li > a:hover {
+    color:#fff !important;
+    background:rgba(255,255,255,.07) !important;
+  }
+
 </style>
 
 <div class="trig-finance">
