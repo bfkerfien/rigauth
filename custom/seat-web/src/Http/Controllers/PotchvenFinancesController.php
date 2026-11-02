@@ -112,13 +112,62 @@ class PotchvenFinancesController extends Controller
             }
             $pendingSrp = (float) $pendingQuery->sum('o.amount_isk');
         }
-        $assetValue = 0;
-        if ($has('fin_asset_snapshots')) {
-            $assetValue = (float) $db->table('fin_asset_snapshots as s')->joinSub(
-                $db->table('fin_asset_snapshots')->select('owner_id', DB::raw('MAX(captured_at) as captured_at'))->groupBy('owner_id'),
-                'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
-            )->sum('s.total_estimated_value_isk');
+        // Dashboard asset totals are sourced from the native Asset Manager tables.
+        // Asset Manager owns inventory sync and Jita sell-price freshness; do not use
+        // the legacy finance asset snapshots for these two portfolio indicators.
+        $personalPortfolioValue = 0.0;
+        $corporationHangarValue = 0.0;
+        $personalWalletValue = 0.0;
+        $assetManagerAvailable = $has('assetmgr_assets') && $has('assetmgr_prices');
+        $jitaRegionId = 10000002;
+        $priceCutoff = now()->subSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600));
+
+        if ($assetManagerAvailable && $has('fin_owners')) {
+            $characterIds = $db->table('fin_owners')
+                ->where('owner_type', 'character')->where('is_active', 1)
+                ->pluck('eve_id')->map(fn ($id) => (int) $id)->filter()->values()->all();
+            $corporationId = (int) ($db->table('fin_owners')
+                ->where('owner_type', 'corporation')->where('is_active', 1)->value('eve_id') ?? 0);
+
+            $jitaSellPrices = $db->table('assetmgr_prices')
+                ->select(['type_id', 'unit_price'])
+                ->where('region_id', $jitaRegionId)
+                ->where('source', 'esi-orders')->where('price_basis', 'sell')
+                ->whereNotNull('unit_price')
+                ->where(function ($query) use ($priceCutoff) {
+                    $query->where('source_expires_at', '>', now())
+                        ->orWhere(function ($fallback) use ($priceCutoff) {
+                            $fallback->whereNull('source_expires_at')->where('fetched_at', '>=', $priceCutoff);
+                        });
+                });
+
+            if (count($characterIds)) {
+                $personalPortfolioValue = (float) $db->table('assetmgr_assets as a')
+                    ->joinSub($jitaSellPrices, 'p', fn ($join) => $join->on('p.type_id', '=', 'a.type_id'))
+                    ->where('a.owner_kind', 'character')->whereIn('a.owner_id', $characterIds)
+                    ->sum(DB::raw('a.quantity * p.unit_price'));
+
+                if ($has('fin_wallet_snapshots')) {
+                    $personalWalletValue = (float) $db->table('fin_wallet_snapshots as s')
+                        ->joinSub(
+                            $db->table('fin_wallet_snapshots')->select('owner_id', DB::raw('MAX(captured_at) as captured_at'))->groupBy('owner_id'),
+                            'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
+                        )
+                        ->join('fin_owners as o', 'o.id', '=', 's.owner_id')
+                        ->where('o.owner_type', 'character')->where('o.is_active', 1)
+                        ->sum('s.balance_isk');
+                }
+            }
+
+            if ($corporationId > 0) {
+                $corporationHangarValue = (float) $db->table('assetmgr_assets as a')
+                    ->joinSub($jitaSellPrices, 'p', fn ($join) => $join->on('p.type_id', '=', 'a.type_id'))
+                    ->where('a.owner_kind', 'corporation')->where('a.owner_id', $corporationId)
+                    ->whereIn('a.location_flag', ['CorpSAG2', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6'])
+                    ->sum(DB::raw('a.quantity * p.unit_price'));
+            }
         }
+        $personalNetValue = $personalPortfolioValue + $personalWalletValue - 90000000;
         $corpWallet = 0;
         if ($has('fin_wallet_snapshots') && $has('fin_owners')) {
             $corpWallet = (float) $db->table('fin_wallet_snapshots as s')->joinSub(
@@ -155,7 +204,7 @@ class PotchvenFinancesController extends Controller
         $siteRevenue = $sites * 27000000;
 
         return view('web::potchven-finances.index', compact(
-            'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'assetValue',
+            'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'personalNetValue', 'corporationHangarValue', 'assetManagerAvailable',
             'corpWallet', 'srpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart'
         ));
     }
