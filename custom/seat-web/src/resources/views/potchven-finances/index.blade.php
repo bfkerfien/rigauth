@@ -70,6 +70,13 @@
   .trig-finance .tf-panel-head { display:flex; align-items:center; gap:10px; padding:13px 17px; background:linear-gradient(90deg,rgba(216,75,67,.13),transparent 75%); border-bottom:1px solid var(--tf-line); }
   .trig-finance .tf-panel-head:before { content:""; width:3px; height:17px; background:var(--tf-red); }
   .trig-finance .tf-panel-head h3 { color:#eee7dc; text-transform:uppercase; letter-spacing:.1em; font-size:12px; font-weight:700; margin:0; }
+  .trig-finance .tf-collapsible { overflow:hidden; }
+  .trig-finance .tf-collapsible > summary { list-style:none; cursor:pointer; justify-content:space-between; user-select:none; }
+  .trig-finance .tf-collapsible > summary::-webkit-details-marker { display:none; }
+  .trig-finance .tf-collapsible > summary h3 { flex:1; }
+  .trig-finance .tf-chevron { color:var(--tf-gold); transition:transform .18s ease; }
+  .trig-finance .tf-collapsible[open] > summary .tf-chevron { transform:rotate(180deg); }
+
   .trig-finance .tf-panel-body { padding:16px 17px; }
   .trig-finance .tf-panel .table { color:#ddd7ce; margin:0; }
   .trig-finance .tf-panel .table thead th { color:var(--tf-gold); background:#20262a; border-top:0; border-bottom:1px solid var(--tf-line); text-transform:uppercase; letter-spacing:.07em; font-size:10px; }
@@ -93,22 +100,6 @@
 </style>
 
 <div class="trig-finance">
-  <section class="tf-cycle">
-    <div class="tf-cycle-copy">
-      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
-      <div class="tf-cycle-title">Financial reporting period</div>
-      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
-    </div>
-    <div class="tf-cycle-count">
-      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
-      <span class="tf-cycle-unit">DAYS REMAINING</span>
-    </div>
-    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
-      @csrf
-      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
-    </form>
-  </section>
-
   <section class="tf-hero">
     <div style="position:relative;z-index:1">
       <div class="tf-kicker">Triglavian Consortium · Pochven Operations</div>
@@ -127,6 +118,22 @@
         <path d="M7 145H173M24 18l11 6M145 24l11-6" stroke="#c9a470" opacity=".55"/>
       </svg>
     </div>
+  </section>
+
+  <section class="tf-cycle">
+    <div class="tf-cycle-copy">
+      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
+      <div class="tf-cycle-title">Financial reporting period</div>
+      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
+    </div>
+    <div class="tf-cycle-count">
+      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
+      <span class="tf-cycle-unit">DAYS REMAINING</span>
+    </div>
+    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset the reporting cycle to 180 days and start a new financial period? Historical wallet and site records will be preserved; outstanding SRP obligations remain payable.')">
+      @csrf
+      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset to 180 Days</button>
+    </form>
   </section>
 
   <div class="row">
@@ -193,8 +200,9 @@
     The Sites This Period and Site Revenue metrics use corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3) across all stations, divided by 60. Hangar Divisions 1 and 2 and all other divisions are excluded. The recent site events below separately reconcile corporation reward payouts: three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group, while incomplete groups are flagged for review and the unpaid portion of the expected 27,000,000 ISK is listed as an SRP transfer obligation. Run the finance sync to refresh both asset and payout data.
   </div>
 
-  <section class="tf-panel">
-    <div class="tf-panel-head"><h3>Recent wallet entries</h3></div>
+  <details class="tf-panel tf-collapsible">
+    <summary class="tf-panel-head"><h3>Recent wallet entries</h3><i class="fas fa-chevron-down tf-chevron"></i></summary>
+    <div class="tf-panel-body">
     <div class="table-responsive"><table class="table table-sm table-striped">
       <thead><tr><th>Date</th><th>Owner</th><th>Reference</th><th>Description</th><th class="text-right">Amount (ISK)</th><th>Operating expense</th></tr></thead><tbody>
       @forelse($entries as $entry)
@@ -202,10 +210,12 @@
       @empty<tr><td colspan="6" class="text-muted">No wallet entries imported.</td></tr>@endforelse
       </tbody>
     </table></div>
-  </section>
+    </div>
+  </details>
 
-  <section class="tf-panel">
-    <div class="tf-panel-head"><h3>Recent site events</h3></div>
+  <details class="tf-panel tf-collapsible">
+    <summary class="tf-panel-head"><h3>Recent site events</h3><i class="fas fa-chevron-down tf-chevron"></i></summary>
+    <div class="tf-panel-body">
     <div class="table-responsive"><table class="table table-sm table-striped">
       <thead><tr><th>Date</th><th>Status</th><th>Payout count</th><th>Total payouts</th><th>Revenue credit</th><th>Notes</th></tr></thead><tbody>
       @forelse($siteEvents as $event)
@@ -213,11 +223,8 @@
       @empty<tr><td colspan="6" class="text-muted">No site events imported.</td></tr>@endforelse
       </tbody>
     </table></div>
-  </section>
-
-  <section class="tf-panel">
-    <div class="tf-panel-head"><h3>Additional financial indicators</h3></div>
-    <div class="tf-panel-body">
+    </div>
+  </details> <div class="tf-panel-body">
       <div class="row">
         @foreach([
           ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
