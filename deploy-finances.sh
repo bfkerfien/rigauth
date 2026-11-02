@@ -12,6 +12,8 @@ ASSET_REL="public/img/potchven-triglavian-gate-banner.jpg"
 LAYOUT="src/resources/views/layouts/app.blade.php"
 ROUTES="src/Http/routes.php"
 SIDEBAR="src/resources/views/includes/sidebar.blade.php"
+CONTAINER="seat-docker-front-1"
+PUBLIC_BANNER="/var/www/seat/public/img/potchven-triglavian-gate-banner.jpg"
 
 rollback() {
   rc=$?
@@ -26,6 +28,11 @@ rollback() {
         sudo cp -a "$BACKUP/$rel" "$WEB/$rel"
       fi
     done
+    if sudo test -f "$BACKUP/laravel-public-banner.jpg"; then
+      sudo docker cp "$BACKUP/laravel-public-banner.jpg" "$CONTAINER:$PUBLIC_BANNER" >/dev/null 2>&1 || true
+    elif sudo test -f "$BACKUP/laravel-public-banner.__MISSING"; then
+      sudo docker exec "$CONTAINER" rm -f "$PUBLIC_BANNER" >/dev/null 2>&1 || true
+    fi
     sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear >/dev/null 2>&1 || true
     sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear >/dev/null 2>&1 || true
     echo "Backup retained at $BACKUP"
@@ -47,7 +54,7 @@ done
 [[ -d "$WEB" && -f "$WEB/$ROUTES" && -f "$WEB/$SIDEBAR" && -f "$WEB/$LAYOUT" ]] || { echo "STOP: expected SeAT source files missing."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || { echo "STOP: SeAT front service is not running."; exit 1; }
 
-MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' seat-docker-front-1)"
+MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' "$CONTAINER")"
 if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \t]+|[ \t]+$/, "", src); if (src != "" && index(web, src) == 1) found=1 } END { exit(found ? 0 : 1) }'; then
   echo "STOP: running SeAT container has no bind mount covering $WEB; no changes made."; exit 1
 fi
@@ -62,6 +69,11 @@ for rel in "${FILES[@]}" "$ROUTES" "$SIDEBAR" "$LAYOUT"; do
     sudo touch "$BACKUP/$rel.__MISSING"
   fi
 done
+if sudo docker exec "$CONTAINER" test -f "$PUBLIC_BANNER"; then
+  sudo docker cp "$CONTAINER:$PUBLIC_BANNER" "$BACKUP/laravel-public-banner.jpg"
+else
+  sudo touch "$BACKUP/laravel-public-banner.__MISSING"
+fi
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
@@ -133,9 +145,13 @@ PY
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
 done
-# Publish the banner into the package public directory; asset() resolves this URL.
+# Keep the package asset and also publish it to Laravel's actual Apache
+# document root. The latter is not a bind mount, so repeat this on every deploy.
 sudo install -D -m 0644 "$REPO/custom/seat-web/$ASSET_REL" "$WEB/$ASSET_REL"
-echo "Installed finance banner: $WEB/$ASSET_REL"
+sudo docker exec "$CONTAINER" mkdir -p /var/www/seat/public/img
+sudo docker cp "$REPO/custom/seat-web/$ASSET_REL" "$CONTAINER:$PUBLIC_BANNER"
+sudo docker exec "$CONTAINER" chmod 0644 "$PUBLIC_BANNER"
+echo "Installed finance banner in package public directory and Laravel document root."
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
