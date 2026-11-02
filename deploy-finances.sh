@@ -3,19 +3,21 @@ set -Eeuo pipefail
 REPO="/opt/rigauth"
 SEAT_DIR="/opt/seat-docker"
 WEB="$SEAT_DIR/packages/eveseat/web"
-PATCH="$REPO/patches/0007-potchven-finances.patch"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-finances-backup-$STAMP"
 SUCCESS=0
 ROLLBACK_ENABLED=0
 FILES=("src/Http/Controllers/PotchvenFinancesController.php" "src/Http/Routes/PotchvenFinances.php" "src/resources/views/potchven-finances/index.blade.php")
+LAYOUT="src/resources/views/layouts/app.blade.php"
+ROUTES="src/Http/routes.php"
+SIDEBAR="src/resources/views/includes/sidebar.blade.php"
 
 rollback() {
   rc=$?
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: deployment did not complete; restoring backed-up files."
-    for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/resources/views/layouts/app.blade.php"; do
+    for rel in "${FILES[@]}" "$ROUTES" "$SIDEBAR" "$LAYOUT"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -41,7 +43,7 @@ git pull --ff-only origin finances/seat-integration
 for rel in "${FILES[@]}"; do
   [[ -f "$REPO/custom/seat-web/$rel" ]] || { echo "STOP: required source file missing: $REPO/custom/seat-web/$rel"; exit 1; }
 done
-[[ -f "$PATCH" && -d "$WEB" && -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || { echo "STOP: patch or expected SeAT source files missing."; exit 1; }
+[[ -d "$WEB" && -f "$WEB/$ROUTES" && -f "$WEB/$SIDEBAR" && -f "$WEB/$LAYOUT" ]] || { echo "STOP: expected SeAT source files missing."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || { echo "STOP: SeAT front service is not running."; exit 1; }
 
 MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' seat-docker-front-1)"
@@ -50,7 +52,7 @@ if ! printf '%s\\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{ src=$1; gsub(/^[ \\t
 fi
 
 sudo mkdir -p "$BACKUP"
-for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "src/resources/views/layouts/app.blade.php"; do
+for rel in "${FILES[@]}" "$ROUTES" "$SIDEBAR" "$LAYOUT"; do
   if sudo test -f "$WEB/$rel"; then
     sudo mkdir -p "$BACKUP/$(dirname "$rel")"
     sudo cp -a "$WEB/$rel" "$BACKUP/$rel"
@@ -62,14 +64,70 @@ done
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
-if sudo git -C "$WEB" apply --recount --reverse --check "$PATCH" >/dev/null 2>&1; then
-  echo "Finance route/sidebar patch already applied."
-elif sudo git -C "$WEB" apply --recount --check "$PATCH"; then
-  sudo git -C "$WEB" apply --recount "$PATCH"
-else
-  echo "STOP: patch does not apply cleanly."
-  exit 1
-fi
+# Apply only the three small integration changes. The live SeAT files also
+# contain other Triglavian customizations, so do not apply a broad git patch.
+sudo python3 - "$WEB" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+web = Path(sys.argv[1])
+routes_path = web / "src/Http/routes.php"
+sidebar_path = web / "src/resources/views/includes/sidebar.blade.php"
+layout_path = web / "src/resources/views/layouts/app.blade.php"
+
+routes = routes_path.read_text()
+route_include = "include __DIR__ . '/Routes/PotchvenFinances.php';"
+if route_include not in routes:
+    market_include = "include __DIR__ . '/Routes/Market.php';"
+    if market_include not in routes:
+        raise SystemExit("STOP: could not find the native Market route include; refusing to guess where to add Potchven Finances.")
+    routes = routes.replace(market_include, market_include + "\\n        " + route_include, 1)
+    routes_path.write_text(routes)
+    print("Added Potchven Finances route include.")
+else:
+    print("Potchven Finances route include already present.")
+
+sidebar = sidebar_path.read_text()
+marker = "route('seatcore::potchven-finances.index')"
+if marker not in sidebar:
+    raise SystemExit("STOP: Potchven Finances sidebar entry is missing; refusing to insert into an unknown custom menu layout.")
+triangle = '<svg class="nav-icon" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" style="vertical-align:-0.12em"><path d="M12 2.4 21.1 19H2.9L12 2.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 2.4V12M12 12 5.1 16.2M12 12l6.9 4.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+lines = sidebar.splitlines(keepends=True)
+changed = False
+for i, line in enumerate(lines):
+    if marker in line:
+        if triangle in line:
+            print("Triglavian triangle sidebar icon already present.")
+        elif '<i class="nav-icon fas fa-coins"></i>' in line:
+            lines[i] = line.replace('<i class="nav-icon fas fa-coins"></i>', triangle, 1)
+            changed = True
+            print("Replaced Potchven Finances coin icon with Triglavian triangle.")
+        else:
+            raise SystemExit("STOP: found Potchven Finances menu entry, but its icon differs from the expected coin icon; refusing to alter it.")
+        break
+if changed:
+    sidebar_path.write_text("".join(lines))
+
+layout = layout_path.read_text()
+body_pattern = re.compile(r'(<body\\s+class=")([^"]*\\bsidebar-mini\\b)([^"]*)(")')
+match = body_pattern.search(layout)
+if not match:
+    if 'layout-fixed' in layout and '<body' in layout:
+        print("Fixed layout class appears to be present already.")
+    else:
+        raise SystemExit("STOP: could not identify the SeAT body class; refusing to rewrite the layout.")
+else:
+    classes = (match.group(2) + match.group(3)).split()
+    if "layout-fixed" not in classes:
+        classes.insert(classes.index("sidebar-mini") + 1, "layout-fixed")
+        replacement = match.group(1) + " ".join(classes) + match.group(4)
+        layout = layout[:match.start()] + replacement + layout[match.end():]
+        layout_path.write_text(layout)
+        print("Enabled fixed sidebar layout.")
+    else:
+        print("Fixed sidebar layout already enabled.")
+PY
 
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
@@ -77,9 +135,9 @@ done
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
-ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=potchven-finances)"
-printf '%s\\n' "$ROUTES"
-printf '%s\\n' "$ROUTES" | grep -q 'potchven-finances' || { echo "ERROR: finance routes not registered."; exit 1; }
+ROUTE_OUTPUT="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=potchven-finances)"
+printf '%s\\n' "$ROUTE_OUTPUT"
+printf '%s\\n' "$ROUTE_OUTPUT" | grep -q 'potchven-finances' || { echo "ERROR: finance routes not registered."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
