@@ -43,7 +43,7 @@
     margin-bottom:22px; border:1px solid rgba(216,75,67,.7); border-radius:5px;
     background:#08090d; box-shadow:0 12px 32px rgba(0,0,0,.3),0 0 24px rgba(216,75,67,.12);
   }
-  .trig-finance .tf-hero img { display:block; width:100%; height:100%; object-fit:cover; object-position:center 48%; }
+  .trig-finance .tf-hero > svg { display:block; width:100%; height:100%; }
   .trig-finance .tf-hero:after {
     content: ""; position:absolute; inset:0; pointer-events:none; opacity:.2;
     background-image: linear-gradient(30deg, transparent 49.6%, rgba(201,164,112,.35) 50%, transparent 50.4%),
@@ -98,7 +98,59 @@
 
 <div class="trig-finance">
   <section class="tf-hero" aria-label="Triglavian gate in deep space">
-    <img src="{{ asset('img/potchven-triglavian-gate.svg') }}" alt="A monumental Triglavian gate with a glowing red triangular core suspended in deep space" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 240" role="img" aria-labelledby="title desc">
+    <title id="title">Triglavian gate in deep space</title>
+    <desc id="desc">A monumental angular gate with a luminous red triangular core, orbital rings, distant planets and a red nebula.</desc>
+    <defs>
+     <radialGradient id="space"><stop stop-color="#651b20"/><stop offset=".48" stop-color="#210e18"/><stop offset="1" stop-color="#05070c"/></radialGradient>
+     <radialGradient id="nebula"><stop stop-color="#ff6544" stop-opacity=".82"/><stop offset=".28" stop-color="#a51c28" stop-opacity=".48"/><stop offset="1" stop-color="#220c18" stop-opacity="0"/></radialGradient>
+     <linearGradient id="metal" x2="0" y2="1"><stop stop-color="#52505a"/><stop offset=".22" stop-color="#151820"/><stop offset=".55" stop-color="#080b12"/><stop offset=".8" stop-color="#3a171d"/><stop offset="1" stop-color="#08090e"/></linearGradient>
+     <linearGradient id="red" x2="0" y2="1"><stop stop-color="#ffb08a"/><stop offset=".35" stop-color="#ff321f"/><stop offset="1" stop-color="#8c0915"/></linearGradient>
+     <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+     <filter id="soft"><feGaussianBlur stdDeviation="18"/></filter>
+     <pattern id="stars" width="137" height="91" patternUnits="userSpaceOnUse"><circle cx="9" cy="13" r="1" fill="#fff"/><circle cx="72" cy="38" r=".8" fill="#ffb8a0"/><circle cx="119" cy="77" r="1" fill="#fff"/><circle cx="42" cy="82" r=".6" fill="#fff"/></pattern>
+    </defs>
+    <rect width="1600" height="240" fill="url(#space)"/>
+    <ellipse cx="780" cy="124" rx="690" ry="190" fill="url(#nebula)"/>
+    <ellipse cx="280" cy="110" rx="300" ry="150" fill="url(#nebula)" opacity=".5"/>
+    <ellipse cx="1330" cy="85" rx="250" ry="145" fill="url(#nebula)" opacity=".55"/>
+    <rect width="1600" height="240" fill="url(#stars)"/>
+    <g opacity=".72" fill="none" stroke="#e83b2e"><path d="M0 198Q340 22 800 28T1600 198" stroke-width="1"/><path d="M0 213Q380 45 800 48T1600 213" opacity=".45"/></g>
+    <!-- distant planets -->
+    <circle cx="180" cy="55" r="20" fill="#17151c" stroke="#9d3c38" stroke-width="2"/><path d="M160 56q20-16 40-2" fill="none" stroke="#e56b50" opacity=".55"/>
+    <circle cx="1450" cy="76" r="72" fill="#17121b" stroke="#9b3435" stroke-width="2"/><path d="M1392 35q62-36 118 8M1380 78q65-28 139 7" fill="none" stroke="#d34b48" opacity=".45" stroke-width="3"/>
+    <!-- gate orbital rings -->
+    <g transform="translate(800 120)" fill="none">
+     <ellipse rx="240" ry="182" stroke="#080a10" stroke-width="32"/>
+     <ellipse rx="240" ry="182" stroke="#8b2528" stroke-width="5"/>
+     <ellipse rx="218" ry="162" stroke="#ff4a31" stroke-width="2" opacity=".85" filter="url(#glow)"/>
+     <ellipse rx="276" ry="204" stroke="#27202a" stroke-width="13"/>
+     <path d="M-275 0h550M0-208v416" stroke="#f44a36" stroke-width="2" opacity=".6"/>
+    </g>
+    <!-- lateral gate arms -->
+    <g fill="url(#metal)" stroke="#81272b" stroke-width="2">
+     <path d="M0 182 430 80 510 92 270 153 470 145 520 163 0 220Z"/>
+     <path d="M1600 182 1170 80 1090 92 1330 153 1130 145 1080 163 1600 220Z"/>
+     <path d="M420 0 590 0 520 72 300 118 350 82Z"/>
+     <path d="M1180 0 1010 0 1080 72 1300 118 1250 82Z"/>
+     <path d="M700 0 800 0 755 78 700 60Z"/><path d="M900 0 800 0 845 78 900 60Z"/>
+    </g>
+    <g fill="none" stroke="#ff432c" stroke-width="3" filter="url(#glow)">
+     <path d="M35 202 458 99M1565 202 1142 99M376 79 510 51M1224 79 1090 51"/>
+     <path d="M0 226 520 168M1600 226 1080 168" opacity=".8"/>
+    </g>
+    <!-- central angular gate and suspended core -->
+    <g transform="translate(800 120)">
+     <path d="M0-112 154-28 126 10 0-58-126 10-154-28Z" fill="url(#metal)" stroke="#b53a32" stroke-width="3"/>
+     <path d="M-120-12 0 62 120-12 94 45 0 111-94 45Z" fill="#090b12" stroke="#ed4935" stroke-width="4"/>
+     <path d="M0-70 82-20 0 125-82-20Z" fill="#100b13" stroke="#ff563b" stroke-width="4"/>
+     <path d="M0-50 57-16 0 91-57-16Z" fill="#f02b1d" opacity=".3" filter="url(#glow)"/>
+     <path d="M0-50 57-16 0 91-57-16Z" fill="none" stroke="#ff9b70" stroke-width="3" filter="url(#glow)"/>
+     <path d="M0-112V125M-154-28 0 62 154-28" fill="none" stroke="#ff553b" stroke-width="2"/>
+     <circle r="8" fill="#fff0d2" filter="url(#glow)"/>
+    </g>
+    <rect x="4" y="4" width="1592" height="232" rx="7" fill="none" stroke="#d43b32" stroke-width="2" opacity=".85"/>
+    </svg>
   </section>
 
   <section class="tf-cycle">
