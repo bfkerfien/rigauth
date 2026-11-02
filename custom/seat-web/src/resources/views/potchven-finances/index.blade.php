@@ -1,9 +1,5 @@
 @extends('web::layouts.grids.12')
 
-@section('title', 'Potchven Finances')
-@section('page_header', 'Potchven Finances')
-@section('page_description', 'Potchven operations financial dashboard')
-
 @section('full')
 <style>
   body:has(.trig-finance), body:has(.trig-finance) .content-wrapper,
