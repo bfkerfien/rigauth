@@ -39,14 +39,11 @@
   .trig-finance .tf-cycle-number { color:#f2d4a4; font-size:clamp(42px,6vw,66px); line-height:.95; font-weight:800; letter-spacing:-.05em; text-shadow:0 0 20px rgba(201,164,112,.18); font-variant-numeric:tabular-nums; }
   .trig-finance .tf-cycle-unit { color:var(--tf-gold); font-size:10px; font-weight:700; letter-spacing:.14em; }
   .trig-finance .tf-hero {
-    position: relative; overflow: hidden; display: flex; align-items: center;
-    justify-content: space-between; min-height: 190px; padding: 30px 34px;
-    margin-bottom: 22px; border: 1px solid rgba(216,75,67,.55);
-    border-left: 5px solid var(--tf-red); border-radius: 5px;
-    background: radial-gradient(ellipse at 78% 45%, rgba(216,75,67,.20), transparent 42%),
-      linear-gradient(115deg, #111619 0%, #1b2024 58%, #291b1b 100%);
-    box-shadow: 0 12px 32px rgba(0,0,0,.22), inset 0 0 42px rgba(201,164,112,.035);
+    position:relative; overflow:hidden; height:clamp(118px,13vw,176px); padding:0;
+    margin-bottom:22px; border:1px solid rgba(216,75,67,.7); border-radius:5px;
+    background:#08090d; box-shadow:0 12px 32px rgba(0,0,0,.3),0 0 24px rgba(216,75,67,.12);
   }
+  .trig-finance .tf-hero img { display:block; width:100%; height:100%; object-fit:cover; object-position:center 48%; }
   .trig-finance .tf-hero:after {
     content: ""; position:absolute; inset:0; pointer-events:none; opacity:.2;
     background-image: linear-gradient(30deg, transparent 49.6%, rgba(201,164,112,.35) 50%, transparent 50.4%),
@@ -100,24 +97,8 @@
 </style>
 
 <div class="trig-finance">
-  <section class="tf-hero">
-    <div style="position:relative;z-index:1">
-      <div class="tf-kicker">Triglavian Consortium · Pochven Operations</div>
-      <h2>Financial Command</h2>
-      <p>Operational revenue, wallet expenditure, site reconciliation and SRP obligations across the Consortium.</p>
-      <div style="margin-top:15px"><span class="tf-pill">Secure operations ledger</span></div>
-    </div>
-    <div class="tf-sigil" aria-hidden="true">
-      <svg viewBox="0 0 180 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M90 8 164 137H16L90 8Z" stroke="#d84b43" stroke-width="2.2"/>
-        <path d="M90 27 145 125H35L90 27Z" stroke="#c9a470" stroke-width="1.2"/>
-        <path d="M90 8V137M16 137 90 91 164 137M47 82H133" stroke="#d84b43" stroke-width="1.2" opacity=".8"/>
-        <path d="m90 47 27 48H63l27-48Z" stroke="#e4c18d" stroke-width="1.6"/>
-        <circle cx="90" cy="91" r="5" fill="#d84b43"/>
-        <circle cx="90" cy="91" r="13" stroke="#c9a470" opacity=".8"/>
-        <path d="M7 145H173M24 18l11 6M145 24l11-6" stroke="#c9a470" opacity=".55"/>
-      </svg>
-    </div>
+  <section class="tf-hero" aria-label="Triglavian gate in deep space">
+    <img src="{{ asset('img/potchven-triglavian-gate.svg') }}" alt="A monumental Triglavian gate with a glowing red triangular core suspended in deep space" />
   </section>
 
   <section class="tf-cycle">
