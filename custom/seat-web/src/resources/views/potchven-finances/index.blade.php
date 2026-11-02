@@ -224,7 +224,11 @@
       </tbody>
     </table></div>
     </div>
-  </details> <div class="tf-panel-body">
+  </details>
+
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>Additional Financial Indicators</h3></div>
+    <div class="tf-panel-body">
       <div class="row">
         @foreach([
           ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
