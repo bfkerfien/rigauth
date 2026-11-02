@@ -150,7 +150,6 @@ done
 sudo install -D -m 0644 "$REPO/custom/seat-web/$ASSET_REL" "$WEB/$ASSET_REL"
 sudo docker exec "$CONTAINER" mkdir -p /var/www/seat/public/img
 sudo docker cp "$REPO/custom/seat-web/$ASSET_REL" "$CONTAINER:$PUBLIC_BANNER"
-sudo docker exec "$CONTAINER" chmod 0644 "$PUBLIC_BANNER"
 echo "Installed finance banner in package public directory and Laravel document root."
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
