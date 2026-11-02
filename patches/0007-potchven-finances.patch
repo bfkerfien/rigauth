@@ -26,3 +26,13 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 +        @endif
 +
          @foreach($menu as $entry)
+
+diff --git a/src/resources/views/layouts/app.blade.php b/src/resources/views/layouts/app.blade.php
+--- a/src/resources/views/layouts/app.blade.php
++++ b/src/resources/views/layouts/app.blade.php
+@@ -22,7 +22,7 @@
+-  <body class="hold-transition text-sm sidebar-mini {{ setting('sidebar') }}">
++  <body class="hold-transition text-sm sidebar-mini layout-fixed {{ setting('sidebar') }}">
+ 
+   <div class="wrapper">
+ 
