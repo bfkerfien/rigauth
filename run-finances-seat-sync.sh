@@ -1,37 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-APP_CONTAINER="${APP_CONTAINER:-potchven-finances-app-1}"
-SEAT_FRONT_CONTAINER="${SEAT_FRONT_CONTAINER:-seat-docker-front-1}"
-SEAT_DB_CONTAINER="${SEAT_DB_CONTAINER:-seat-docker-mariadb-1}"
-SEAT_NETWORK="${SEAT_NETWORK:-seat-docker_seat-internal}"
+REPO="/opt/rigauth"
+RUNTIME="/opt/potchven-finances-sync-runtime"
+ENV_FILE="/etc/potchven-finances-seat-sync.env"
+IMAGE="node:22-bookworm-slim"
+NETWORK="seat-docker_seat-internal"
+DB_CONTAINER="seat-docker-mariadb-1"
+WORKER="$REPO/finance-sync/sync-finances-seat-db.js"
 
-command -v docker >/dev/null 2>&1 || { echo "ERROR: docker command not found."; exit 1; }
-docker inspect "$APP_CONTAINER" >/dev/null 2>&1 || { echo "ERROR: finance app container is not running."; exit 1; }
-docker inspect "$SEAT_FRONT_CONTAINER" >/dev/null 2>&1 || { echo "ERROR: SeAT front container is not running."; exit 1; }
+[[ -f "$ENV_FILE" ]] || { echo "ERROR: private sync environment is missing; run deploy-finances-seat-sync.sh"; exit 1; }
+[[ -f "$WORKER" ]] || { echo "ERROR: finance sync worker missing: $WORKER"; exit 1; }
+[[ -d "$RUNTIME/node_modules/mysql2" ]] || { echo "ERROR: mysql2 runtime dependency missing; run deploy-finances-seat-sync.sh"; exit 1; }
+docker inspect "$DB_CONTAINER" >/dev/null 2>&1 || { echo "ERROR: SeAT MariaDB container is not running"; exit 1; }
 
-DB_USER="$(docker exec "$SEAT_FRONT_CONTAINER" printenv DB_USERNAME)"
-DB_PASS="$(docker exec "$SEAT_FRONT_CONTAINER" printenv DB_PASSWORD)"
-DB_NAME="$(docker exec "$SEAT_FRONT_CONTAINER" printenv DB_DATABASE)"
-if [[ -z "$DB_USER" || -z "$DB_PASS" || -z "$DB_NAME" ]]; then
-  echo "ERROR: unable to read SeAT database settings; no sync performed."
-  exit 1
-fi
-
-docker network connect "$SEAT_NETWORK" "$APP_CONTAINER" >/dev/null 2>&1 || true
-
-# Always refresh the in-container worker from the deployed host copy.
-WORKER_SOURCE="/opt/potchven-finances/src/sync-finances-seat-db.js"
-[[ -f "$WORKER_SOURCE" ]] || { echo "ERROR: deployed sync worker missing at $WORKER_SOURCE"; exit 1; }
-docker cp "$WORKER_SOURCE" "$APP_CONTAINER:/app/src/sync-finances-seat-db.js" >/dev/null
-echo "Updated worker inside $APP_CONTAINER."
-
-exec docker exec -i \
-  -e FIN_DB_HOST="$SEAT_DB_CONTAINER" \
-  -e FIN_DB_PORT=3306 \
-  -e FIN_DB_USER="$DB_USER" \
-  -e FIN_DB_PASSWORD="$DB_PASS" \
-  -e FIN_DB_NAME="$DB_NAME" \
-  -e FIN_CORP_EVE_ID="${FIN_CORP_EVE_ID:-98843282}" \
-  -e FIN_CORP_WALLET_DIVISION="${FIN_CORP_WALLET_DIVISION:-1}" \
-  "$APP_CONTAINER" node /app/src/sync-finances-seat-db.js
+exec docker run --rm --network "$NETWORK" \
+  --env-file "$ENV_FILE" \
+  -e NODE_PATH=/runtime/node_modules \
+  -v "$WORKER:/app/sync-finances-seat-db.js:ro" \
+  -v "$RUNTIME:/runtime:ro" \
+  "$IMAGE" node /app/sync-finances-seat-db.js
