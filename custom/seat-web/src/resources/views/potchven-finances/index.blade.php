@@ -135,10 +135,6 @@
       ['Days since financial reset', number_format($daysElapsed).' days', 'fa-stopwatch'],
       ['Average sites per day', number_format($sites / $daysElapsed, 2), 'fa-chart-line'],
       ['Site revenue this period', number_format($siteRevenue, 0).' ISK', 'fa-coins'],
-      ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
-      ['Estimated profit this period', number_format($siteRevenue - $expenses, 0).' ISK', 'fa-balance-scale'],
-      ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK', 'fa-shield-alt'],
-      ['Estimated assets', number_format($assetValue, 0).' ISK', 'fa-cubes'],
       ['Corp Main Wallet · Division 3', number_format($corpWallet, 0).' ISK', 'fa-landmark'],
       ['SRP Wallet · Division 2', number_format($srpWallet, 0).' ISK', 'fa-wallet'],
     ] as $metric)
@@ -217,6 +213,27 @@
       @empty<tr><td colspan="6" class="text-muted">No site events imported.</td></tr>@endforelse
       </tbody>
     </table></div>
+  </section>
+
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>Additional financial indicators</h3></div>
+    <div class="tf-panel-body">
+      <div class="row">
+        @foreach([
+          ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
+          ['Estimated profit this period', number_format($siteRevenue - $expenses, 0).' ISK', 'fa-balance-scale'],
+          ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK', 'fa-shield-alt'],
+          ['Estimated assets', number_format($assetValue, 0).' ISK', 'fa-cubes'],
+        ] as $metric)
+          <div class="col-lg-3 col-md-4 col-sm-6">
+            <div class="tf-metric">
+              <div class="tf-metric-label"><i class="fas {{ $metric[2] }} mr-1"></i> {{ $metric[0] }}</div>
+              <div class="tf-metric-value">{{ $metric[1] }}</div>
+            </div>
+          </div>
+        @endforeach
+      </div>
+    </div>
   </section>
 </div>
 @endsection
