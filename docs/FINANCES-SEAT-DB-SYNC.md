@@ -29,3 +29,8 @@ Asset market valuation is not calculated by this worker. It also does not infer 
 ## Safety
 
 The worker never prints tokens or secrets. The runner does not print database credentials. Do not copy the `.env` file or token ciphertext into chat. The standalone finance app and its database should remain available until the native page and live sync are verified.
+
+
+## Potchven telemetry site counting
+
+The Sites This Period metric is calculated from the latest corporation asset snapshot using **type ID 89219 only**. Qualifying items must have ESI `location_flag = CorpSAG3` (Corporation Hangar Division 3). Hangar 3 items at any station count; there is no station-ID restriction and no OfficeFolder-parent special case. The dashboard calculates sites as the positive increase over the saved period baseline, divided by 60 (integer sites). CorpSAG1, CorpSAG2, other divisions, and other item types are excluded. The sync worker stores corporation asset rows from CorpSAG3 only, so the same division rule is applied at ingestion and display time.
