@@ -98,7 +98,6 @@ class DivineReignController extends Controller
         $duration = max(1, Carbon::parse($session->started_at)->diffInSeconds($stoppedAt));
         $assetDelta = ($session->asset_start_isk !== null && $assetEnd !== null)
             ? $assetEnd - (float) $session->asset_start_isk : null;
-        $income = $bounties + ($assetDelta ?? 0);
         DB::table('dr_ratting_sessions')->where('id', $session->id)->update([
             'stopped_at' => $stoppedAt, 'duration_seconds' => $duration, 'bounty_isk' => 0,
             'asset_end_isk' => $assetEnd, 'asset_delta_isk' => $assetDelta,
