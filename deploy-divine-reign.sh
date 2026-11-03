@@ -3,11 +3,12 @@ set -Eeuo pipefail
 REPO="/opt/rigauth"
 SEAT_DIR="/opt/seat-docker"
 WEB="$SEAT_DIR/packages/eveseat/web"
-PATCH="$REPO/divine-reign/0006-divine-reign.patch"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/divine-reign-deploy-$STAMP"
 SUCCESS=0
 FILES=("src/Http/Controllers/DivineReignController.php" "src/Http/Routes/DivineReign.php" "src/database/migrations/2026_11_03_000001_create_divine_reign_ratting_tables.php" "src/resources/views/divine-reign/index.blade.php")
+ROUTE_MARKER="Routes/DivineReign.php"
+SIDEBAR_MARKER="seatcore::divine-reign.index"
 rollback() {
   rc=$?
   if [[ "$SUCCESS" -eq 0 && -d "$BACKUP" ]]; then
@@ -30,7 +31,6 @@ git fetch origin
 [[ "$(git branch --show-current)" == "main" ]] || git switch main
 git pull --ff-only origin main
 [[ -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || { echo "STOP: expected SeAT web source files missing at $WEB."; exit 1; }
-[[ -f "$PATCH" ]] || { echo "STOP: Divine Reign patch missing."; exit 1; }
 for rel in "${FILES[@]}"; do [[ -f "$REPO/divine-reign/seat-web/$rel" ]] || { echo "STOP: module source missing: $rel"; exit 1; }; done
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || { echo "STOP: SeAT front service is not running."; exit 1; }
 MOUNTS="$(sudo docker inspect --format '{{range .Mounts}}{{println .Source "|" .Destination}}{{end}}' seat-docker-front-1)"
@@ -43,10 +43,43 @@ for rel in "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php
   else sudo mkdir -p "$BACKUP/$(dirname "$rel")"; sudo touch "$BACKUP/$rel.__MISSING"; fi
 done
 echo "Backup: $BACKUP"
-if sudo git -C "$WEB" apply --reverse --check "$PATCH" >/dev/null 2>&1; then echo "Divine Reign patch already applied."
-elif sudo git -C "$WEB" apply --check "$PATCH"; then sudo git -C "$WEB" apply "$PATCH"
-else echo "STOP: route/sidebar patch does not apply cleanly to this SeAT source revision."; exit 1; fi
+
+# Install module files before wiring routes/sidebar.
 for rel in "${FILES[@]}"; do sudo install -D -m 0644 "$REPO/divine-reign/seat-web/$rel" "$WEB/$rel"; done
+
+# Add the route include once, anchored after the Home route include inside the authenticated route group.
+ROUTES_FILE="$WEB/src/Http/routes.php"
+if ! grep -Fq "$ROUTE_MARKER" "$ROUTES_FILE"; then
+  HOME_LINE="$(grep -nF "include __DIR__ . '/Routes/Home.php';" "$ROUTES_FILE" | head -n1 | cut -d: -f1 || true)"
+  [[ -n "$HOME_LINE" ]] || { echo "STOP: could not find the Home route include anchor."; exit 1; }
+  sudo sed -i "${HOME_LINE}a\\
+        // Divine Reign ratting and finance tracker.\\
+        include __DIR__ . '/Routes/DivineReign.php';" "$ROUTES_FILE"
+fi
+
+# Add a sidebar entry once, immediately before the menu loop.
+SIDEBAR_FILE="$WEB/src/resources/views/includes/sidebar.blade.php"
+if ! grep -Fq "$SIDEBAR_MARKER" "$SIDEBAR_FILE"; then
+  MENU_LINE="$(grep -nF '@foreach($menu as $entry)' "$SIDEBAR_FILE" | head -n1 | cut -d: -f1 || true)"
+  [[ -n "$MENU_LINE" ]] || { echo "STOP: could not find the sidebar menu-loop anchor."; exit 1; }
+  SIDEBAR_TMP="$(mktemp)"
+  sudo awk -v marker="$SIDEBAR_MARKER" '
+    index($0, "@foreach($menu as $entry)") && !done {
+      print "        <li class=\"nav-item\">"
+      print "          <a href=\"{{ route(\x27seatcore::divine-reign.index\x27) }}\" class=\"nav-link {{ Request::segment(1) === \x27divine-reign\x27 ? \x27active\x27 : null }}\">"
+      print "            <i class=\"nav-icon fas fa-skull-crossbones\"></i>"
+      print "            <p>Divine Reign</p>"
+      print "          </a>"
+      print "        </li>"
+      print ""
+      done=1
+    }
+    { print }
+  ' "$SIDEBAR_FILE" > "$SIDEBAR_TMP"
+  sudo install -m 0644 "$SIDEBAR_TMP" "$SIDEBAR_FILE"
+  rm -f "$SIDEBAR_TMP"
+fi
+
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
