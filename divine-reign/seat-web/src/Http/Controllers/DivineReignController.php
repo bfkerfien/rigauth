@@ -70,10 +70,20 @@ class DivineReignController extends Controller
             ->orderByDesc('e.occurred_at')->limit(30)->get(['e.*', 's.started_at as session_started_at']);
         $latestSnapshot = DB::table('dr_asset_snapshots')->orderByDesc('captured_at')->first();
         $structureId = DB::table('dr_settings')->where('setting_key', 'astra_house_structure_id')->value('setting_value');
+        $explorationActive = DB::table('dr_exploration_sessions')->where('character_id', $characterId)->where('status', 'active')->orderByDesc('id')->first();
+        $explorationDuration = $explorationActive ? max(0, now()->diffInSeconds(Carbon::parse($explorationActive->started_at))) : 0;
+        $explorationSessions = DB::table('dr_exploration_sessions')->where('character_id', $characterId)->orderByDesc('started_at')->get();
+        $explorationSites = DB::table('dr_exploration_sites as s')
+            ->join('dr_exploration_sessions as x', 'x.id', '=', 's.session_id')
+            ->where('x.character_id', $characterId)->orderByDesc('s.recorded_at')
+            ->limit(100)->get(['s.*', 'x.started_at as session_started_at']);
+        $activeExplorationSites = $explorationActive
+            ? DB::table('dr_exploration_sites')->where('session_id', $explorationActive->id)->orderByDesc('recorded_at')->get()
+            : collect();
 
         return view('web::divine-reign.index', compact(
             'character', 'active', 'bounties', 'duration', 'events', 'counts', 'loot',
-            'recentSessions', 'recentEvents', 'latestSnapshot', 'structureId', 'shipStats', 'maxShipHours', 'maxShipRate'
+            'recentSessions', 'recentEvents', 'latestSnapshot', 'structureId', 'shipStats', 'maxShipHours', 'maxShipRate', 'explorationActive', 'explorationDuration', 'explorationSessions', 'explorationSites', 'activeExplorationSites'
         ));
     }
 
@@ -141,6 +151,112 @@ class DivineReignController extends Controller
             'notes' => $data['notes'] ?? null, 'occurred_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
         return redirect()->route('seatcore::divine-reign.index')->with('success', 'Operations event recorded.');
+    }
+
+    public function startExploration(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'inventory_text' => 'required|string|min:2|max:200000',
+            'system_name' => 'nullable|string|max:64',
+        ]);
+        $character = $this->character();
+        $characterId = (int) $character->character_id;
+        abort_if(DB::table('dr_exploration_sessions')->where('character_id', $characterId)->where('status', 'active')->exists(), 409, 'An exploration session is already running.');
+        $inventory = $this->parseExplorationInventory($data['inventory_text']);
+        abort_if(!$inventory, 422, 'No inventory rows could be read. Paste the inventory window with item names and quantities.');
+        $id = DB::table('dr_exploration_sessions')->insertGetId([
+            'character_id' => $characterId, 'character_name' => self::CHARACTER_NAME,
+            'system_name' => $data['system_name'] ?: null, 'started_at' => now(), 'status' => 'active',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('dr_exploration_snapshots')->insert([
+            'session_id' => $id, 'inventory_text' => $data['inventory_text'],
+            'inventory_json' => json_encode($inventory), 'captured_at' => now(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return redirect()->route('seatcore::divine-reign.index', ['tab' => 'exploration'])->with('success', 'Exploration timer started. Your pasted inventory is saved as the starting baseline.');
+    }
+
+    public function recordExplorationSite(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'site_name' => 'required|string|max:180',
+            'inventory_text' => 'required|string|min:2|max:200000',
+        ]);
+        $character = $this->character();
+        $characterId = (int) $character->character_id;
+        $session = DB::table('dr_exploration_sessions')->where('character_id', $characterId)
+            ->where('status', 'active')->orderByDesc('id')->first();
+        abort_unless($session, 409, 'Start an exploration session first.');
+        $current = $this->parseExplorationInventory($data['inventory_text']);
+        abort_if(!$current, 422, 'No inventory rows could be read. Paste the inventory window with item names and quantities.');
+        $previousRow = DB::table('dr_exploration_snapshots')->where('session_id', $session->id)->orderByDesc('id')->first();
+        $previous = $previousRow ? (json_decode($previousRow->inventory_json, true) ?: []) : [];
+        $siteId = DB::table('dr_exploration_sites')->insertGetId([
+            'session_id' => $session->id, 'site_name' => $data['site_name'],
+            'recorded_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        foreach ($current as $key => $item) {
+            $oldQty = (int) ($previous[$key]['quantity'] ?? 0);
+            $delta = (int) $item['quantity'] - $oldQty;
+            if ($delta > 0) {
+                DB::table('dr_exploration_loot')->insert([
+                    'site_id' => $siteId, 'item_name' => $item['name'],
+                    'type_id' => $item['type_id'], 'quantity' => $delta,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        }
+        DB::table('dr_exploration_snapshots')->insert([
+            'session_id' => $session->id, 'inventory_text' => $data['inventory_text'],
+            'inventory_json' => json_encode($current), 'captured_at' => now(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return redirect()->route('seatcore::divine-reign.index', ['tab' => 'exploration'])->with('success', 'Site recorded. Only positive inventory increases since the previous paste were assigned as this site’s loot.');
+    }
+
+    public function stopExploration(): RedirectResponse
+    {
+        $character = $this->character();
+        $session = DB::table('dr_exploration_sessions')->where('character_id', (int) $character->character_id)
+            ->where('status', 'active')->orderByDesc('id')->first();
+        abort_unless($session, 409, 'There is no active exploration session.');
+        $stopped = now();
+        $duration = max(1, Carbon::parse($session->started_at)->diffInSeconds($stopped));
+        DB::table('dr_exploration_sessions')->where('id', $session->id)->update([
+            'stopped_at' => $stopped, 'duration_seconds' => $duration,
+            'status' => 'completed', 'updated_at' => now(),
+        ]);
+        return redirect()->route('seatcore::divine-reign.index', ['tab' => 'exploration'])->with('success', 'Exploration session stopped and saved.');
+    }
+
+    /**
+     * Parse EVE inventory clipboard rows: item name in column one and stack quantity
+     * in column two. Header rows and non-item rows are ignored.
+     */
+    private function parseExplorationInventory(string $text): array
+    {
+        $rows = [];
+        foreach (preg_split('/\\r\\n|\\r|\\n/', trim($text)) as $line) {
+            $cells = preg_split('/\\t|,/', trim($line));
+            if (count($cells) < 2) continue;
+            $name = trim($cells[0], " \\t\\\"'");
+            $quantityText = preg_replace('/[, ]/', '', trim($cells[1]));
+            if ($name === '' || !preg_match('/^\\d+$/', $quantityText)) continue;
+            if (in_array(strtolower($name), ['item','name','type','item name'], true)) continue;
+            $key = mb_strtolower($name);
+            $rows[$key] = ['name' => $name, 'quantity' => (int) $quantityText, 'type_id' => null];
+        }
+        if (!$rows || !Schema::hasTable('invTypes')) return $rows;
+        $names = array_values(array_unique(array_column($rows, 'name')));
+        foreach (array_chunk($names, 100) as $chunk) {
+            $types = DB::table('invTypes')->whereIn('typeName', $chunk)->get(['typeID','typeName']);
+            foreach ($types as $type) {
+                $key = mb_strtolower($type->typeName);
+                if (isset($rows[$key])) $rows[$key]['type_id'] = (int) $type->typeID;
+            }
+        }
+        return $rows;
     }
 
     public function saveSettings(Request $request): RedirectResponse
