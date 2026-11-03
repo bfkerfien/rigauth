@@ -62,13 +62,17 @@ class DivineReignController extends Controller
         ));
     }
 
-    public function start(): RedirectResponse
+    public function start(Request $request): RedirectResponse
     {
+        $data = $request->validate([
+            'ship_name' => 'required|in:Ishtar,Tengu,Gila',
+        ]);
         $character = $this->character();
         $characterId = (int) $character->character_id;
         abort_if($this->activeSession($characterId), 409, 'A ratting session is already running.');
         $id = DB::table('dr_ratting_sessions')->insertGetId([
             'character_id' => $characterId, 'character_name' => self::CHARACTER_NAME,
+            'ship_name' => $data['ship_name'],
             'system_name' => self::SYSTEM_NAME, 'started_at' => now(), 'status' => 'active',
             'created_at' => now(), 'updated_at' => now(),
         ]);
