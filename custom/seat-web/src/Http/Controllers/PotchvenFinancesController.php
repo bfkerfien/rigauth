@@ -85,6 +85,7 @@ class PotchvenFinancesController extends Controller
                 ->where('owner_id', $corpOwnerId)
                 ->where('occurred_at', '>=', $start)
                 ->where('occurred_at', '<=', $stop)
+                ->where('source_type', 'journal')
                 ->where('reference_type', 'corporate_reward_payout')
                 ->where('amount_isk', 9000000);
             $ticks = [
