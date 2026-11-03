@@ -7,7 +7,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-finances-backup-$STAMP"
 SUCCESS=0
 ROLLBACK_ENABLED=0
-FILES=("src/Http/Controllers/PotchvenFinancesController.php" "src/Http/Routes/PotchvenFinances.php" "src/resources/views/potchven-finances/index.blade.php")
+FILES=("src/Http/Controllers/PotchvenFinancesController.php" "src/Http/Routes/PotchvenFinances.php" "src/database/migrations/2026_11_03_000004_create_fin_isk_hour_sessions_table.php" "src/resources/views/potchven-finances/index.blade.php")
 ASSET_REL="public/img/potchven-triglavian-gate-banner.jpg"
 NAV_ICON_REL="public/img/potchven-navbar-icon.svg"
 LAYOUT="src/resources/views/layouts/app.blade.php"
@@ -40,7 +40,8 @@ rollback() {
     elif sudo test -f "$BACKUP/laravel-public-navbar-icon.__MISSING"; then
       sudo docker exec "$CONTAINER" rm -f "$PUBLIC_NAV_ICON" >/dev/null 2>&1 || true
     fi
-    sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear >/dev/null 2>&1 || true
+    sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
+sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear >/dev/null 2>&1 || true
     sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear >/dev/null 2>&1 || true
     echo "Backup retained at $BACKUP"
   fi
