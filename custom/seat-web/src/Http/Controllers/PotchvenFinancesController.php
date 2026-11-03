@@ -105,6 +105,8 @@ class PotchvenFinancesController extends Controller
         $characterExpenses = (float) $db->table('fin_wallet_entries as e')
             ->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
             ->where('o.owner_type', 'character')
+            ->where('o.is_active', 1)
+            ->where('e.source_type', 'journal')
             ->where('e.occurred_at', '>=', $start)
             ->where('e.occurred_at', '<=', $stop)
             ->where('e.amount_isk', '<', 0)
