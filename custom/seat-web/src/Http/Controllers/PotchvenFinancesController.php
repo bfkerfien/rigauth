@@ -64,43 +64,30 @@ class PotchvenFinancesController extends Controller
 
 
     /**
-     * Calculate one session from the synced EVE wallet journals.
-     * Corp reward ticks are the three 9,000,000 ISK corporation payouts per site.
-     * Corporation Division 2 expenses and character expenses are kept separate.
+     * Calculate one session from the three tracked character wallet journals.
+     * Each character's 9,000,000 ISK corporate reward payout is counted once.
+     * All qualifying character wallet outflows are deducted except corporation tax.
      */
     private function calculateIskHourSessionTotals($session): array
     {
         $db = DB::connection();
         $start = Carbon::parse($session->started_at);
         $stop = Carbon::parse($session->stopped_at);
-        $corpOwnerId = $db->table('fin_owners')
-            ->where('owner_type', 'corporation')
-            ->where('is_active', 1)
-            ->value('id');
 
-        $ticks = ['count' => 0, 'isk' => 0.0];
-        $srpExpenses = 0.0;
-        if ($corpOwnerId && Schema::hasTable('fin_wallet_entries')) {
-            $tickQuery = $db->table('fin_wallet_entries')
-                ->where('owner_id', $corpOwnerId)
-                ->where('occurred_at', '>=', $start)
-                ->where('occurred_at', '<=', $stop)
-                ->where('source_type', 'journal')
-                ->where('reference_type', 'corporate_reward_payout')
-                ->where('amount_isk', 9000000);
-            $ticks = [
-                'count' => (int) $tickQuery->count(),
-                'isk' => (float) $tickQuery->sum('amount_isk'),
-            ];
+        $payouts = $db->table('fin_wallet_entries as e')
+            ->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
+            ->where('o.owner_type', 'character')
+            ->where('o.is_active', 1)
+            ->where('e.source_type', 'journal')
+            ->where('e.occurred_at', '>=', $start)
+            ->where('e.occurred_at', '<=', $stop)
+            ->where('e.reference_type', 'corporate_reward_payout')
+            ->where('e.amount_isk', 9000000);
 
-            $srpExpenses = (float) $db->table('fin_wallet_entries')
-                ->where('owner_id', $corpOwnerId)
-                ->where('source_type', 'journal_division_2')
-                ->where('occurred_at', '>=', $start)
-                ->where('occurred_at', '<=', $stop)
-                ->where('amount_isk', '<', 0)
-                ->sum(DB::raw('-amount_isk'));
-        }
+        $ticks = [
+            'count' => (int) $payouts->count(),
+            'isk' => (float) $payouts->sum('e.amount_isk'),
+        ];
 
         $characterExpenses = (float) $db->table('fin_wallet_entries as e')
             ->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
@@ -120,13 +107,13 @@ class PotchvenFinancesController extends Controller
         $telemetryUnits = (int) ($session->telemetry_units ?? 0);
         $telemetryValue = $telemetryUnits * 300000;
         $durationSeconds = max(1, (int) $start->diffInSeconds($stop));
-        $netIsk = $ticks['isk'] + $telemetryValue - $srpExpenses - $characterExpenses;
+        $netIsk = $ticks['isk'] + $telemetryValue - $characterExpenses;
 
         return [
             'corp_ticks_count' => $ticks['count'],
             'corp_ticks_isk' => $ticks['isk'],
             'telemetry_value_isk' => $telemetryValue,
-            'srp_expenses_isk' => $srpExpenses,
+            'srp_expenses_isk' => 0,
             'character_expenses_isk' => $characterExpenses,
             'net_isk' => $netIsk,
             'duration_seconds' => $durationSeconds,
@@ -138,7 +125,7 @@ class PotchvenFinancesController extends Controller
     {
         $this->authorizeFinance();
         abort_unless(Schema::hasTable('fin_isk_hour_sessions') && Schema::hasTable('fin_wallet_entries') && Schema::hasTable('fin_owners'), 500, 'ISK per Hour tracking tables are not available.');
-        abort_unless(DB::table('fin_owners')->where('owner_type', 'corporation')->where('is_active', 1)->exists(), 500, 'No active corporation finance owner is configured.');
+        abort_unless(DB::table('fin_owners')->where('owner_type', 'character')->where('is_active', 1)->count() === 3, 500, 'Exactly three active character finance owners are required.');
 
         if (DB::table('fin_isk_hour_sessions')->whereNull('stopped_at')->exists()) {
             return redirect()->route('seatcore::potchven-finances.index')
@@ -154,7 +141,7 @@ class PotchvenFinancesController extends Controller
         ]);
 
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'ISK per Hour session started. Corporation ticks and wallet expenses will be counted from this time.');
+            ->with('success', 'ISK per Hour session started. Character reward payouts and character wallet expenses will be counted from this time.');
     }
 
     public function stopIskHour(Request $request): RedirectResponse
@@ -183,7 +170,7 @@ class PotchvenFinancesController extends Controller
         DB::table('fin_isk_hour_sessions')->where('id', $session->id)->update($totals + ['updated_at' => now()]);
 
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'Session stopped. Calculated net earnings: ' . number_format($totals['net_isk'], 0) . ' ISK at ' . number_format($totals['isk_per_hour'], 0) . ' ISK/hour.');
+            ->with('success', 'Session stopped. Initial total: ' . number_format($totals['net_isk'], 0) . ' ISK at ' . number_format($totals['isk_per_hour'], 0) . ' ISK/hour. Wallet reconciliation will continue every 15 minutes for up to 90 minutes.');
     }
 
     public function index(): View
@@ -334,13 +321,11 @@ class PotchvenFinancesController extends Controller
         $iskHourWeekdayAverages = collect();
         if ($has('fin_isk_hour_sessions')) {
             $activeIskHourSession = $db->table('fin_isk_hour_sessions')->whereNull('stopped_at')->orderByDesc('id')->first();
+            // The scheduled finance worker refreshes completed sessions every 15 minutes
+            // while they are no more than 90 minutes past stopped_at. Page loads are read-only.
             $completedSessions = $db->table('fin_isk_hour_sessions')->whereNotNull('stopped_at')->orderBy('started_at')->get();
             foreach ($completedSessions as $session) {
-                $totals = $this->calculateIskHourSessionTotals($session);
-                $db->table('fin_isk_hour_sessions')->where('id', $session->id)->update($totals + ['updated_at' => now()]);
-                foreach ($totals as $key => $value) {
-                    $session->{$key} = $value;
-                }
+                $session->reconciliation_open = Carbon::parse($session->stopped_at)->greaterThanOrEqualTo(now()->subMinutes(90));
                 $weekday = (int) Carbon::parse($session->started_at)->dayOfWeek;
                 $weekdayBuckets[$weekday][] = (float) $session->isk_per_hour;
             }
