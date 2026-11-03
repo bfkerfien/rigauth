@@ -6,7 +6,7 @@ WEB="$SEAT_DIR/packages/eveseat/web"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/divine-reign-deploy-$STAMP"
 SUCCESS=0
-FILES=("src/Http/Controllers/DivineReignController.php" "src/Http/Routes/DivineReign.php" "src/database/migrations/2026_11_03_000001_create_divine_reign_ratting_tables.php" "src/database/migrations/2026_11_03_000002_add_ship_name_to_divine_reign_sessions.php" "src/resources/views/divine-reign/index.blade.php")
+FILES=("src/Http/Controllers/DivineReignController.php" "src/Http/Routes/DivineReign.php" "src/database/migrations/2026_11_03_000001_create_divine_reign_ratting_tables.php" "src/database/migrations/2026_11_03_000002_add_ship_name_to_divine_reign_sessions.php" "src/database/migrations/2026_11_03_000003_create_divine_reign_exploration_tables.php" "src/resources/views/divine-reign/index.blade.php")
 ROUTE_MARKER="Routes/DivineReign.php"
 SIDEBAR_MARKER="seatcore::divine-reign.index"
 rollback() {
