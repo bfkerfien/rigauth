@@ -124,17 +124,17 @@ changed = False
 for i, line in enumerate(lines):
     if marker in line:
         if "potchven-navbar-icon.svg" in line:
-            print("Custom Potchven navbar icon already present.")
+            lines[i] = line.replace(custom_icon, triangle_marker, 1)
+            changed = True
+            print("Replaced raster-backed navbar image with an inline vector Triglavian emblem.")
         elif triangle_marker in line:
-            lines[i] = line.replace(triangle_marker, custom_icon, 1)
-            changed = True
-            print("Replaced inline Potchven triangle with custom navbar icon.")
+            print("Inline vector Triglavian emblem already present.")
         elif '<i class="nav-icon fas fa-coins"></i>' in line:
-            lines[i] = line.replace('<i class="nav-icon fas fa-coins"></i>', custom_icon, 1)
+            lines[i] = line.replace('<i class="nav-icon fas fa-coins"></i>', triangle_marker, 1)
             changed = True
-            print("Replaced Potchven coin icon with custom navbar icon.")
+            print("Replaced Potchven coin icon with an inline vector Triglavian emblem.")
         else:
-            raise SystemExit("STOP: found Potchven Finances menu entry, but its icon differs from the expected coin icon; refusing to alter it.")
+            raise SystemExit("STOP: found Potchven Finances menu entry, but its icon differs from the expected icon; refusing to alter it.")
         break
 if changed:
     sidebar_path.write_text("".join(lines))
