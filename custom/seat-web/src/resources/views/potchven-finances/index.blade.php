@@ -218,6 +218,29 @@
     width:50px !important; margin:0 !important; text-align:center !important;
   }
 
+
+  .trig-finance .tf-isk-active { padding:14px 16px; border:1px solid rgba(255,65,52,.45); border-left:3px solid #f02f25; background:rgba(255,45,35,.06); border-radius:4px; }
+  .trig-finance .tf-isk-active .tf-pill { color:#ff766b; border-color:rgba(255,65,52,.5); }
+  .trig-finance .tf-isk-active .tf-pill i { font-size:8px; color:#ff453a; }
+  .trig-finance .tf-isk-started { color:#fff; font-weight:700; margin-top:8px; }
+  .trig-finance .tf-isk-label { display:block; color:#f0e9e5; text-transform:uppercase; letter-spacing:.08em; font-size:11px; font-weight:700; margin-bottom:7px; }
+  .trig-finance .tf-isk-input { max-width:280px; background:#090c10; color:#fff; border:1px solid rgba(255,65,52,.65); }
+  .trig-finance .tf-isk-input:focus { background:#090c10; color:#fff; border-color:#ff6658; box-shadow:0 0 0 .15rem rgba(255,55,43,.2); }
+  .trig-finance .tf-telemetry-preview { color:#d8d1c9; font-size:12px; }
+  .trig-finance .tf-telemetry-preview strong { color:#fff; }
+  .trig-finance .tf-isk-formula { padding:12px 14px; background:rgba(255,255,255,.025); border:1px solid rgba(255,65,52,.25); border-radius:4px; color:#d8d1c9; font-size:12px; line-height:1.6; }
+  .trig-finance .tf-isk-formula strong { display:block; color:#fff; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+  .trig-finance .tf-isk-formula small { display:block; color:#a7a29a; margin-top:5px; }
+  .trig-finance .tf-weekday-row { display:grid; grid-template-columns:100px minmax(90px,1fr) minmax(125px,155px) 80px; align-items:center; gap:12px; margin:0 0 13px; }
+  .trig-finance .tf-weekday-name { color:#eee7dc; font-size:12px; font-weight:700; }
+  .trig-finance .tf-weekday-track { height:13px; background:#080a0d; border:1px solid rgba(255,65,52,.2); border-radius:2px; overflow:hidden; }
+  .trig-finance .tf-weekday-bar { height:100%; min-width:0; background:linear-gradient(90deg,#9e211e,#ff5145); box-shadow:0 0 8px rgba(255,50,40,.35); }
+  .trig-finance .tf-weekday-bar.negative { background:linear-gradient(90deg,#80613b,#d6a45f); box-shadow:0 0 8px rgba(214,164,95,.2); }
+  .trig-finance .tf-weekday-value { color:#fff; text-align:right; font-size:11px; font-weight:700; white-space:nowrap; }
+  .trig-finance .tf-weekday-count { color:#a7a29a; text-align:right; font-size:10px; white-space:nowrap; }
+  @media(max-width:767px) { .trig-finance .tf-weekday-row { grid-template-columns:75px minmax(65px,1fr) 110px; gap:8px; } .trig-finance .tf-weekday-count { display:none; } }
+  @media(max-width:480px) { .trig-finance .tf-weekday-row { grid-template-columns:65px minmax(45px,1fr); } .trig-finance .tf-weekday-value { grid-column:2; text-align:left; } }
+
 </style>
 
 <div class="trig-finance">
@@ -378,7 +401,96 @@
   </section>
   </section>
   <section class="tf-tab-content" id="tf-tab-isk-hour" aria-label="ISK per Hour">
-    {{-- Intentionally blank until the ISK-per-hour layout is designed. --}}
+    <section class="tf-panel">
+      <div class="tf-panel-head"><h3>ISK per Hour Session</h3></div>
+      <div class="tf-panel-body">
+        @if($activeIskHourSession)
+          <div class="tf-isk-active mb-3">
+            <span class="tf-pill"><i class="fas fa-circle mr-1"></i> Session Running</span>
+            <div class="tf-isk-started">Started {{ date('M j, Y H:i:s', strtotime($activeIskHourSession->started_at)) }}</div>
+            <div class="tf-muted small mt-1">Corporate reward ticks and wallet expenses are counted from the start time through the stop time.</div>
+          </div>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.stop') }}">
+            @csrf
+            <div class="row align-items-end">
+              <div class="col-md-5">
+                <label class="tf-isk-label" for="tf-telemetry-units">Telemetry Deposited</label>
+                <input class="form-control tf-isk-input" type="number" id="tf-telemetry-units" name="telemetry_units" min="0" max="1000000000" step="1" value="{{ old('telemetry_units', 0) }}" required>
+                <div class="tf-muted small mt-1">Enter the number of telemetry units banked during this session. Each unit is valued at 300,000 ISK.</div>
+                <div class="tf-telemetry-preview mt-2">Telemetry credit: <strong id="tf-telemetry-value-preview">0 ISK</strong></div>
+              </div>
+              <div class="col-md-4 mt-3 mt-md-0">
+                <button type="submit" class="btn btn-tf-gold btn-lg" onclick="return confirm('Stop this ISK per Hour session and calculate its earnings?')"><i class="fas fa-stop mr-1"></i> Stop Session</button>
+              </div>
+            </div>
+          </form>
+        @else
+          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count qualifying corporation reward ticks and wallet expenses until you stop it.</div>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.start') }}">
+            @csrf
+            <button type="submit" class="btn btn-tf-gold btn-lg"><i class="fas fa-play mr-1"></i> Start Session</button>
+          </form>
+        @endif
+        <div class="tf-isk-formula mt-3">
+          <strong>Session calculation</strong>
+          <div>Corporation ticks (9,000,000 ISK per toon payout) + telemetry deposited (300,000 ISK per unit) − Corp SRP Division 2 expenses − character expenses, excluding corporation tax.</div>
+          <small>Wallet journals are imported by the scheduled 15-minute finance sync. Completed session totals refresh as new journal entries arrive.</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="tf-panel">
+      <div class="tf-panel-head"><h3>Average ISK per Hour by Day of Week</h3></div>
+      <div class="tf-panel-body">
+        <p class="tf-muted small mb-3">Each bar is the average hourly net earnings of completed sessions that started on that weekday. Averages build as more sessions are recorded.</p>
+        <div class="tf-weekday-chart">
+          @foreach($iskHourWeekdayAverages as $day)
+            <div class="tf-weekday-row">
+              <div class="tf-weekday-name">{{ $day['label'] }}</div>
+              <div class="tf-weekday-track">
+                <div class="tf-weekday-bar {{ $day['is_negative'] ? 'negative' : '' }}" style="width: {{ $day['bar_percent'] }}%"></div>
+              </div>
+              <div class="tf-weekday-value">{{ number_format($day['average'], 0) }} ISK/hr</div>
+              <div class="tf-weekday-count">{{ $day['sessions'] }} {{ $day['sessions'] === 1 ? 'session' : 'sessions' }}</div>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    </section>
+
+    <details class="tf-panel tf-collapsible">
+      <summary class="tf-panel-head">
+        <h3>Session Ledger ({{ $iskHourLedger->count() }})</h3>
+        <i class="fas fa-chevron-down tf-chevron"></i>
+      </summary>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead><tr>
+            <th>Started</th><th>Duration</th><th>Corp Ticks</th><th>Tick ISK</th>
+            <th>Telemetry</th><th>Telemetry ISK</th><th>SRP Expenses</th>
+            <th>Character Expenses</th><th>Net ISK</th><th>ISK / Hour</th>
+          </tr></thead>
+          <tbody>
+          @forelse($iskHourLedger as $session)
+            <tr>
+              <td>{{ date('M j, Y H:i', strtotime($session->started_at)) }}</td>
+              <td>{{ floor($session->duration_seconds / 3600) }}h {{ floor(($session->duration_seconds % 3600) / 60) }}m</td>
+              <td>{{ number_format($session->corp_ticks_count) }}</td>
+              <td>{{ number_format($session->corp_ticks_isk, 0) }}</td>
+              <td>{{ number_format($session->telemetry_units) }}</td>
+              <td>{{ number_format($session->telemetry_value_isk, 0) }}</td>
+              <td class="text-danger">−{{ number_format($session->srp_expenses_isk, 0) }}</td>
+              <td class="text-danger">−{{ number_format($session->character_expenses_isk, 0) }}</td>
+              <td>{{ number_format($session->net_isk, 0) }}</td>
+              <td><strong>{{ number_format($session->isk_per_hour, 0) }}</strong></td>
+            </tr>
+          @empty
+            <tr><td colspan="10" class="text-center tf-muted py-4">No completed ISK per Hour sessions yet. Start your first session to begin building the ledger and weekday averages.</td></tr>
+          @endforelse
+          </tbody>
+        </table>
+      </div>
+    </details>
   </section>
 </div>
 <div class="tf-modal-backdrop" id="tf-site-rules" hidden role="presentation">
@@ -407,6 +519,16 @@
       });
     });
   });
+  var telemetryInput = document.getElementById('tf-telemetry-units');
+  var telemetryPreview = document.getElementById('tf-telemetry-value-preview');
+  if (telemetryInput && telemetryPreview) {
+    var updateTelemetryPreview = function () {
+      var units = Math.max(0, Number(telemetryInput.value || 0));
+      telemetryPreview.textContent = (units * 300000).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' ISK';
+    };
+    telemetryInput.addEventListener('input', updateTelemetryPreview);
+    updateTelemetryPreview();
+  }
   var modal = document.getElementById('tf-site-rules');
   root.querySelectorAll('[data-tf-modal-open]').forEach(function (button) {
     button.addEventListener('click', function () { modal.hidden = false; });
