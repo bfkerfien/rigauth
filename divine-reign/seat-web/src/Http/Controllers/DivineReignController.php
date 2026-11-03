@@ -240,7 +240,7 @@ class DivineReignController extends Controller
         foreach (preg_split('/\\r\\n|\\r|\\n/', trim($text)) as $line) {
             $cells = preg_split('/\\t|,/', trim($line));
             if (count($cells) < 2) continue;
-            $name = trim($cells[0], " \\t\\\"'");
+            $name = trim($cells[0]);
             $quantityText = preg_replace('/[, ]/', '', trim($cells[1]));
             if ($name === '' || !preg_match('/^\\d+$/', $quantityText)) continue;
             if (in_array(strtolower($name), ['item','name','type','item name'], true)) continue;
