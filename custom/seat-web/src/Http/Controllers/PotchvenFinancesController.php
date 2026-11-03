@@ -341,19 +341,20 @@ class PotchvenFinancesController extends Controller
                 $weekday = (int) Carbon::parse($session->started_at)->dayOfWeek;
                 $weekdayBuckets[$weekday][] = (float) $session->isk_per_hour;
             }
-            $maxAverage = 0.0;
+            $maxMagnitude = 0.0;
             $averages = [];
             foreach ($weekdayBuckets as $index => $values) {
                 $average = count($values) ? array_sum($values) / count($values) : 0.0;
                 $averages[$index] = $average;
-                $maxAverage = max($maxAverage, $average);
+                $maxMagnitude = max($maxMagnitude, abs($average));
             }
             foreach ($weekdayLabels as $index => $label) {
                 $iskHourWeekdayAverages->push([
                     'label' => $label,
                     'average' => $averages[$index],
                     'sessions' => count($weekdayBuckets[$index]),
-                    'bar_percent' => $maxAverage > 0 ? max(0, ($averages[$index] / $maxAverage) * 100) : 0,
+                    'bar_percent' => $maxMagnitude > 0 ? (abs($averages[$index]) / $maxMagnitude) * 100 : 0,
+                    'is_negative' => $averages[$index] < 0,
                 ]);
             }
             $iskHourLedger = $completedSessions->sortByDesc('started_at')->take(100)->values();
