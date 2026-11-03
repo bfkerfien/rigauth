@@ -201,6 +201,23 @@
   .tf-modal-body strong { color:#fff; }
   @media(max-width:575px) { .trig-finance .tf-tab-button { flex:1 1 100%; } .trig-finance .tf-quick-links .btn { flex:1 1 100%; } }
 
+
+  /* Keep the Potchven navigation emblem visible when AdminLTE collapses the sidebar on laptop widths. */
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fa,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fas,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .far,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fab,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .glyphicon,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .ion {
+    display:inline-block !important; visibility:visible !important; opacity:1 !important;
+  }
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fa,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fas,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .far,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fab {
+    width:50px !important; margin:0 !important; text-align:center !important;
+  }
+
 </style>
 
 <div class="trig-finance">
