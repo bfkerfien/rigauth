@@ -1,0 +1,27 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -47,6 +47,9 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+         // just include it
+         include __DIR__ . '/Routes/Home.php';
+ 
++        // Divine Reign ratting and finance tracker.
++        include __DIR__ . '/Routes/DivineReign.php';
++
+         // Support Routes
+         Route::group([
+             'namespace' => 'Support',
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -29,6 +29,13 @@
+       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+ 
++        <li class="nav-item">
++          <a href="{{ route('seatcore::divine-reign.index') }}" class="nav-link {{ Request::segment(1) === 'divine-reign' ? 'active' : null }}">
++            <i class="nav-icon fas fa-skull-crossbones"></i>
++            <p>Divine Reign</p>
++          </a>
++        </li>
++
+         @foreach($menu as $entry)
