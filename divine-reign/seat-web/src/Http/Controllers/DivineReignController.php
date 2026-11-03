@@ -52,6 +52,20 @@ class DivineReignController extends Controller
         }
         $loot = $active ? (float) DB::table('dr_ratting_events')->where('session_id', $active->id)->sum('loot_isk') : 0.0;
         $recentSessions = DB::table('dr_ratting_sessions')->orderByDesc('started_at')->get();
+        $shipStats = DB::table('dr_ratting_sessions')
+            ->select('ship_name',
+                DB::raw('SUM(CASE WHEN status = "active" THEN TIMESTAMPDIFF(SECOND, started_at, NOW()) ELSE COALESCE(duration_seconds, 0) END) as total_seconds'),
+                DB::raw('SUM(COALESCE(total_income_isk, 0)) as total_income_isk'))
+            ->whereNotNull('ship_name')->where('ship_name', '<>', '')
+            ->groupBy('ship_name')->orderBy('ship_name')->get()
+            ->map(function ($row) {
+                $hours = (float) $row->total_seconds / 3600;
+                $row->hours = $hours;
+                $row->average_isk_per_hour = $hours > 0 ? (float) $row->total_income_isk / $hours : 0;
+                return $row;
+            });
+        $maxShipHours = max(1, (float) $shipStats->max('hours'));
+        $maxShipRate = max(1, (float) $shipStats->max('average_isk_per_hour'));
         $recentEvents = DB::table('dr_ratting_events as e')->join('dr_ratting_sessions as s', 's.id', '=', 'e.session_id')
             ->orderByDesc('e.occurred_at')->limit(30)->get(['e.*', 's.started_at as session_started_at']);
         $latestSnapshot = DB::table('dr_asset_snapshots')->orderByDesc('captured_at')->first();
@@ -59,7 +73,7 @@ class DivineReignController extends Controller
 
         return view('web::divine-reign.index', compact(
             'character', 'active', 'bounties', 'duration', 'events', 'counts', 'loot',
-            'recentSessions', 'recentEvents', 'latestSnapshot', 'structureId'
+            'recentSessions', 'recentEvents', 'latestSnapshot', 'structureId', 'shipStats', 'maxShipHours', 'maxShipRate'
         ));
     }
 
