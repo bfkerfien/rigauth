@@ -211,7 +211,7 @@ async function syncCorporation(db, owner, token) {
   if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
   const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
   const srpWallet = wallets.find(w => Number(w.division) === srpDivision);
-  if (!mainWallet) throw new Error('Corporation wallet division 1 was not returned by ESI');
+  if (!mainWallet) throw new Error('Corporation wallet division 3 was not returned by ESI');
   if (!srpWallet) throw new Error('Corporation wallet division 2 was not returned by ESI');
   await saveWallet(db, owner.id, Number(mainWallet.balance));
   await db.execute(
