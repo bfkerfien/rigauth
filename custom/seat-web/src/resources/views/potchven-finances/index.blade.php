@@ -376,6 +376,7 @@
     </div></div>
   </section>
   </section>
+  </section>
   <section class="tf-tab-content" id="tf-tab-isk-hour" aria-label="ISK per Hour">
     {{-- Intentionally blank until the ISK-per-hour layout is designed. --}}
   </section>
