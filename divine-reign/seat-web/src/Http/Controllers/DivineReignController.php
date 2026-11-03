@@ -36,8 +36,9 @@ class DivineReignController extends Controller
     {
         $character = $this->character();
         $characterId = (int) $character->character_id;
+        $this->syncBountyAllocations($characterId);
         $active = $this->activeSession($characterId);
-        $bounties = $active ? $this->bountyTotal($characterId, $active->started_at, now()) : 0.0;
+        $bounties = $active ? $this->sessionBountyTotal($characterId, $active, now()) : 0.0;
         $duration = $active ? max(0, now()->diffInSeconds(Carbon::parse($active->started_at))) : 0;
         $events = $active ? DB::table('dr_ratting_events')->where('session_id', $active->id)->orderByDesc('occurred_at')->limit(12)->get() : collect();
         $counts = ['dread_guristas' => 0, 'hauler' => 0, 'estamel' => 0];
@@ -94,18 +95,18 @@ class DivineReignController extends Controller
         abort_unless($session, 409, 'There is no active ratting session.');
         $stoppedAt = now();
         $assetEnd = $this->captureAssetSnapshot((int) $session->id, $characterId, 'stop');
-        $bounties = $this->bountyTotal($characterId, $session->started_at, $stoppedAt);
         $duration = max(1, Carbon::parse($session->started_at)->diffInSeconds($stoppedAt));
         $assetDelta = ($session->asset_start_isk !== null && $assetEnd !== null)
             ? $assetEnd - (float) $session->asset_start_isk : null;
         $income = $bounties + ($assetDelta ?? 0);
         DB::table('dr_ratting_sessions')->where('id', $session->id)->update([
-            'stopped_at' => $stoppedAt, 'duration_seconds' => $duration, 'bounty_isk' => $bounties,
+            'stopped_at' => $stoppedAt, 'duration_seconds' => $duration, 'bounty_isk' => 0,
             'asset_end_isk' => $assetEnd, 'asset_delta_isk' => $assetDelta,
-            'total_income_isk' => $income, 'isk_per_hour' => $income / ($duration / 3600),
+            'total_income_isk' => $assetDelta ?? 0, 'isk_per_hour' => ($assetDelta ?? 0) / ($duration / 3600),
             'status' => 'completed', 'updated_at' => now(),
         ]);
-        return redirect()->route('seatcore::divine-reign.index')->with('success', 'Ratting session stopped and report saved.');
+        $this->syncBountyAllocations($characterId);
+        return redirect()->route('seatcore::divine-reign.index')->with('success', 'Ratting session stopped. Wallet bounties will continue being attributed to this session for 22 minutes after stop.');
     }
 
     public function event(Request $request): RedirectResponse
@@ -138,6 +139,68 @@ class DivineReignController extends Controller
             ['setting_value' => (string) ($data['structure_id'] ?? ''), 'updated_at' => now()]
         );
         return redirect()->route('seatcore::divine-reign.index')->with('success', 'Astrahouse structure ID saved.');
+    }
+
+    /**
+     * Allocate wallet bounty entries to a session through 22 minutes after it stops.
+     * If another session starts during that grace period, the previous session keeps
+     * ownership of the overlapping time; the new session's bounty window starts
+     * when the previous session's grace period ends.
+     */
+    private function syncBountyAllocations(int $characterId): void
+    {
+        if (!Schema::hasTable('character_wallet_journals')) return;
+
+        $sessions = DB::table('dr_ratting_sessions')->where('character_id', $characterId)
+            ->orderBy('started_at')->orderBy('id')->get();
+        $previousGraceEnd = null;
+
+        foreach ($sessions as $session) {
+            $originalStart = Carbon::parse($session->started_at);
+            $windowStart = $previousGraceEnd && $previousGraceEnd->gt($originalStart)
+                ? $previousGraceEnd->copy() : $originalStart->copy();
+
+            if ($session->status === 'active') {
+                $windowEnd = now();
+            } elseif ($session->stopped_at) {
+                $windowEnd = Carbon::parse($session->stopped_at)->addMinutes(22);
+            } else {
+                continue;
+            }
+
+            $bounties = $windowStart->lte($windowEnd)
+                ? $this->bountyTotal($characterId, $windowStart, $windowEnd) : 0.0;
+
+            if ($session->status === 'completed') {
+                $duration = max(1, (int) ($session->duration_seconds
+                    ?: $originalStart->diffInSeconds(Carbon::parse($session->stopped_at))));
+                $assetDelta = $session->asset_delta_isk !== null ? (float) $session->asset_delta_isk : 0.0;
+                $income = $bounties + $assetDelta;
+                DB::table('dr_ratting_sessions')->where('id', $session->id)->update([
+                    'bounty_isk' => $bounties,
+                    'total_income_isk' => $income,
+                    'isk_per_hour' => $income / ($duration / 3600),
+                    'updated_at' => now(),
+                ]);
+                $previousGraceEnd = $windowEnd->copy();
+            }
+        }
+    }
+
+    private function sessionBountyTotal(int $characterId, object $session, $to): float
+    {
+        $start = Carbon::parse($session->started_at);
+        $previous = DB::table('dr_ratting_sessions')->where('character_id', $characterId)
+            ->where('status', 'completed')->where('stopped_at', '<=', $session->started_at)
+            ->orderByDesc('stopped_at')->first();
+
+        if ($previous && $previous->stopped_at) {
+            $graceEnd = Carbon::parse($previous->stopped_at)->addMinutes(22);
+            if ($graceEnd->gt($start)) $start = $graceEnd;
+        }
+
+        return $start->lte(Carbon::parse($to))
+            ? $this->bountyTotal($characterId, $start, $to) : 0.0;
     }
 
     private function bountyTotal(int $characterId, $from, $to): float
