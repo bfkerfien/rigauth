@@ -54,9 +54,9 @@ class DivineReignController extends Controller
         $recentSessions = DB::table('dr_ratting_sessions')->orderByDesc('started_at')->get();
         $shipStats = DB::table('dr_ratting_sessions')
             ->select('ship_name',
-                DB::raw('SUM(CASE WHEN status = "active" THEN TIMESTAMPDIFF(SECOND, started_at, NOW()) ELSE COALESCE(duration_seconds, 0) END) as total_seconds'),
+                DB::raw('SUM(COALESCE(duration_seconds, 0)) as total_seconds'),
                 DB::raw('SUM(COALESCE(total_income_isk, 0)) as total_income_isk'))
-            ->whereNotNull('ship_name')->where('ship_name', '<>', '')
+            ->where('status', 'completed')->whereNotNull('ship_name')->where('ship_name', '<>', '')
             ->groupBy('ship_name')->orderBy('ship_name')->get()
             ->map(function ($row) {
                 $hours = (float) $row->total_seconds / 3600;
