@@ -393,7 +393,10 @@
         <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Corp Main Wallet · Division 3</div>
         <div class="tf-metric-value">{{ number_format($corpWallet, 0) }} ISK</div>
       </div></div>
-      
+      <div class="col-lg-6 col-md-6"><div class="tf-metric">
+        <div class="tf-metric-label"><i class="fas fa-wallet mr-1"></i> SRP Wallet · Division 2</div>
+        <div class="tf-metric-value">{{ number_format($srpWallet, 0) }} ISK</div>
+      </div></div>
     </div></div>
   </section>
   </section>
@@ -422,7 +425,7 @@
             </div>
           </form>
         @else
-          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count qualifying corporation reward ticks and wallet expenses until you stop it.</div>
+          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count each tracked character's 9,000,000 ISK reward payout and character wallet expenses until you stop it.</div>
           <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.start') }}">
             @csrf
             <button type="submit" class="btn btn-tf-gold btn-lg"><i class="fas fa-play mr-1"></i> Start Session</button>
