@@ -20,7 +20,7 @@ The deploy script copies the worker and installs a runner. It does not restart o
 ## What it syncs
 
 - Three active character owners: wallet balances, wallet journals, and assets.
-- Corporation owner (default EVE ID 98843282): wallet division 1 balance and journal, plus corporation assets filtered to `location_flag = CorpSAG3` (Hangar Division 3) across all corporation locations returned by ESI. Items in other hangar divisions are excluded from the finance asset snapshots. The sync logs both the total corporation assets scanned and the Hangar 3 item count. It uses one of the three character credentials that has both corporate wallet and asset scopes.
+- Corporation owner (default EVE ID 98843282): wallet Division 3 balance and journal, wallet Division 2 balance and journal (stored separately as `journal_division_2`), plus corporation assets filtered to `location_flag = CorpSAG3` (Hangar Division 3) across all corporation locations returned by ESI. Items in other hangar divisions are excluded from the finance asset snapshots. The sync logs both the total corporation assets scanned and the Hangar 3 item count. It uses one of the three character credentials that has both corporate wallet and asset scopes.
 - Rotated SSO refresh tokens are encrypted with the existing AES-256-GCM key and saved back into SeAT's `fin_oauth_credentials` row immediately after refresh.
 - Wallet journals are upserted; wallet and asset snapshots are retained as history.
 
@@ -34,3 +34,10 @@ The worker never prints tokens or secrets. The runner does not print database cr
 ## Potchven telemetry site counting
 
 The Sites This Period metric is calculated from the latest corporation asset snapshot using **type ID 89219 only**. Qualifying items must have ESI `location_flag = CorpSAG3` (Corporation Hangar Division 3). Hangar 3 items at any station count; there is no station-ID restriction and no OfficeFolder-parent special case. The dashboard calculates sites as the positive increase over the saved period baseline, divided by 60 (integer sites). CorpSAG1, CorpSAG2, other divisions, and other item types are excluded. The sync worker stores corporation asset rows from CorpSAG3 only, so the same division rule is applied at ingestion and display time.
+
+
+## ISK per Hour sessions
+
+The native ISK per Hour tab records a start and stop time and a manually entered count of telemetry units deposited during the session. Net session ISK is the sum of 9,000,000 ISK corporate reward-payout journal entries from the corporation Division 3 journal, plus 300,000 ISK per telemetry unit, minus negative corporation Division 2 journal entries and negative character journal entries marked as operational expenses. Character entries with reference type `corporation_tax` are excluded. ISK per hour is net session ISK divided by elapsed session hours.
+
+Corporation Division 2 journals are synced separately using source type `journal_division_2`; Division 3 remains `journal`. Completed sessions are recalculated when the dashboard loads so journal entries imported by a later 15-minute sync are included. The weekday chart averages completed session ISK/hour by the weekday on which each session started, and the collapsible ledger shows the most recent 100 completed sessions.
