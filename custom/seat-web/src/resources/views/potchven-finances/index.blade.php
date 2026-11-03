@@ -393,10 +393,7 @@
         <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Corp Main Wallet · Division 3</div>
         <div class="tf-metric-value">{{ number_format($corpWallet, 0) }} ISK</div>
       </div></div>
-      <div class="col-lg-6 col-md-6"><div class="tf-metric">
-        <div class="tf-metric-label"><i class="fas fa-wallet mr-1"></i> SRP Wallet · Division 2</div>
-        <div class="tf-metric-value">{{ number_format($srpWallet, 0) }} ISK</div>
-      </div></div>
+      
     </div></div>
   </section>
   </section>
@@ -408,7 +405,7 @@
           <div class="tf-isk-active mb-3">
             <span class="tf-pill"><i class="fas fa-circle mr-1"></i> Session Running</span>
             <div class="tf-isk-started">Started {{ date('M j, Y H:i:s', strtotime($activeIskHourSession->started_at)) }}</div>
-            <div class="tf-muted small mt-1">Corporate reward ticks and wallet expenses are counted from the start time through the stop time.</div>
+            <div class="tf-muted small mt-1">Each tracked character's 9,000,000 ISK reward payout and qualifying character wallet expenses are counted from the start time through the stop time.</div>
           </div>
           <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.stop') }}">
             @csrf
@@ -433,8 +430,8 @@
         @endif
         <div class="tf-isk-formula mt-3">
           <strong>Session calculation</strong>
-          <div>Corporation ticks (9,000,000 ISK per toon payout) + telemetry deposited (300,000 ISK per unit) − Corp SRP Division 2 expenses − character expenses, excluding corporation tax.</div>
-          <small>Wallet journals are imported by the scheduled 15-minute finance sync. Completed session totals refresh as new journal entries arrive.</small>
+          <div>Character reward payouts (9,000,000 ISK per payout) + telemetry deposited (300,000 ISK per unit) − character wallet expenses, excluding corporation tax.</div>
+          <small>The scheduled 15-minute finance sync recalculates every stopped session from character wallet journals until it is more than 90 minutes past its stop time. After that, its totals are frozen. No separate reconciliation flag is stored.</small>
         </div>
       </div>
     </section>
@@ -466,20 +463,19 @@
       <div class="table-responsive">
         <table class="table table-sm table-striped">
           <thead><tr>
-            <th>Started</th><th>Duration</th><th>Corp Ticks</th><th>Tick ISK</th>
-            <th>Telemetry</th><th>Telemetry ISK</th><th>SRP Expenses</th>
-            <th>Character Expenses</th><th>Net ISK</th><th>ISK / Hour</th>
+            <th>Status</th><th>Started</th><th>Duration</th><th>Character Payouts</th><th>Payout ISK</th>
+            <th>Telemetry</th><th>Telemetry ISK</th><th>Character Expenses</th><th>Net ISK</th><th>ISK / Hour</th>
           </tr></thead>
           <tbody>
           @forelse($iskHourLedger as $session)
             <tr>
+              <td>@if($session->reconciliation_open)<span class="tf-pill" style="color:#e6c47f;border-color:#a98552">Reconciling</span>@else<span class="tf-pill" style="color:#8fd3a2;border-color:#477a55">Final</span>@endif</td>
               <td>{{ date('M j, Y H:i', strtotime($session->started_at)) }}</td>
               <td>{{ floor($session->duration_seconds / 3600) }}h {{ floor(($session->duration_seconds % 3600) / 60) }}m</td>
               <td>{{ number_format($session->corp_ticks_count) }}</td>
               <td>{{ number_format($session->corp_ticks_isk, 0) }}</td>
               <td>{{ number_format($session->telemetry_units) }}</td>
               <td>{{ number_format($session->telemetry_value_isk, 0) }}</td>
-              <td class="text-danger">−{{ number_format($session->srp_expenses_isk, 0) }}</td>
               <td class="text-danger">−{{ number_format($session->character_expenses_isk, 0) }}</td>
               <td>{{ number_format($session->net_isk, 0) }}</td>
               <td><strong>{{ number_format($session->isk_per_hour, 0) }}</strong></td>
@@ -502,7 +498,7 @@
       <p><strong>Telemetry source:</strong> Corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3), across all stations.</p>
       <p><strong>Site conversion:</strong> Every 60 telemetry units count as one site.</p>
       <p><strong>Excluded inventory:</strong> Hangar Divisions 1 and 2 and all other divisions are excluded.</p>
-      <p><strong>Site payout reconciliation:</strong> Three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group. Incomplete groups are flagged for review, and the unpaid portion of the expected 27,000,000 ISK is recorded as an SRP transfer obligation.</p>
+      <p><strong>Site payout reconciliation:</strong> Three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group.</p>
       <p class="mb-0">Run the finance sync to refresh asset and payout data.</p>
     </div>
   </section>
