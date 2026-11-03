@@ -254,6 +254,7 @@ async function reconcileSitePayouts(db, corporationOwnerId) {
     SELECT e.id, e.occurred_at, e.amount_isk, e.description
     FROM fin_wallet_entries e
     WHERE e.owner_id = ?
+      AND e.source_type = 'journal'
       AND e.reference_type = 'corporate_reward_payout'
       AND e.amount_isk = 9000000
     ORDER BY e.occurred_at ASC, e.id ASC
