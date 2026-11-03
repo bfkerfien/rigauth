@@ -6,6 +6,10 @@ Route::get('/potchven-finances', 'PotchvenFinancesController@index')
     ->name('seatcore::potchven-finances.index');
 Route::post('/potchven-finances/sites', 'PotchvenFinancesController@storeSite')
     ->name('seatcore::potchven-finances.sites.store');
+Route::post('/potchven-finances/isk-hour/start', 'PotchvenFinancesController@startIskHour')
+    ->name('seatcore::potchven-finances.isk-hour.start');
+Route::post('/potchven-finances/isk-hour/stop', 'PotchvenFinancesController@stopIskHour')
+    ->name('seatcore::potchven-finances.isk-hour.stop');
 Route::post('/potchven-finances/timer/reset', 'PotchvenFinancesController@resetTimer')
     ->name('seatcore::potchven-finances.timer.reset');
 Route::post('/potchven-finances/financial-period/reset', 'PotchvenFinancesController@resetFinancialPeriod')
