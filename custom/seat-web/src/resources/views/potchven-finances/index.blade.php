@@ -362,6 +362,7 @@
         @endforeach
       </div>
     </div>
+  </section>
   <section class="tf-panel">
     <div class="tf-panel-head"><h3>Corporation Wallet Balances</h3></div>
     <div class="tf-panel-body"><div class="row">
@@ -374,7 +375,6 @@
         <div class="tf-metric-value">{{ number_format($srpWallet, 0) }} ISK</div>
       </div></div>
     </div></div>
-  </section>
   </section>
   </section>
   <section class="tf-tab-content" id="tf-tab-isk-hour" aria-label="ISK per Hour">
