@@ -179,6 +179,8 @@ sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan 
 ROUTE_OUTPUT="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=potchven-finances)"
 printf '%s\n' "$ROUTE_OUTPUT"
 printf '%s\n' "$ROUTE_OUTPUT" | grep -q 'potchven-finances' || { echo "ERROR: finance routes not registered."; exit 1; }
+printf '%s\n' "$ROUTE_OUTPUT" | grep -q 'isk-hour/start' || { echo "ERROR: ISK per Hour start route not registered."; exit 1; }
+printf '%s\n' "$ROUTE_OUTPUT" | grep -q 'isk-hour/stop' || { echo "ERROR: ISK per Hour stop route not registered."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
