@@ -184,6 +184,23 @@
     background:rgba(255,255,255,.07) !important;
   }
 
+
+  .trig-finance .tf-quick-links { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 16px; }
+  .trig-finance .tf-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; border-bottom:1px solid rgba(255,65,52,.45); padding-bottom:9px; }
+  .trig-finance .tf-tab-button { cursor:pointer; color:#eee; background:#15181d; border:1px solid rgba(255,65,52,.55); border-radius:4px; padding:10px 18px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .trig-finance .tf-tab-button.active { color:#fff; background:linear-gradient(135deg,#f52c21,#8f100e); border-color:#ff6658; box-shadow:0 0 12px rgba(255,35,25,.25); }
+  .trig-finance .tf-tab-content { display:none; }
+  .trig-finance .tf-tab-content.active { display:block; }
+  .tf-modal-backdrop { position:fixed; inset:0; z-index:10500; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.78); }
+  .tf-modal-backdrop[hidden] { display:none; }
+  .tf-modal { width:min(680px,100%); max-height:85vh; overflow:auto; background:#11151a; color:#f4f1ed; border:1px solid #ff4437; border-radius:7px; box-shadow:0 0 28px rgba(255,35,25,.25); }
+  .tf-modal-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid rgba(255,65,52,.4); }
+  .tf-modal-head h3 { margin:0; color:#fff; text-transform:uppercase; letter-spacing:.1em; font-size:14px; }
+  .tf-modal-close { color:#fff; border:0; background:transparent; font-size:25px; line-height:1; cursor:pointer; }
+  .tf-modal-body { padding:18px; color:#d8d1c9; line-height:1.65; }
+  .tf-modal-body strong { color:#fff; }
+  @media(max-width:575px) { .trig-finance .tf-tab-button { flex:1 1 100%; } .trig-finance .tf-quick-links .btn { flex:1 1 100%; } }
+
 </style>
 
 <div class="trig-finance">
@@ -191,6 +208,12 @@
     <img src="{{ asset('img/potchven-triglavian-gate-banner.jpg') }}"
          alt="A monumental Triglavian gate with a glowing red triangular core in deep space">
   </section>
+
+  <div class="tf-quick-links">
+    <button type="button" class="btn btn-tf-gold" data-tf-modal-open="tf-site-rules"><i class="fas fa-book-open mr-1"></i> Site Accounting Rules</button>
+    <a class="btn btn-tf" href="https://evemaps.dotlan.net/map/Pochven" target="_blank" rel="noopener noreferrer"><i class="fas fa-map-marked-alt mr-1"></i> DOTLAN Pochven Map</a>
+    <a class="btn btn-tf" href="https://zkillboard.com/region/10000070/" target="_blank" rel="noopener noreferrer"><i class="fas fa-crosshairs mr-1"></i> zKillboard Pochven</a>
+  </div>
 
   <section class="tf-cycle">
     <div class="tf-cycle-copy">
@@ -208,14 +231,18 @@
     </form>
   </section>
 
+  <nav class="tf-tabs" aria-label="Finance dashboard sections">
+    <button type="button" class="tf-tab-button active" data-tf-tab="main">Main</button>
+    <button type="button" class="tf-tab-button" data-tf-tab="finances">Finances</button>
+    <button type="button" class="tf-tab-button" data-tf-tab="isk-hour">ISK per Hour</button>
+  </nav>
+  <section class="tf-tab-content active" id="tf-tab-main" aria-label="Main">
   <div class="row">
     @foreach([
       ['Sites this period', number_format($sites), 'fa-crosshairs'],
       ['Days since financial reset', number_format($daysElapsed).' days', 'fa-stopwatch'],
       ['Average sites per day', number_format($sites / $daysElapsed, 2), 'fa-chart-line'],
       ['Site revenue this period', number_format($siteRevenue, 0).' ISK', 'fa-coins'],
-      ['Corp Main Wallet · Division 3', number_format($corpWallet, 0).' ISK', 'fa-landmark'],
-      ['SRP Wallet · Division 2', number_format($srpWallet, 0).' ISK', 'fa-wallet'],
     ] as $metric)
       <div class="col-lg-3 col-md-4 col-sm-6">
         <div class="tf-metric">
@@ -263,21 +290,8 @@
     <div class="alert alert-warning">Finance tables have not been imported yet. Import the standalone finance database into SeAT using the fin_ prefix, then reload this page.</div>
   @endif
 
-  <section class="tf-panel">
-    <div class="tf-panel-head"><h3>Tracked wallets</h3></div>
-    <div class="table-responsive"><table class="table table-sm table-hover">
-      <thead><tr><th>Owner</th><th>Type</th><th>EVE ID</th><th>Active</th></tr></thead><tbody>
-      @forelse($owners as $owner)
-        <tr><td>{{ $owner->display_name }}</td><td>{{ ucfirst($owner->owner_type) }}</td><td>{{ $owner->eve_id }}</td><td>{{ ($owner->is_active ?? true) ? 'Yes' : 'No' }}</td></tr>
-      @empty<tr><td colspan="4" class="text-muted">No finance owners imported.</td></tr>@endforelse
-      </tbody>
-    </table></div>
   </section>
-
-  <div class="tf-note"><strong><i class="fas fa-info-circle mr-1"></i> Site accounting rules</strong><br>
-    The Sites This Period and Site Revenue metrics use corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3) across all stations, divided by 60. Hangar Divisions 1 and 2 and all other divisions are excluded. The recent site events below separately reconcile corporation reward payouts: three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group, while incomplete groups are flagged for review and the unpaid portion of the expected 27,000,000 ISK is listed as an SRP transfer obligation. Run the finance sync to refresh both asset and payout data.
-  </div>
-
+  <section class="tf-tab-content" id="tf-tab-finances" aria-label="Finances">
   <details class="tf-panel tf-collapsible">
     <summary class="tf-panel-head"><h3>Recent wallet entries</h3><i class="fas fa-chevron-down tf-chevron"></i></summary>
     <div class="tf-panel-body">
@@ -331,6 +345,61 @@
         @endforeach
       </div>
     </div>
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>Corporation Wallet Balances</h3></div>
+    <div class="tf-panel-body"><div class="row">
+      <div class="col-lg-6 col-md-6"><div class="tf-metric">
+        <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Corp Main Wallet · Division 3</div>
+        <div class="tf-metric-value">{{ number_format($corpWallet, 0) }} ISK</div>
+      </div></div>
+      <div class="col-lg-6 col-md-6"><div class="tf-metric">
+        <div class="tf-metric-label"><i class="fas fa-wallet mr-1"></i> SRP Wallet · Division 2</div>
+        <div class="tf-metric-value">{{ number_format($srpWallet, 0) }} ISK</div>
+      </div></div>
+    </div></div>
+  </section>
+  </section>
+  <section class="tf-tab-content" id="tf-tab-isk-hour" aria-label="ISK per Hour">
+    {{-- Intentionally blank until the ISK-per-hour layout is designed. --}}
   </section>
 </div>
+<div class="tf-modal-backdrop" id="tf-site-rules" hidden role="presentation">
+  <section class="tf-modal" role="dialog" aria-modal="true" aria-labelledby="tf-site-rules-title">
+    <header class="tf-modal-head"><h3 id="tf-site-rules-title">Site Accounting Rules</h3>
+      <button type="button" class="tf-modal-close" data-tf-modal-close aria-label="Close">&times;</button>
+    </header>
+    <div class="tf-modal-body">
+      <p><strong>Telemetry source:</strong> Corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3), across all stations.</p>
+      <p><strong>Site conversion:</strong> Every 60 telemetry units count as one site.</p>
+      <p><strong>Excluded inventory:</strong> Hangar Divisions 1 and 2 and all other divisions are excluded.</p>
+      <p><strong>Site payout reconciliation:</strong> Three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group. Incomplete groups are flagged for review, and the unpaid portion of the expected 27,000,000 ISK is recorded as an SRP transfer obligation.</p>
+      <p class="mb-0">Run the finance sync to refresh asset and payout data.</p>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var root = document.querySelector('.trig-finance');
+  if (!root) return;
+  root.querySelectorAll('[data-tf-tab]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      root.querySelectorAll('[data-tf-tab]').forEach(function (item) { item.classList.toggle('active', item === button); });
+      root.querySelectorAll('.tf-tab-content').forEach(function (panel) {
+        panel.classList.toggle('active', panel.id === 'tf-tab-' + button.getAttribute('data-tf-tab'));
+      });
+    });
+  });
+  var modal = document.getElementById('tf-site-rules');
+  root.querySelectorAll('[data-tf-modal-open]').forEach(function (button) {
+    button.addEventListener('click', function () { modal.hidden = false; });
+  });
+  if (modal) {
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal || event.target.closest('[data-tf-modal-close]')) modal.hidden = true;
+    });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape') modal.hidden = true; });
+  }
+})();
+</script>
+
 @endsection
