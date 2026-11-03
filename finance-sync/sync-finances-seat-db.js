@@ -114,21 +114,21 @@ async function saveWallet(db, ownerId, balance) {
     [ownerId, Number(balance)]
   );
 }
-async function saveJournal(db, ownerId, entries) {
+async function saveJournal(db, ownerId, entries, sourceType = 'journal') {
   for (const entry of entries) {
     const amount = Number(entry.amount || 0);
     await db.execute(`
       INSERT INTO fin_wallet_entries
         (owner_id, source_type, external_id, occurred_at, reference_type, amount_isk,
          description, is_operational_expense, expense_category, raw_payload)
-      VALUES (?, 'journal', ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE amount_isk = VALUES(amount_isk),
         raw_payload = VALUES(raw_payload), description = VALUES(description),
         reference_type = VALUES(reference_type), occurred_at = VALUES(occurred_at),
         is_operational_expense = VALUES(is_operational_expense),
         expense_category = VALUES(expense_category)
     `, [
-      ownerId, String(entry.id), new Date(entry.date), entry.ref_type || null, amount,
+      ownerId, sourceType, String(entry.id), new Date(entry.date), entry.ref_type || null, amount,
       entry.description || '', amount < 0 && String(entry.ref_type || '').toLowerCase() !== 'player_donation' ? 1 : 0,
       amount < 0 && String(entry.ref_type || '').toLowerCase() !== 'player_donation'
         ? (entry.ref_type || 'uncategorized') : null, JSON.stringify(entry)
@@ -173,6 +173,9 @@ async function syncCharacter(db, owner, token) {
   ]);
   await saveWallet(db, owner.id, balance);
   await saveJournal(db, owner.id, journal);
+  // Store the SRP wallet's journal separately so ISK/hour sessions can subtract
+  // only Division 2 outflows without mixing them with Corp Main Wallet activity.
+  await saveJournal(db, owner.id, srpJournal, 'journal_division_2');
   await saveAssets(db, owner.id, assets);
   await syncState(db, owner.id, 'character_wallet', null);
   await syncState(db, owner.id, 'character_assets', null);
@@ -188,9 +191,10 @@ async function syncCorporation(db, owner, token) {
   // in fin_app_settings so the two balances are never added together.
   const mainDivision = 3;
   const srpDivision = 2;
-  const [wallets, journal, allAssets] = await Promise.all([
+  const [wallets, journal, srpJournal, allAssets] = await Promise.all([
     esi('/corporations/' + corpId + '/wallets/', token),
     pages('/corporations/' + corpId + '/wallets/' + mainDivision + '/journal/', token),
+    pages('/corporations/' + corpId + '/wallets/' + srpDivision + '/journal/', token),
     // ESI returns corporation assets across all accessible offices/structures.
     // CorpSAG3 is Hangar Division 3; filter by division, not by a single location.
     pages('/corporations/' + corpId + '/assets/', token)
@@ -230,6 +234,7 @@ async function syncCorporation(db, owner, token) {
     srpWalletDivision: srpDivision,
     srpWalletBalance: Number(srpWallet.balance),
     journalEntries: journal.length,
+    srpJournalEntries: srpJournal.length,
     assets: assets.length,
     corporationAssetsScanned: allAssets.length,
     hangar3Assets: assets.length,
