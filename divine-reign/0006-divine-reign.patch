@@ -1,8 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -47,6 +47,9 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
-         // just include it
+@@ -47,6 +47,8 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
          include __DIR__ . '/Routes/Home.php';
  
 +        // Divine Reign ratting and finance tracker.
