@@ -329,6 +329,84 @@ async function reconcileSitePayouts(db, corporationOwnerId) {
   }
 }
 
+/**
+ * Refresh stopped ISK/hour sessions during their 90-minute reconciliation window.
+ * This runs after all three character journals have been synced on every 15-minute
+ * finance-worker execution. Sessions older than 90 minutes are intentionally frozen.
+ */
+async function reconcileRecentIskHourSessions(db) {
+  const [sessions] = await db.execute(`
+    SELECT id, started_at, stopped_at, telemetry_units
+    FROM fin_isk_hour_sessions
+    WHERE stopped_at IS NOT NULL
+      AND stopped_at <= UTC_TIMESTAMP()
+      AND stopped_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 MINUTE)
+    ORDER BY stopped_at ASC, id ASC
+  `);
+
+  let updated = 0;
+  for (const session of sessions) {
+    const [payoutRows] = await db.execute(`
+      SELECT COUNT(*) AS payout_count, COALESCE(SUM(e.amount_isk), 0) AS payout_isk
+      FROM fin_wallet_entries e
+      JOIN fin_owners o ON o.id = e.owner_id
+      WHERE o.owner_type = 'character'
+        AND o.is_active = 1
+        AND e.source_type = 'journal'
+        AND e.reference_type = 'corporate_reward_payout'
+        AND e.amount_isk = 9000000
+        AND e.occurred_at >= ?
+        AND e.occurred_at <= ?
+    `, [session.started_at, session.stopped_at]);
+
+    const [expenseRows] = await db.execute(`
+      SELECT COALESCE(SUM(-e.amount_isk), 0) AS expenses_isk
+      FROM fin_wallet_entries e
+      JOIN fin_owners o ON o.id = e.owner_id
+      WHERE o.owner_type = 'character'
+        AND o.is_active = 1
+        AND e.source_type = 'journal'
+        AND e.amount_isk < 0
+        AND e.is_operational_expense = 1
+        AND (e.reference_type IS NULL OR LOWER(e.reference_type) <> 'corporation_tax')
+        AND e.occurred_at >= ?
+        AND e.occurred_at <= ?
+    `, [session.started_at, session.stopped_at]);
+
+    const payoutCount = Number(payoutRows[0].payout_count || 0);
+    const payoutIsk = Number(payoutRows[0].payout_isk || 0);
+    const characterExpenses = Number(expenseRows[0].expenses_isk || 0);
+    const telemetryValue = Number(session.telemetry_units || 0) * 300000;
+    const [durationRows] = await db.execute(
+      'SELECT GREATEST(1, TIMESTAMPDIFF(SECOND, ?, ?)) AS duration_seconds',
+      [session.started_at, session.stopped_at]
+    );
+    const durationSeconds = Number(durationRows[0].duration_seconds || 1);
+    const netIsk = payoutIsk + telemetryValue - characterExpenses;
+    const iskPerHour = netIsk / (durationSeconds / 3600);
+
+    await db.execute(`
+      UPDATE fin_isk_hour_sessions
+      SET corp_ticks_count = ?,
+          corp_ticks_isk = ?,
+          telemetry_value_isk = ?,
+          srp_expenses_isk = 0,
+          character_expenses_isk = ?,
+          net_isk = ?,
+          duration_seconds = ?,
+          isk_per_hour = ?,
+          updated_at = UTC_TIMESTAMP()
+      WHERE id = ?
+    `, [
+      payoutCount, payoutIsk, telemetryValue, characterExpenses,
+      netIsk, durationSeconds, iskPerHour, session.id
+    ]);
+    updated++;
+  }
+
+  return { sessionsReconciled: updated, windowMinutes: 90 };
+}
+
 async function main() {
   const db = await mysql.createConnection({
     host: required('FIN_DB_HOST'),
@@ -359,6 +437,12 @@ async function main() {
       console.log(JSON.stringify({ ok: true, ...result }));
       refreshed.push({ owner: fullOwner, token: credential.token, scopes: credential.scopes });
     }
+
+    // Reconcile sessions immediately and on every 15-minute sync while stopped_at
+    // is within the last 90 minutes. No separate status flag is needed.
+    const iskHourReconciliation = await reconcileRecentIskHourSessions(db);
+    console.log(JSON.stringify({ ok: true, iskHourReconciliation }));
+
     const corpAuth = refreshed.find(r => REQUIRED_CORP.every(s => r.scopes.includes(s)));
     if (!corpAuth) throw new Error('None of the three characters has both corporation wallet and asset scopes');
     console.log(JSON.stringify({
