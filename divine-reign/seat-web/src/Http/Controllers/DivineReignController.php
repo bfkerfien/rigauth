@@ -51,7 +51,7 @@ class DivineReignController extends Controller
             $counts['estamel'] = DB::table('dr_ratting_events')->where('session_id', $active->id)->where('event_type', 'estamel')->count();
         }
         $loot = $active ? (float) DB::table('dr_ratting_events')->where('session_id', $active->id)->sum('loot_isk') : 0.0;
-        $recentSessions = DB::table('dr_ratting_sessions')->orderByDesc('started_at')->limit(20)->get();
+        $recentSessions = DB::table('dr_ratting_sessions')->orderByDesc('started_at')->get();
         $recentEvents = DB::table('dr_ratting_events as e')->join('dr_ratting_sessions as s', 's.id', '=', 'e.session_id')
             ->orderByDesc('e.occurred_at')->limit(30)->get(['e.*', 's.started_at as session_started_at']);
         $latestSnapshot = DB::table('dr_asset_snapshots')->orderByDesc('captured_at')->first();
