@@ -62,6 +62,127 @@ class PotchvenFinancesController extends Controller
             ->sum('i.quantity');
     }
 
+
+    /**
+     * Calculate one session from the synced EVE wallet journals.
+     * Corp reward ticks are the three 9,000,000 ISK corporation payouts per site.
+     * Corporation Division 2 expenses and character expenses are kept separate.
+     */
+    private function calculateIskHourSessionTotals($session): array
+    {
+        $db = DB::connection();
+        $start = Carbon::parse($session->started_at);
+        $stop = Carbon::parse($session->stopped_at);
+        $corpOwnerId = $db->table('fin_owners')
+            ->where('owner_type', 'corporation')
+            ->where('is_active', 1)
+            ->value('id');
+
+        $ticks = ['count' => 0, 'isk' => 0.0];
+        $srpExpenses = 0.0;
+        if ($corpOwnerId && Schema::hasTable('fin_wallet_entries')) {
+            $tickQuery = $db->table('fin_wallet_entries')
+                ->where('owner_id', $corpOwnerId)
+                ->where('occurred_at', '>=', $start)
+                ->where('occurred_at', '<=', $stop)
+                ->where('reference_type', 'corporate_reward_payout')
+                ->where('amount_isk', 9000000);
+            $ticks = [
+                'count' => (int) $tickQuery->count(),
+                'isk' => (float) $tickQuery->sum('amount_isk'),
+            ];
+
+            $srpExpenses = (float) $db->table('fin_wallet_entries')
+                ->where('owner_id', $corpOwnerId)
+                ->where('source_type', 'journal_division_2')
+                ->where('occurred_at', '>=', $start)
+                ->where('occurred_at', '<=', $stop)
+                ->where('amount_isk', '<', 0)
+                ->sum(DB::raw('-amount_isk'));
+        }
+
+        $characterExpenses = (float) $db->table('fin_wallet_entries as e')
+            ->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
+            ->where('o.owner_type', 'character')
+            ->where('e.occurred_at', '>=', $start)
+            ->where('e.occurred_at', '<=', $stop)
+            ->where('e.amount_isk', '<', 0)
+            ->where('e.is_operational_expense', 1)
+            ->where(function ($query) {
+                $query->whereNull('e.reference_type')
+                    ->orWhereRaw('LOWER(e.reference_type) <> ?', ['corporation_tax']);
+            })
+            ->sum(DB::raw('-e.amount_isk'));
+
+        $telemetryUnits = (int) ($session->telemetry_units ?? 0);
+        $telemetryValue = $telemetryUnits * 300000;
+        $durationSeconds = max(1, (int) $start->diffInSeconds($stop));
+        $netIsk = $ticks['isk'] + $telemetryValue - $srpExpenses - $characterExpenses;
+
+        return [
+            'corp_ticks_count' => $ticks['count'],
+            'corp_ticks_isk' => $ticks['isk'],
+            'telemetry_value_isk' => $telemetryValue,
+            'srp_expenses_isk' => $srpExpenses,
+            'character_expenses_isk' => $characterExpenses,
+            'net_isk' => $netIsk,
+            'duration_seconds' => $durationSeconds,
+            'isk_per_hour' => $netIsk / ($durationSeconds / 3600),
+        ];
+    }
+
+    public function startIskHour(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        abort_unless(Schema::hasTable('fin_isk_hour_sessions') && Schema::hasTable('fin_wallet_entries') && Schema::hasTable('fin_owners'), 500, 'ISK per Hour tracking tables are not available.');
+        abort_unless(DB::table('fin_owners')->where('owner_type', 'corporation')->where('is_active', 1)->exists(), 500, 'No active corporation finance owner is configured.');
+
+        if (DB::table('fin_isk_hour_sessions')->whereNull('stopped_at')->exists()) {
+            return redirect()->route('seatcore::potchven-finances.index')
+                ->with('warning', 'An ISK per Hour session is already running. Stop it before starting another.');
+        }
+
+        $now = now();
+        DB::table('fin_isk_hour_sessions')->insert([
+            'started_at' => $now,
+            'telemetry_units' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'ISK per Hour session started. Corporation ticks and wallet expenses will be counted from this time.');
+    }
+
+    public function stopIskHour(Request $request): RedirectResponse
+    {
+        $this->authorizeFinance();
+        abort_unless(Schema::hasTable('fin_isk_hour_sessions') && Schema::hasTable('fin_wallet_entries') && Schema::hasTable('fin_owners'), 500, 'ISK per Hour tracking tables are not available.');
+        $validated = $request->validate([
+            'telemetry_units' => 'required|integer|min:0|max:1000000000',
+        ]);
+
+        $session = DB::table('fin_isk_hour_sessions')->whereNull('stopped_at')->orderByDesc('id')->first();
+        if (!$session) {
+            return redirect()->route('seatcore::potchven-finances.index')
+                ->with('info', 'There is no active ISK per Hour session to stop.');
+        }
+
+        $stoppedAt = now();
+        DB::table('fin_isk_hour_sessions')->where('id', $session->id)->update([
+            'stopped_at' => $stoppedAt,
+            'telemetry_units' => (int) $validated['telemetry_units'],
+            'updated_at' => $stoppedAt,
+        ]);
+
+        $session = DB::table('fin_isk_hour_sessions')->where('id', $session->id)->first();
+        $totals = $this->calculateIskHourSessionTotals($session);
+        DB::table('fin_isk_hour_sessions')->where('id', $session->id)->update($totals + ['updated_at' => now()]);
+
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with('success', 'Session stopped. Calculated net earnings: ' . number_format($totals['net_isk'], 0) . ' ISK at ' . number_format($totals['isk_per_hour'], 0) . ' ISK/hour.');
+    }
+
     public function index(): View
     {
         $this->authorizeFinance();
@@ -203,9 +324,45 @@ class PotchvenFinancesController extends Controller
         $monthlyCountdown = max(0, 180 - $elapsedCalendarDays);
         $siteRevenue = $sites * 27000000;
 
+        $activeIskHourSession = null;
+        $iskHourLedger = collect();
+        $weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $weekdayBuckets = array_fill(0, 7, []);
+        $iskHourWeekdayAverages = collect();
+        if ($has('fin_isk_hour_sessions')) {
+            $activeIskHourSession = $db->table('fin_isk_hour_sessions')->whereNull('stopped_at')->orderByDesc('id')->first();
+            $completedSessions = $db->table('fin_isk_hour_sessions')->whereNotNull('stopped_at')->orderBy('started_at')->get();
+            foreach ($completedSessions as $session) {
+                $totals = $this->calculateIskHourSessionTotals($session);
+                $db->table('fin_isk_hour_sessions')->where('id', $session->id)->update($totals + ['updated_at' => now()]);
+                foreach ($totals as $key => $value) {
+                    $session->{$key} = $value;
+                }
+                $weekday = (int) Carbon::parse($session->started_at)->dayOfWeek;
+                $weekdayBuckets[$weekday][] = (float) $session->isk_per_hour;
+            }
+            $maxAverage = 0.0;
+            $averages = [];
+            foreach ($weekdayBuckets as $index => $values) {
+                $average = count($values) ? array_sum($values) / count($values) : 0.0;
+                $averages[$index] = $average;
+                $maxAverage = max($maxAverage, $average);
+            }
+            foreach ($weekdayLabels as $index => $label) {
+                $iskHourWeekdayAverages->push([
+                    'label' => $label,
+                    'average' => $averages[$index],
+                    'sessions' => count($weekdayBuckets[$index]),
+                    'bar_percent' => $maxAverage > 0 ? max(0, ($averages[$index] / $maxAverage) * 100) : 0,
+                ]);
+            }
+            $iskHourLedger = $completedSessions->sortByDesc('started_at')->take(100)->values();
+        }
+
         return view('web::potchven-finances.index', compact(
             'owners', 'sites', 'daysElapsed', 'expenses', 'pendingSrp', 'personalNetValue', 'corporationHangarValue', 'assetManagerAvailable',
-            'corpWallet', 'srpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart'
+            'corpWallet', 'srpWallet', 'siteRevenue', 'entries', 'siteEvents', 'monthlyCountdown', 'lastFinanceSync', 'financeSyncErrors', 'periodStart',
+            'activeIskHourSession', 'iskHourLedger', 'iskHourWeekdayAverages'
         ));
     }
 
