@@ -89,6 +89,8 @@ fi
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
+echo "Deploy installer: safe in-place mode; no patch application."
+
 # Apply only the three small integration changes. The live SeAT files also
 # contain other Triglavian customizations, so do not apply a broad git patch.
 sudo python3 - "$WEB" <<'PY'
