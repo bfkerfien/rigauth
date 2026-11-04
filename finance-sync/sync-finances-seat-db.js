@@ -172,7 +172,7 @@ async function syncCharacter(db, owner, token) {
     pages('/characters/' + id + '/assets/', token)
   ]);
   await saveWallet(db, owner.id, balance);
-  await saveJournal(db, owner.id, journal, 'journal_division_1');
+  await saveJournal(db, owner.id, journal);
   await saveAssets(db, owner.id, assets);
   await syncState(db, owner.id, 'character_wallet', null);
   await syncState(db, owner.id, 'character_assets', null);
@@ -219,7 +219,7 @@ async function syncCorporation(db, owner, token) {
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)`,
     [String(Number(srpWallet.balance))]
   );
-  await saveJournal(db, owner.id, journal);
+  await saveJournal(db, owner.id, journal, 'journal_division_1');
   // Store the SRP wallet's journal separately so ISK/hour sessions can subtract
   // only Division 2 outflows without mixing them with Corp Main Wallet activity.
   await saveJournal(db, owner.id, srpJournal, 'journal_division_2');
