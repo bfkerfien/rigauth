@@ -172,7 +172,7 @@ async function syncCharacter(db, owner, token) {
     pages('/characters/' + id + '/assets/', token)
   ]);
   await saveWallet(db, owner.id, balance);
-  await saveJournal(db, owner.id, journal);
+  await saveJournal(db, owner.id, journal, 'journal_division_1');
   await saveAssets(db, owner.id, assets);
   await syncState(db, owner.id, 'character_wallet', null);
   await syncState(db, owner.id, 'character_assets', null);
@@ -183,10 +183,9 @@ async function syncCorporation(db, owner, token) {
   const missing = REQUIRED_CORP.filter(s => !scopes.includes(s));
   if (missing.length) throw new Error('Selected character lacks corporation scopes: ' + missing.join(', '));
   const corpId = Number(owner.eve_id);
-  // Division 3 is the Corp Main Wallet; division 2 is reserved for SRP.
-  // Keep the existing snapshot schema for division 3 and store division 2 separately
-  // in fin_app_settings so the two balances are never added together.
-  const mainDivision = 3;
+  // Division 1 is the operating wallet and payout source. Division 2 is SRP;
+  // Division 3 receives later manual sweeps and is not a revenue source.
+  const mainDivision = 1;
   const srpDivision = 2;
   const [wallets, journal, srpJournal, allAssets] = await Promise.all([
     esi('/corporations/' + corpId + '/wallets/', token),
@@ -211,7 +210,7 @@ async function syncCorporation(db, owner, token) {
   if (!Array.isArray(wallets)) throw new Error('Corporation wallet list was not returned by ESI');
   const mainWallet = wallets.find(w => Number(w.division) === mainDivision);
   const srpWallet = wallets.find(w => Number(w.division) === srpDivision);
-  if (!mainWallet) throw new Error('Corporation wallet division 3 was not returned by ESI');
+  if (!mainWallet) throw new Error('Corporation wallet division 1 was not returned by ESI');
   if (!srpWallet) throw new Error('Corporation wallet division 2 was not returned by ESI');
   await saveWallet(db, owner.id, Number(mainWallet.balance));
   await db.execute(
@@ -254,7 +253,7 @@ async function reconcileSitePayouts(db, corporationOwnerId) {
     SELECT e.id, e.occurred_at, e.amount_isk, e.description
     FROM fin_wallet_entries e
     WHERE e.owner_id = ?
-      AND e.source_type = 'journal'
+      AND e.source_type = 'journal_division_1'
       AND e.reference_type = 'corporate_reward_payout'
       AND e.amount_isk = 9000000
     ORDER BY e.occurred_at ASC, e.id ASC
@@ -335,6 +334,11 @@ async function reconcileSitePayouts(db, corporationOwnerId) {
  * finance-worker execution. Sessions older than 90 minutes are intentionally frozen.
  */
 async function reconcileRecentIskHourSessions(db) {
+  const [corporations] = await db.execute(
+    "SELECT id FROM fin_owners WHERE owner_type = 'corporation' AND is_active = 1 LIMIT 1"
+  );
+  if (!corporations.length) throw new Error('No active corporation finance owner is configured');
+  const corporationOwnerId = corporations[0].id;
   const [sessions] = await db.execute(`
     SELECT id, started_at, stopped_at, telemetry_units
     FROM fin_isk_hour_sessions
@@ -347,17 +351,14 @@ async function reconcileRecentIskHourSessions(db) {
   let updated = 0;
   for (const session of sessions) {
     const [payoutRows] = await db.execute(`
-      SELECT COUNT(*) AS payout_count, COALESCE(SUM(e.amount_isk), 0) AS payout_isk
-      FROM fin_wallet_entries e
-      JOIN fin_owners o ON o.id = e.owner_id
-      WHERE o.owner_type = 'character'
-        AND o.is_active = 1
-        AND e.source_type = 'journal'
-        AND e.reference_type = 'corporate_reward_payout'
-        AND e.amount_isk = 9000000
-        AND e.occurred_at >= ?
-        AND e.occurred_at <= ?
-    `, [session.started_at, session.stopped_at]);
+      SELECT COUNT(*) AS payout_count
+      FROM fin_wallet_entries
+      WHERE owner_id = ?
+        AND source_type = 'journal_division_1'
+        AND reference_type = 'corporate_reward_payout'
+        AND occurred_at >= ?
+        AND occurred_at <= ?
+    `, [corporationOwnerId, session.started_at, session.stopped_at]);
 
     const [expenseRows] = await db.execute(`
       SELECT COALESCE(SUM(-e.amount_isk), 0) AS expenses_isk
@@ -374,7 +375,7 @@ async function reconcileRecentIskHourSessions(db) {
     `, [session.started_at, session.stopped_at]);
 
     const payoutCount = Number(payoutRows[0].payout_count || 0);
-    const payoutIsk = Number(payoutRows[0].payout_isk || 0);
+    const payoutIsk = payoutCount * 9000000;
     const characterExpenses = Number(expenseRows[0].expenses_isk || 0);
     const telemetryValue = Number(session.telemetry_units || 0) * 300000;
     const [durationRows] = await db.execute(
@@ -404,7 +405,7 @@ async function reconcileRecentIskHourSessions(db) {
     updated++;
   }
 
-  return { sessionsReconciled: updated, windowMinutes: 90 };
+  return { sessionsReconciled: updated, windowMinutes: 90, payoutWalletDivision: 1 };
 }
 
 async function main() {
@@ -438,11 +439,6 @@ async function main() {
       refreshed.push({ owner: fullOwner, token: credential.token, scopes: credential.scopes });
     }
 
-    // Reconcile sessions immediately and on every 15-minute sync while stopped_at
-    // is within the last 90 minutes. No separate status flag is needed.
-    const iskHourReconciliation = await reconcileRecentIskHourSessions(db);
-    console.log(JSON.stringify({ ok: true, iskHourReconciliation }));
-
     const corpAuth = refreshed.find(r => REQUIRED_CORP.every(s => r.scopes.includes(s)));
     if (!corpAuth) throw new Error('None of the three characters has both corporation wallet and asset scopes');
     console.log(JSON.stringify({
@@ -454,6 +450,9 @@ async function main() {
     }));
     const corpResult = await syncCorporation(db, corporation, corpAuth.token);
     console.log(JSON.stringify({ ok: true, ...corpResult }));
+    // Reconcile after Division 1 journal sync so newly fetched payouts are included.
+    const iskHourReconciliation = await reconcileRecentIskHourSessions(db);
+    console.log(JSON.stringify({ ok: true, iskHourReconciliation }));
     const reconciliation = await reconcileSitePayouts(db, corporation.id);
     console.log(JSON.stringify({ ok: true, payoutReconciliation: reconciliation }));
     console.log(JSON.stringify({ ok: true, syncedCharacters: owners.length, corporation: corporation.display_name }));
