@@ -326,6 +326,10 @@
   @endforeach
   @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
   @if(session('info'))<div class="alert alert-info">{{ session('info') }}</div>@endif
+  @if(session('warning'))<div class="alert alert-warning">{{ session('warning') }}</div>@endif
+  @if(session('reconciliation_failures'))
+    <div class="alert alert-warning"><strong>Reconciliation failures:</strong><ul class="mb-0">@foreach(session('reconciliation_failures') as $failure)<li>{{ $failure }}</li>@endforeach</ul></div>
+  @endif
   @if(!$owners->count())
     <div class="alert alert-warning">Finance tables have not been imported yet. Import the standalone finance database into SeAT using the fin_ prefix, then reload this page.</div>
   @endif
@@ -390,7 +394,7 @@
     <div class="tf-panel-head"><h3>Corporation Wallet Balances</h3></div>
     <div class="tf-panel-body"><div class="row">
       <div class="col-lg-6 col-md-6"><div class="tf-metric">
-        <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Corp Main Wallet · Division 3</div>
+        <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Operating Wallet · Division 1</div>
         <div class="tf-metric-value">{{ number_format($corpWallet, 0) }} ISK</div>
       </div></div>
       <div class="col-lg-6 col-md-6"><div class="tf-metric">
@@ -408,7 +412,7 @@
           <div class="tf-isk-active mb-3">
             <span class="tf-pill"><i class="fas fa-circle mr-1"></i> Session Running</span>
             <div class="tf-isk-started">Started {{ date('M j, Y H:i:s', strtotime($activeIskHourSession->started_at)) }}</div>
-            <div class="tf-muted small mt-1">Each tracked character's 9,000,000 ISK reward payout and qualifying character wallet expenses are counted from the start time through the stop time.</div>
+            <div class="tf-muted small mt-1">Each Division 1 corporation reward transaction is counted once at 9,000,000 ISK, along with qualifying character wallet expenses, from the start time through the stop time.</div>
           </div>
           <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.stop') }}">
             @csrf
@@ -425,7 +429,7 @@
             </div>
           </form>
         @else
-          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count each tracked character's 9,000,000 ISK reward payout and character wallet expenses until you stop it.</div>
+          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count each Division 1 corporation reward transaction at 9,000,000 ISK and qualifying character wallet expenses until you stop it.</div>
           <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.start') }}">
             @csrf
             <button type="submit" class="btn btn-tf-gold btn-lg"><i class="fas fa-play mr-1"></i> Start Session</button>
@@ -433,8 +437,12 @@
         @endif
         <div class="tf-isk-formula mt-3">
           <strong>Session calculation</strong>
-          <div>Character reward payouts (9,000,000 ISK per payout) + telemetry deposited (300,000 ISK per unit) − character wallet expenses, excluding corporation tax.</div>
-          <small>The scheduled 15-minute finance sync recalculates every stopped session from character wallet journals until it is more than 90 minutes past its stop time. After that, its totals are frozen. No separate reconciliation flag is stored.</small>
+          <div>Division 1 corporation reward transactions (9,000,000 ISK each) + telemetry deposited (300,000 ISK per unit) − qualifying character wallet expenses, excluding corporation tax.</div>
+          <small>The scheduled 15-minute finance sync refreshes recently stopped sessions from the Division 1 corporation journal. Use Force Reconcile All to recompute every stopped session, including older sessions.</small>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.reconcile-all') }}" class="mt-3" onsubmit="return confirm('Recalculate every stopped ISK per Hour session from the Division 1 corporation journal? Telemetry unit counts will remain unchanged.')">
+            @csrf
+            <button type="submit" class="btn btn-tf"><i class="fas fa-sync-alt mr-1"></i> Force Reconcile All</button>
+          </form>
         </div>
       </div>
     </section>
@@ -442,7 +450,7 @@
     <section class="tf-panel">
       <div class="tf-panel-head"><h3>Average ISK per Hour by Day of Week</h3></div>
       <div class="tf-panel-body">
-        <p class="tf-muted small mb-3">Each bar is the average hourly net earnings of completed sessions that started on that weekday. Averages build as more sessions are recorded.</p>
+        <p class="tf-muted small mb-3">Each bar is total net earnings divided by total session hours for that weekday, so longer sessions carry proportionally more weight.</p>
         <div class="tf-weekday-chart">
           @foreach($iskHourWeekdayAverages as $day)
             <div class="tf-weekday-row">
@@ -466,7 +474,7 @@
       <div class="table-responsive">
         <table class="table table-sm table-striped">
           <thead><tr>
-            <th>Status</th><th>Started</th><th>Duration</th><th>Character Payouts</th><th>Payout ISK</th>
+            <th>Status</th><th>Started</th><th>Duration</th><th>Corp Payout Ticks</th><th>Payout ISK</th>
             <th>Telemetry</th><th>Telemetry ISK</th><th>Character Expenses</th><th>Net ISK</th><th>ISK / Hour</th>
           </tr></thead>
           <tbody>
