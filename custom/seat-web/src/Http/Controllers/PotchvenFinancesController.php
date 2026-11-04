@@ -287,30 +287,116 @@ class PotchvenFinancesController extends Controller
                         });
                 });
 
-            if (count($characterIds)) {
-                $personalPortfolioValue = (float) $db->table('assetmgr_assets as a')
-                    ->joinSub($jitaSellPrices, 'p', fn ($join) => $join->on('p.type_id', '=', 'a.type_id'))
-                    ->where('a.owner_kind', 'character')->whereIn('a.owner_id', $characterIds)
-                    ->sum(DB::raw('a.quantity * p.unit_price'));
+            // Resolve every asset to its top-level NPC station. Nested ship/container
+            // contents use parent_item_id, so filtering only location_id would miss them.
+            // Pochven is region 10000070; player-owned structures are intentionally excluded.
+            $pochvenStationIds = [];
+            if ($has('staStations') && $has('solar_systems')) {
+                $pochvenStationIds = $db->table('staStations as st')
+                    ->join('solar_systems as ss', 'ss.system_id', '=', 'st.solarSystemID')
+                    ->where('ss.region_id', 10000070)
+                    ->pluck('st.stationID')
+                    ->map(fn ($id) => (int) $id)
+                    ->flip()
+                    ->all();
+            }
 
-                if ($has('fin_wallet_snapshots')) {
-                    $personalWalletValue = (float) $db->table('fin_wallet_snapshots as s')
-                        ->joinSub(
-                            $db->table('fin_wallet_snapshots')->select('owner_id', DB::raw('MAX(captured_at) as captured_at'))->groupBy('owner_id'),
-                            'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
-                        )
-                        ->join('fin_owners as o', 'o.id', '=', 's.owner_id')
-                        ->where('o.owner_type', 'character')->where('o.is_active', 1)
-                        ->sum('s.balance_isk');
+            if (count($characterIds) || $corporationId > 0) {
+                $priceByType = (clone $jitaSellPrices)->pluck('unit_price', 'type_id');
+                $ownerQuery = $db->table('assetmgr_assets')
+                    ->where(function ($query) use ($characterIds, $corporationId) {
+                        if (count($characterIds)) {
+                            $query->where(function ($characters) use ($characterIds) {
+                                $characters->where('owner_kind', 'character')->whereIn('owner_id', $characterIds);
+                            });
+                        }
+                        if ($corporationId > 0) {
+                            $method = count($characterIds) ? 'orWhere' : 'where';
+                            $query->{$method}(function ($corporation) use ($corporationId) {
+                                $corporation->where('owner_kind', 'corporation')->where('owner_id', $corporationId);
+                            });
+                        }
+                    });
+
+                $assetRows = $ownerQuery->get([
+                    'owner_kind', 'owner_id', 'item_id', 'parent_item_id',
+                    'location_id', 'location_type', 'location_flag', 'type_id', 'quantity',
+                ]);
+
+                // Index by owner and item ID so identical item IDs belonging to
+                // different owners can never be confused while walking parent links.
+                $assetsByItem = [];
+                foreach ($assetRows as $asset) {
+                    $ownerKey = $asset->owner_kind . ':' . $asset->owner_id;
+                    $assetsByItem[$ownerKey][(string) $asset->item_id] = $asset;
+                }
+
+                $resolvedRoots = [];
+                foreach ($assetRows as $asset) {
+                    $unitPrice = $priceByType[(int) $asset->type_id] ?? null;
+                    if ($unitPrice === null) {
+                        continue;
+                    }
+
+                    $ownerKey = $asset->owner_kind . ':' . $asset->owner_id;
+                    $cacheKey = $ownerKey . ':' . $asset->item_id;
+                    if (!array_key_exists($cacheKey, $resolvedRoots)) {
+                        $current = $asset;
+                        $visited = [];
+                        $root = null;
+
+                        // Follow nested item parents until the inventory's station row.
+                        // Missing parents and cycles are excluded rather than guessed.
+                        for ($depth = 0; $depth < 100 && $current; $depth++) {
+                            $itemKey = (string) $current->item_id;
+                            if (isset($visited[$itemKey])) {
+                                break;
+                            }
+                            $visited[$itemKey] = true;
+
+                            if (strtolower((string) $current->location_type) === 'station') {
+                                $root = $current;
+                                break;
+                            }
+
+                            $parentId = $current->parent_item_id;
+                            if ($parentId === null || $parentId === '') {
+                                break;
+                            }
+                            $current = $assetsByItem[$ownerKey][(string) $parentId] ?? null;
+                        }
+
+                        $resolvedRoots[$cacheKey] = $root;
+                    }
+
+                    $root = $resolvedRoots[$cacheKey];
+                    if (!$root || !isset($pochvenStationIds[(int) $root->location_id])) {
+                        continue;
+                    }
+
+                    $value = (float) $asset->quantity * (float) $unitPrice;
+                    if ($asset->owner_kind === 'character') {
+                        $personalPortfolioValue += $value;
+                    } elseif (
+                        $asset->owner_kind === 'corporation'
+                        && in_array((string) $root->location_flag, ['CorpSAG2', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6'], true)
+                    ) {
+                        // CorpSAG3 is deliberately excluded; the flag belongs to
+                        // the top-level station asset, not nested contents.
+                        $corporationHangarValue += $value;
+                    }
                 }
             }
 
-            if ($corporationId > 0) {
-                $corporationHangarValue = (float) $db->table('assetmgr_assets as a')
-                    ->joinSub($jitaSellPrices, 'p', fn ($join) => $join->on('p.type_id', '=', 'a.type_id'))
-                    ->where('a.owner_kind', 'corporation')->where('a.owner_id', $corporationId)
-                    ->whereIn('a.location_flag', ['CorpSAG2', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6'])
-                    ->sum(DB::raw('a.quantity * p.unit_price'));
+            if (count($characterIds) && $has('fin_wallet_snapshots')) {
+                $personalWalletValue = (float) $db->table('fin_wallet_snapshots as s')
+                    ->joinSub(
+                        $db->table('fin_wallet_snapshots')->select('owner_id', DB::raw('MAX(captured_at) as captured_at'))->groupBy('owner_id'),
+                        'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
+                    )
+                    ->join('fin_owners as o', 'o.id', '=', 's.owner_id')
+                    ->where('o.owner_type', 'character')->where('o.is_active', 1)
+                    ->sum('s.balance_isk');
             }
         }
         $personalNetValue = $personalPortfolioValue + $personalWalletValue - 90000000;
