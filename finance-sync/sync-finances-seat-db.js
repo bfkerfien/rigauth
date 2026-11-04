@@ -330,8 +330,9 @@ async function reconcileSitePayouts(db, corporationOwnerId) {
 
 /**
  * Refresh stopped ISK/hour sessions during their 90-minute reconciliation window.
- * This runs after all three character journals have been synced on every 15-minute
- * finance-worker execution. Sessions older than 90 minutes are intentionally frozen.
+ * This runs after the corporation Division 1 journal has been synced on each
+ * 15-minute finance-worker execution. Sessions older than 90 minutes are frozen unless
+ * the dashboard's Force Reconcile All action is used.
  */
 async function reconcileRecentIskHourSessions(db) {
   const [corporations] = await db.execute(
