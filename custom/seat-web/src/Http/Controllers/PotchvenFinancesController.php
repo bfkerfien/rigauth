@@ -196,7 +196,7 @@ class PotchvenFinancesController extends Controller
                     ->where('id', $session->id)
                     ->update($totals + ['updated_at' => now()]);
                 $processed++;
-            } catch (\\Throwable $error) {
+            } catch (\Throwable $error) {
                 $failures[] = 'Session #' . $session->id . ': ' . $error->getMessage();
                 report($error);
             }
