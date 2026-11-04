@@ -64,9 +64,9 @@ class PotchvenFinancesController extends Controller
 
 
     /**
-     * Calculate one session from the three tracked character wallet journals.
-     * Each character's 9,000,000 ISK corporate reward payout is counted once.
-     * All qualifying character wallet outflows are deducted except corporation tax.
+     * Calculate one session from Division 1 corporation reward transactions.
+     * Each matching journal transaction in the inclusive session window counts once
+     * at 9,000,000 ISK. Qualifying character expenses remain separate.
      */
     private function calculateIskHourSessionTotals($session): array
     {
@@ -74,19 +74,19 @@ class PotchvenFinancesController extends Controller
         $start = Carbon::parse($session->started_at);
         $stop = Carbon::parse($session->stopped_at);
 
-        $payouts = $db->table('fin_wallet_entries as e')
+        $payoutCount = (int) $db->table('fin_wallet_entries as e')
             ->join('fin_owners as o', 'o.id', '=', 'e.owner_id')
-            ->where('o.owner_type', 'character')
+            ->where('o.owner_type', 'corporation')
             ->where('o.is_active', 1)
-            ->where('e.source_type', 'journal')
+            ->where('e.source_type', 'journal_division_1')
             ->where('e.occurred_at', '>=', $start)
             ->where('e.occurred_at', '<=', $stop)
             ->where('e.reference_type', 'corporate_reward_payout')
-            ->where('e.amount_isk', 9000000);
+            ->count();
 
         $ticks = [
-            'count' => (int) $payouts->count(),
-            'isk' => (float) $payouts->sum('e.amount_isk'),
+            'count' => $payoutCount,
+            'isk' => $payoutCount * 9000000,
         ];
 
         $characterExpenses = (float) $db->table('fin_wallet_entries as e')
@@ -141,7 +141,7 @@ class PotchvenFinancesController extends Controller
         ]);
 
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'ISK per Hour session started. Character reward payouts and character wallet expenses will be counted from this time.');
+            ->with('success', 'ISK per Hour session started. Division 1 corporation reward transactions and qualifying character wallet expenses will be counted from this time.');
     }
 
     public function stopIskHour(Request $request): RedirectResponse
@@ -170,7 +170,42 @@ class PotchvenFinancesController extends Controller
         DB::table('fin_isk_hour_sessions')->where('id', $session->id)->update($totals + ['updated_at' => now()]);
 
         return redirect()->route('seatcore::potchven-finances.index')
-            ->with('success', 'Session stopped. Initial total: ' . number_format($totals['net_isk'], 0) . ' ISK at ' . number_format($totals['isk_per_hour'], 0) . ' ISK/hour. Wallet reconciliation will continue every 15 minutes for up to 90 minutes.');
+            ->with('success', 'Session stopped. Initial total: ' . number_format($totals['net_isk'], 0) . ' ISK at ' . number_format($totals['isk_per_hour'], 0) . ' ISK/hour. Division 1 payout reconciliation will continue every 15 minutes for up to 90 minutes.');
+    }
+
+    public function forceReconcileAllIskHour(): RedirectResponse
+    {
+        $this->authorizeFinance();
+        abort_unless(
+            Schema::hasTable('fin_isk_hour_sessions') && Schema::hasTable('fin_wallet_entries') && Schema::hasTable('fin_owners'),
+            500,
+            'ISK per Hour tracking tables are not available.'
+        );
+
+        $sessions = DB::table('fin_isk_hour_sessions')
+            ->whereNotNull('stopped_at')
+            ->orderBy('id')
+            ->get();
+
+        $processed = 0;
+        $failures = [];
+        foreach ($sessions as $session) {
+            try {
+                $totals = $this->calculateIskHourSessionTotals($session);
+                DB::table('fin_isk_hour_sessions')
+                    ->where('id', $session->id)
+                    ->update($totals + ['updated_at' => now()]);
+                $processed++;
+            } catch (\\Throwable $error) {
+                $failures[] = 'Session #' . $session->id . ': ' . $error->getMessage();
+                report($error);
+            }
+        }
+
+        $message = 'Force reconciliation finished: ' . $processed . ' session(s) processed; ' . count($failures) . ' failure(s).';
+        return redirect()->route('seatcore::potchven-finances.index')
+            ->with(count($failures) ? 'warning' : 'success', $message)
+            ->with('reconciliation_failures', $failures);
     }
 
     public function index(): View
@@ -286,9 +321,8 @@ class PotchvenFinancesController extends Controller
                 'latest', fn ($join) => $join->on('latest.owner_id', '=', 's.owner_id')->on('latest.captured_at', '=', 's.captured_at')
             )->join('fin_owners as o', 'o.id', '=', 's.owner_id')->where('o.owner_type', 'corporation')->sum('s.balance_isk');
         }
-        // The latest corporation wallet snapshot stores Division 3 (Corp Main Wallet).
-        // The sync worker stores Division 2 (SRP Wallet) separately because the legacy
-        // wallet-snapshot table does not identify which division each balance belongs to.
+        // The latest corporation wallet snapshot stores Division 1 (operating wallet).
+        // Division 2 (SRP) is stored separately; Division 3 receives later manual sweeps.
         $srpWallet = 0;
         if ($has('fin_app_settings')) {
             $srpWallet = (float) ($db->table('fin_app_settings')
@@ -317,22 +351,24 @@ class PotchvenFinancesController extends Controller
         $activeIskHourSession = null;
         $iskHourLedger = collect();
         $weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        $weekdayBuckets = array_fill(0, 7, []);
+        $weekdayBuckets = array_fill(0, 7, ['net' => 0.0, 'seconds' => 0, 'sessions' => 0]);
         $iskHourWeekdayAverages = collect();
         if ($has('fin_isk_hour_sessions')) {
             $activeIskHourSession = $db->table('fin_isk_hour_sessions')->whereNull('stopped_at')->orderByDesc('id')->first();
-            // The scheduled finance worker refreshes completed sessions every 15 minutes
-            // while they are no more than 90 minutes past stopped_at. Page loads are read-only.
             $completedSessions = $db->table('fin_isk_hour_sessions')->whereNotNull('stopped_at')->orderBy('started_at')->get();
             foreach ($completedSessions as $session) {
                 $session->reconciliation_open = Carbon::parse($session->stopped_at)->greaterThanOrEqualTo(now()->subMinutes(90));
                 $weekday = (int) Carbon::parse($session->started_at)->dayOfWeek;
-                $weekdayBuckets[$weekday][] = (float) $session->isk_per_hour;
+                $weekdayBuckets[$weekday]['net'] += (float) $session->net_isk;
+                $weekdayBuckets[$weekday]['seconds'] += max(0, (int) $session->duration_seconds);
+                $weekdayBuckets[$weekday]['sessions']++;
             }
             $maxMagnitude = 0.0;
             $averages = [];
-            foreach ($weekdayBuckets as $index => $values) {
-                $average = count($values) ? array_sum($values) / count($values) : 0.0;
+            foreach ($weekdayBuckets as $index => $bucket) {
+                $average = $bucket['seconds'] > 0
+                    ? $bucket['net'] / ($bucket['seconds'] / 3600)
+                    : 0.0;
                 $averages[$index] = $average;
                 $maxMagnitude = max($maxMagnitude, abs($average));
             }
@@ -340,7 +376,7 @@ class PotchvenFinancesController extends Controller
                 $iskHourWeekdayAverages->push([
                     'label' => $label,
                     'average' => $averages[$index],
-                    'sessions' => count($weekdayBuckets[$index]),
+                    'sessions' => $weekdayBuckets[$index]['sessions'],
                     'bar_percent' => $maxMagnitude > 0 ? (abs($averages[$index]) / $maxMagnitude) * 100 : 0,
                     'is_negative' => $averages[$index] < 0,
                 ]);
