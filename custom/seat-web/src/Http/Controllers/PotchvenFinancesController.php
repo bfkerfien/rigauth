@@ -269,7 +269,20 @@ class PotchvenFinancesController extends Controller
         $priceCutoff = now()->subSeconds((int) config('assetmgr.pricing.stale_after_seconds', 3600));
 
         if ($assetManagerAvailable && $has('fin_owners')) {
-            $characterIds = $db->table('fin_owners')
+            // Asset coverage follows every character registered in SeAT with the
+            // ESI asset-read scope, not only the three characters selected as
+            // active Finance wallet owners. Any such character's Pochven inventory
+            // is Potchven-related and belongs in the combined Character Assets card.
+            $assetCharacterIds = $has('refresh_tokens')
+                ? $db->table('refresh_tokens')
+                    ->whereJsonContains('scopes', 'esi-assets.read_assets.v1')
+                    ->pluck('character_id')
+                    ->map(fn ($id) => (int) $id)->filter()->unique()->values()->all()
+                : [];
+
+            // Finance wallet totals intentionally remain limited to the active
+            // finance character owners; this wider list is assets-only.
+            $financeCharacterIds = $db->table('fin_owners')
                 ->where('owner_type', 'character')->where('is_active', 1)
                 ->pluck('eve_id')->map(fn ($id) => (int) $id)->filter()->values()->all();
             $corporationId = (int) ($db->table('fin_owners')
@@ -299,17 +312,17 @@ class PotchvenFinancesController extends Controller
                     ->all();
             }
 
-            if (count($characterIds) || $corporationId > 0) {
+            if (count($assetCharacterIds) || $corporationId > 0) {
                 $priceByType = (clone $jitaSellPrices)->pluck('unit_price', 'type_id');
                 $ownerQuery = $db->table('assetmgr_assets')
-                    ->where(function ($query) use ($characterIds, $corporationId) {
-                        if (count($characterIds)) {
-                            $query->where(function ($characters) use ($characterIds) {
-                                $characters->where('owner_kind', 'character')->whereIn('owner_id', $characterIds);
+                    ->where(function ($query) use ($assetCharacterIds, $corporationId) {
+                        if (count($assetCharacterIds)) {
+                            $query->where(function ($characters) use ($assetCharacterIds) {
+                                $characters->where('owner_kind', 'character')->whereIn('owner_id', $assetCharacterIds);
                             });
                         }
                         if ($corporationId > 0) {
-                            $method = count($characterIds) ? 'orWhere' : 'where';
+                            $method = count($assetCharacterIds) ? 'orWhere' : 'where';
                             $query->{$method}(function ($corporation) use ($corporationId) {
                                 $corporation->where('owner_kind', 'corporation')->where('owner_id', $corporationId);
                             });
@@ -406,7 +419,7 @@ class PotchvenFinancesController extends Controller
                 }
             }
 
-            if (count($characterIds) && $has('fin_wallet_snapshots')) {
+            if (count($financeCharacterIds) && $has('fin_wallet_snapshots')) {
                 $personalWalletValue = (float) $db->table('fin_wallet_snapshots as s')
                     ->joinSub(
                         $db->table('fin_wallet_snapshots')->select('owner_id', DB::raw('MAX(captured_at) as captured_at'))->groupBy('owner_id'),
