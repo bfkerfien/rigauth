@@ -275,17 +275,15 @@ class PotchvenFinancesController extends Controller
             $corporationId = (int) ($db->table('fin_owners')
                 ->where('owner_type', 'corporation')->where('is_active', 1)->value('eve_id') ?? 0);
 
+            // ESI order cache expiries are often only a few minutes. They control
+            // when Asset Manager should refresh a quote, not whether the last known
+            // Jita sell price can be used to value inventory. Excluding expired quotes
+            // made the entire Finance portfolio read as zero between refreshes.
             $jitaSellPrices = $db->table('assetmgr_prices')
                 ->select(['type_id', 'unit_price'])
                 ->where('region_id', $jitaRegionId)
                 ->where('source', 'esi-orders')->where('price_basis', 'sell')
-                ->whereNotNull('unit_price')
-                ->where(function ($query) use ($priceCutoff) {
-                    $query->where('source_expires_at', '>', now())
-                        ->orWhere(function ($fallback) use ($priceCutoff) {
-                            $fallback->whereNull('source_expires_at')->where('fetched_at', '>=', $priceCutoff);
-                        });
-                });
+                ->whereNotNull('unit_price');
 
             // Resolve every asset to its top-level NPC station. Nested ship/container
             // contents use parent_item_id, so filtering only location_id would miss them.
@@ -377,13 +375,33 @@ class PotchvenFinancesController extends Controller
                     $value = (float) $asset->quantity * (float) $unitPrice;
                     if ($asset->owner_kind === 'character') {
                         $personalPortfolioValue += $value;
-                    } elseif (
-                        $asset->owner_kind === 'corporation'
-                        && in_array((string) $root->location_flag, ['CorpSAG2', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6'], true)
-                    ) {
-                        // CorpSAG3 is deliberately excluded; the flag belongs to
-                        // the top-level station asset, not nested contents.
-                        $corporationHangarValue += $value;
+                    } elseif ($asset->owner_kind === 'corporation') {
+                        // Corporation ESI inventories can have an OfficeFolder station
+                        // root, with the actual division flag on a nested child item.
+                        // Accept the allowed division anywhere in the parent chain,
+                        // while explicitly excluding CorpSAG3.
+                        $current = $asset;
+                        $visitedFlags = [];
+                        $allowedDivision = false;
+                        for ($depth = 0; $depth < 100 && $current; $depth++) {
+                            $itemKey = (string) $current->item_id;
+                            if (isset($visitedFlags[$itemKey])) {
+                                break;
+                            }
+                            $visitedFlags[$itemKey] = true;
+                            if (in_array((string) $current->location_flag, ['CorpSAG2', 'CorpSAG4', 'CorpSAG5', 'CorpSAG6'], true)) {
+                                $allowedDivision = true;
+                                break;
+                            }
+                            $parentId = $current->parent_item_id;
+                            if ($parentId === null || $parentId === '') {
+                                break;
+                            }
+                            $current = $assetsByItem[$ownerKey][(string) $parentId] ?? null;
+                        }
+                        if ($allowedDivision) {
+                            $corporationHangarValue += $value;
+                        }
                     }
                 }
             }
