@@ -292,13 +292,16 @@
       loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
 
       character.addEventListener('change', function () {
+        // Blueprint mineral requirements do not depend on the inventory character.
+        // Keep the successful calculation so the user can change characters before
+        // running the final ore basket plan; the planner uses the currently selected
+        // character's facility stock when Plan ore basket is clicked.
         facilityInventoryLoaded = false;
-        latestCalculation = null;
         inventoryItems = [];
         inventoryTable.innerHTML = '';
         oreOutput.innerHTML = '';
         orePlanOutput.innerHTML = '';
-        status.textContent = 'Character changed. Reload facility inventory and recalculate the blueprint.';
+        status.textContent = 'Character changed. Reload facility inventory for this character. Your blueprint mineral requirements are still available.';
         reprocess.disabled = true;
         updateOrePlanButton();
       });
@@ -346,8 +349,16 @@
           return;
         }
         const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).filter(input => input.closest('.custom-control').style.display !== 'none').map(input => input.value);
-        if (!latestCalculation || !character.value || !selectedOreIds.length) {
-          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate a blueprint, select a character, and tick at least one normal compressed ore type first.</div>';
+        if (!latestCalculation) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate materials for a blueprint first. The Plan Ore Basket step uses those mineral requirements.</div>';
+          return;
+        }
+        if (!character.value) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Select the character whose Draken facility inventory should be used.</div>';
+          return;
+        }
+        if (!selectedOreIds.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">No eligible ore types are selected. Wait for the ore list to load, then select at least one standard compressed ore.</div>';
           return;
         }
         const needs = (latestCalculation.minerals || []).map(row => ({
