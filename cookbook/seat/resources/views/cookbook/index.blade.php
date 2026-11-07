@@ -95,7 +95,7 @@
               <a href="#" id="cookbook-ore-deselect-all">Deselect all</a>
             </div>
             <div class="custom-control custom-checkbox mb-3">
-              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume" checked>
+              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume">
               <label class="custom-control-label" for="cookbook-ignore-low-volume">Exclude Triglavian ores (Bezdnacine / Rakovene / Talassonite)</label>
             </div>
             <div id="cookbook-plan-ore-options" class="row mx-0" style="max-height: 420px; overflow-y: auto;">
