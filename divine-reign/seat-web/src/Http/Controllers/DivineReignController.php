@@ -50,7 +50,7 @@ class DivineReignController extends Controller
         $accountActive = $this->accountActiveSession();
         $character = $accountActive
             ? $this->character((int) $accountActive->character_id)
-            : $this->character(request()->integer('character_id') ?: null);
+            : $this->character(((int) request()->input('character_id')) ?: null);
         $characterId = (int) $character->character_id;
         $this->syncBountyAllocations($characterId);
         $active = $accountActive && (int) $accountActive->character_id === $characterId
