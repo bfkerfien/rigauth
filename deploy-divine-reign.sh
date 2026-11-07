@@ -68,7 +68,7 @@ if ! grep -Fq "$SIDEBAR_MARKER" "$SIDEBAR_FILE"; then
       print "        <li class=\"nav-item\">"
       print "          <a href=\"{{ route(\x27seatcore::divine-reign.index\x27) }}\" class=\"nav-link {{ Request::segment(1) === \x27divine-reign\x27 ? \x27active\x27 : null }}\">"
       print "            <i class=\"nav-icon fas fa-skull-crossbones\"></i>"
-      print "            <p>Divine Reign</p>"
+      print "            <p>Belt Ratting</p>"
       print "          </a>"
       print "        </li>"
       print ""
@@ -88,6 +88,6 @@ printf '%s\n' "$ROUTES"
 printf '%s\n' "$ROUTES" | grep -q 'divine-reign' || { echo "ERROR: Divine Reign routes not registered."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
-echo "Divine Reign deployed successfully."
+echo "Belt Ratting deployed successfully."
 echo "Backup retained at $BACKUP"
 SUCCESS=1
