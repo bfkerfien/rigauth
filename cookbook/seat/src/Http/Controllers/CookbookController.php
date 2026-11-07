@@ -259,38 +259,115 @@ class CookbookController extends Controller
                 }
             }
 
-            $oreStockRows = [];
-            $stockMinerals = [];
+            // Plan the smallest practical quantity of owned compressed ore to refine.
+            // Do not credit minerals from ore that the recommendation leaves untouched.
             $yieldFactor = (float) $data['yield_percent'] / 100;
+            $oreStockRows = [];
+            $stockCandidates = [];
             foreach ($oreQuantities as $typeId => $quantity) {
                 $ore = $oreCatalog->get($typeId);
-                if (!$ore) {
-                    continue;
-                }
+                if (!$ore) continue;
                 $portion = max(1, (int) $ore->portionSize);
-                $batches = intdiv($quantity, $portion);
-                if ($batches > 0) {
-                    $materials = DB::table('invTypeMaterials')->where('typeID', $typeId)->get(['materialTypeID', 'quantity']);
-                    if ($materials->isEmpty()) {
-                        throw new RuntimeException('No reprocessing material data exists for cached compressed ore stock ' . $ore->typeName . '.');
-                    }
-                    foreach ($materials as $material) {
-                        $mineralId = (int) $material->materialTypeID;
-                        $yield = (int) floor($batches * (int) $material->quantity * $yieldFactor);
-                        $stockMinerals[$mineralId] = ($stockMinerals[$mineralId] ?? 0) + $yield;
-                    }
+                $availableBatches = intdiv($quantity, $portion);
+                $materials = DB::table('invTypeMaterials')->where('typeID', $typeId)->get(['materialTypeID', 'quantity']);
+                if ($availableBatches > 0 && $materials->isEmpty()) {
+                    throw new RuntimeException('No reprocessing material data exists for cached compressed ore stock ' . $ore->typeName . '.');
                 }
-                $oreStockRows[$typeId] = [
-                    'type_id' => $typeId,
+                $composition = [];
+                foreach ($materials as $material) {
+                    $composition[(int) $material->materialTypeID] = (int) $material->quantity;
+                }
+                $stockCandidates[$typeId] = [
+                    'type_id' => (int) $typeId,
                     'name' => $ore->typeName,
-                    'quantity' => $quantity,
+                    'quantity' => (int) $quantity,
                     'portion_size' => $portion,
-                    'complete_batches' => $batches,
-                    'leftover_units' => $quantity % $portion,
+                    'available_batches' => $availableBatches,
+                    'composition' => $composition,
                 ];
             }
 
-            // Refinery ore is counted first, then only the residual mineral deficit is planned.
+            $remainingOwnedNeeds = $deficits;
+            $refineBatches = [];
+            $stockMinerals = [];
+            $iterations = 0;
+            while (array_sum($remainingOwnedNeeds) > 0 && $iterations < 1000) {
+                $iterations++;
+                $bestId = null;
+                $bestScore = 0.0;
+                $bestBatches = 0;
+                foreach ($stockCandidates as $candidateId => $candidate) {
+                    $available = $candidate['available_batches'] - (int) ($refineBatches[$candidateId] ?? 0);
+                    if ($available < 1) continue;
+                    $batchOutput = [];
+                    $useful = 0.0;
+                    $totalOutput = 0.0;
+                    $limit = $available;
+                    foreach ($candidate['composition'] as $mineralId => $rawPerBatch) {
+                        $perBatch = (int) floor($rawPerBatch * $yieldFactor);
+                        if ($perBatch < 1) continue;
+                        $totalOutput += $perBatch;
+                        $need = (int) ($remainingOwnedNeeds[$mineralId] ?? 0);
+                        if ($need > 0) {
+                            $useful += min($need, $perBatch);
+                            $limit = min($limit, (int) ceil($need / $perBatch));
+                        }
+                    }
+                    if ($useful <= 0 || $totalOutput <= 0 || $limit < 1) continue;
+                    // Favor batches that directly satisfy outstanding minerals while
+                    // penalizing by-products that would be refined but not needed.
+                    $score = $useful / $totalOutput;
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestId = $candidateId;
+                        $bestBatches = $limit;
+                    }
+                }
+                if ($bestId === null) break;
+                $candidate = $stockCandidates[$bestId];
+                $refineBatches[$bestId] = ($refineBatches[$bestId] ?? 0) + $bestBatches;
+                foreach ($candidate['composition'] as $mineralId => $rawPerBatch) {
+                    $yield = (int) floor($bestBatches * $rawPerBatch * $yieldFactor);
+                    $stockMinerals[$mineralId] = ($stockMinerals[$mineralId] ?? 0) + $yield;
+                    if (array_key_exists($mineralId, $remainingOwnedNeeds)) {
+                        $remainingOwnedNeeds[$mineralId] = max(0, $remainingOwnedNeeds[$mineralId] - $yield);
+                    }
+                }
+            }
+
+            $refinePlanRows = [];
+            $unusedOreRows = [];
+            $oreStockRows = [];
+            foreach ($stockCandidates as $typeId => $candidate) {
+                $refineCount = (int) ($refineBatches[$typeId] ?? 0);
+                $refineUnits = $refineCount * $candidate['portion_size'];
+                $unusedUnits = $candidate['quantity'] - $refineUnits;
+                if ($refineCount > 0) {
+                    $refinePlanRows[] = [
+                        'type_id' => $typeId, 'name' => $candidate['name'],
+                        'batches' => $refineCount, 'portion_size' => $candidate['portion_size'],
+                        'refine_units' => $refineUnits, 'owned_units' => $candidate['quantity'],
+                        'remaining_units' => $unusedUnits,
+                    ];
+                }
+                if ($unusedUnits > 0) {
+                    $unusedOreRows[] = [
+                        'type_id' => $typeId, 'name' => $candidate['name'],
+                        'quantity' => $candidate['quantity'], 'remaining_units' => $unusedUnits,
+                        'portion_size' => $candidate['portion_size'],
+                        'complete_batches_left' => intdiv($unusedUnits, $candidate['portion_size']),
+                        'leftover_units' => $unusedUnits % $candidate['portion_size'],
+                    ];
+                }
+                $oreStockRows[$typeId] = [
+                    'type_id' => $typeId, 'name' => $candidate['name'],
+                    'quantity' => $candidate['quantity'], 'portion_size' => $candidate['portion_size'],
+                    'complete_batches' => $candidate['available_batches'],
+                    'leftover_units' => $candidate['quantity'] % $candidate['portion_size'],
+                ];
+            }
+
+            // Only minerals from the recommended owned-ore refining quantity reduce mining needs.
             foreach ($deficits as $typeId => $quantity) {
                 $deficits[$typeId] = max(0, $quantity - (int) ($stockMinerals[$typeId] ?? 0));
             }
@@ -408,10 +485,12 @@ class CookbookController extends Controller
 
             return response()->json([
                 'ore_plan' => $planRows,
+                'refine_plan' => $refinePlanRows,
+                'unused_ore' => $unusedOreRows,
                 'yield_percent' => (float) $data['yield_percent'],
                 'ore_stock' => array_values($oreStockRows),
                 'minerals' => $mineralRows,
-                'note' => 'Only minerals at Draken Manufacturing manufacturing facility are deducted as existing mineral stock. Only raw and compressed ore at Draken Barrel Refinery is considered refinery stock; compressed standard asteroid ores are reprocessed. Other stations and item categories are excluded.',
+                'note' => 'Ore to refine is the recommended minimum whole-batch quantity from compressed standard asteroid ore already at Draken Barrel Refinery. Minerals from only those recommended batches are credited before calculating additional ore to mine. Unused compressed ore remains untouched. Existing minerals at Draken Manufacturing are deducted first; other locations and item categories are excluded.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
