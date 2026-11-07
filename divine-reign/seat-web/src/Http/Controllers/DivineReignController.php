@@ -12,18 +12,30 @@ use Illuminate\View\View;
 
 class DivineReignController extends Controller
 {
-    private const CHARACTER_NAME = 'DivineReign DivineSpirit';
     private const SYSTEM_NAME = 'MC6-5J';
 
-    private function character(): object
+    private function characters()
     {
         abort_unless(auth()->check(), 401);
-        $characters = auth()->user()->characters;
-        $character = $characters ? $characters->first(function ($item) {
-            return strcasecmp((string) ($item->name ?? $item->character_name ?? ''), self::CHARACTER_NAME) === 0;
-        }) : null;
-        abort_unless($character, 403, 'This tracker is restricted to DivineReign DivineSpirit.');
+        return auth()->user()->characters ?? collect();
+    }
+
+    private function character(?int $characterId = null): object
+    {
+        $characters = $this->characters();
+        $character = $characterId
+            ? $characters->firstWhere('character_id', $characterId)
+            : $characters->first();
+        abort_unless($character, 403, 'Select a character authenticated through SeAT.');
         return $character;
+    }
+
+    private function accountActiveSession()
+    {
+        $ids = $this->characters()->pluck('character_id')->map(fn ($id) => (int) $id)->all();
+        if (!$ids) return null;
+        return DB::table('dr_ratting_sessions')->whereIn('character_id', $ids)
+            ->where('status', 'active')->orderByDesc('id')->first();
     }
 
     private function activeSession(int $characterId): ?object
@@ -34,10 +46,15 @@ class DivineReignController extends Controller
 
     public function index(): View
     {
-        $character = $this->character();
+        $characters = $this->characters();
+        $accountActive = $this->accountActiveSession();
+        $character = $accountActive
+            ? $this->character((int) $accountActive->character_id)
+            : $this->character(request()->integer('character_id') ?: null);
         $characterId = (int) $character->character_id;
         $this->syncBountyAllocations($characterId);
-        $active = $this->activeSession($characterId);
+        $active = $accountActive && (int) $accountActive->character_id === $characterId
+            ? $accountActive : null;
         $bounties = $active ? $this->sessionBountyTotal($characterId, $active, now()) : 0.0;
         $duration = $active ? max(0, now()->diffInSeconds(Carbon::parse($active->started_at))) : 0;
         $events = $active ? DB::table('dr_ratting_events')->where('session_id', $active->id)->orderByDesc('occurred_at')->limit(12)->get() : collect();
@@ -51,12 +68,12 @@ class DivineReignController extends Controller
             $counts['estamel'] = DB::table('dr_ratting_events')->where('session_id', $active->id)->where('event_type', 'estamel')->count();
         }
         $loot = $active ? (float) DB::table('dr_ratting_events')->where('session_id', $active->id)->sum('loot_isk') : 0.0;
-        $recentSessions = DB::table('dr_ratting_sessions')->orderByDesc('started_at')->get();
+        $recentSessions = DB::table('dr_ratting_sessions')->where('character_id', $characterId)->orderByDesc('started_at')->get();
         $shipStats = DB::table('dr_ratting_sessions')
             ->select('ship_name',
                 DB::raw('SUM(COALESCE(duration_seconds, 0)) as total_seconds'),
                 DB::raw('SUM(COALESCE(total_income_isk, 0)) as total_income_isk'))
-            ->where('status', 'completed')->whereNotNull('ship_name')->where('ship_name', '<>', '')
+            ->where('character_id', $characterId)->where('status', 'completed')->whereNotNull('ship_name')->where('ship_name', '<>', '')
             ->groupBy('ship_name')->orderBy('ship_name')->get()
             ->map(function ($row) {
                 $hours = (float) $row->total_seconds / 3600;
@@ -67,8 +84,8 @@ class DivineReignController extends Controller
         $maxShipHours = max(1, (float) $shipStats->max('hours'));
         $maxShipRate = max(1, (float) $shipStats->max('average_isk_per_hour'));
         $recentEvents = DB::table('dr_ratting_events as e')->join('dr_ratting_sessions as s', 's.id', '=', 'e.session_id')
-            ->orderByDesc('e.occurred_at')->limit(30)->get(['e.*', 's.started_at as session_started_at']);
-        $latestSnapshot = DB::table('dr_asset_snapshots')->orderByDesc('captured_at')->first();
+            ->where('s.character_id', $characterId)->orderByDesc('e.occurred_at')->limit(30)->get(['e.*', 's.started_at as session_started_at']);
+        $latestSnapshot = DB::table('dr_asset_snapshots')->where('character_id', $characterId)->orderByDesc('captured_at')->first();
         $structureId = DB::table('dr_settings')->where('setting_key', 'astra_house_structure_id')->value('setting_value');
         $explorationActive = DB::table('dr_exploration_sessions')->where('character_id', $characterId)->where('status', 'active')->orderByDesc('id')->first();
         $explorationDuration = $explorationActive ? max(0, now()->diffInSeconds(Carbon::parse($explorationActive->started_at))) : 0;
@@ -82,7 +99,7 @@ class DivineReignController extends Controller
             : collect();
 
         return view('web::divine-reign.index', compact(
-            'character', 'active', 'bounties', 'duration', 'events', 'counts', 'loot',
+            'character', 'characters', 'active', 'bounties', 'duration', 'events', 'counts', 'loot',
             'recentSessions', 'recentEvents', 'latestSnapshot', 'structureId', 'shipStats', 'maxShipHours', 'maxShipRate', 'explorationActive', 'explorationDuration', 'explorationSessions', 'explorationSites', 'activeExplorationSites'
         ));
     }
@@ -91,12 +108,13 @@ class DivineReignController extends Controller
     {
         $data = $request->validate([
             'ship_name' => 'required|in:Ishtar,Tengu,Gila',
+            'character_id' => 'required|integer',
         ]);
-        $character = $this->character();
+        $character = $this->character((int) $data['character_id']);
         $characterId = (int) $character->character_id;
-        abort_if($this->activeSession($characterId), 409, 'A ratting session is already running.');
+        abort_if($this->accountActiveSession(), 409, 'A belt-ratting session is already active on another character. Only one character can rat at a time.');
         $id = DB::table('dr_ratting_sessions')->insertGetId([
-            'character_id' => $characterId, 'character_name' => self::CHARACTER_NAME,
+            'character_id' => $characterId, 'character_name' => (string) ($character->name ?? $character->character_name),
             'ship_name' => $data['ship_name'],
             'system_name' => self::SYSTEM_NAME, 'started_at' => now(), 'status' => 'active',
             'created_at' => now(), 'updated_at' => now(),
@@ -113,9 +131,9 @@ class DivineReignController extends Controller
 
     public function stop(): RedirectResponse
     {
-        $character = $this->character();
-        $characterId = (int) $character->character_id;
-        $session = $this->activeSession($characterId);
+        $session = $this->accountActiveSession();
+        abort_unless($session, 409, 'There is no active belt-ratting session.');
+        $characterId = (int) $session->character_id;
         abort_unless($session, 409, 'There is no active ratting session.');
         $stoppedAt = now();
         $assetEnd = $this->captureAssetSnapshot((int) $session->id, $characterId, 'stop');
@@ -134,10 +152,9 @@ class DivineReignController extends Controller
 
     public function event(Request $request): RedirectResponse
     {
-        $character = $this->character();
-        $characterId = (int) $character->character_id;
-        $session = $this->activeSession($characterId);
-        abort_unless($session, 409, 'Start a ratting session before recording an event.');
+        $session = $this->accountActiveSession();
+        abort_unless($session, 409, 'Start a belt-ratting session before recording an event.');
+        $characterId = (int) $session->character_id;
         $data = $request->validate([
             'event_type' => 'required|in:dread_guristas,hauler,estamel',
             'event_action' => 'required|in:spawn,sighting,kill',
@@ -159,13 +176,13 @@ class DivineReignController extends Controller
             'inventory_text' => 'required|string|min:2|max:200000',
             'system_name' => 'nullable|string|max:64',
         ]);
-        $character = $this->character();
+        $character = $this->character((int) $request->input('character_id'));
         $characterId = (int) $character->character_id;
         abort_if(DB::table('dr_exploration_sessions')->where('character_id', $characterId)->where('status', 'active')->exists(), 409, 'An exploration session is already running.');
         $inventory = $this->parseExplorationInventory($data['inventory_text']);
         abort_if(!$inventory, 422, 'No inventory rows could be read. Paste the inventory window with item names and quantities.');
         $id = DB::table('dr_exploration_sessions')->insertGetId([
-            'character_id' => $characterId, 'character_name' => self::CHARACTER_NAME,
+            'character_id' => $characterId, 'character_name' => (string) ($character->name ?? $character->character_name),
             'system_name' => $data['system_name'] ?: null, 'started_at' => now(), 'status' => 'active',
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -183,7 +200,7 @@ class DivineReignController extends Controller
             'site_name' => 'required|string|max:180',
             'inventory_text' => 'required|string|min:2|max:200000',
         ]);
-        $character = $this->character();
+        $character = $this->character((int) $request->input('character_id'));
         $characterId = (int) $character->character_id;
         $session = DB::table('dr_exploration_sessions')->where('character_id', $characterId)
             ->where('status', 'active')->orderByDesc('id')->first();
@@ -217,7 +234,7 @@ class DivineReignController extends Controller
 
     public function stopExploration(): RedirectResponse
     {
-        $character = $this->character();
+        $character = $this->character((int) request()->input('character_id'));
         $session = DB::table('dr_exploration_sessions')->where('character_id', (int) $character->character_id)
             ->where('status', 'active')->orderByDesc('id')->first();
         abort_unless($session, 409, 'There is no active exploration session.');
