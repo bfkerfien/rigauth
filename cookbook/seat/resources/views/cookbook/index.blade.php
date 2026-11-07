@@ -95,8 +95,8 @@
               <a href="#" id="cookbook-ore-deselect-all">Deselect all</a>
             </div>
             <div class="custom-control custom-checkbox mb-3">
-              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume">
-              <label class="custom-control-label" for="cookbook-ignore-low-volume">Ignore low-market-volume (Spodumain / Bezdnacine / Rakovene / Talassonite)</label>
+              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume" checked>
+              <label class="custom-control-label" for="cookbook-ignore-low-volume">Exclude Triglavian ores (Bezdnacine / Rakovene / Talassonite)</label>
             </div>
             <div id="cookbook-plan-ore-options" class="row mx-0" style="max-height: 420px; overflow-y: auto;">
               <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
@@ -261,7 +261,7 @@
           oreTypeOptions.addEventListener('change', updateOreCounts);
           const updateOrePicker = () => {
             const ignoreLow = document.getElementById('cookbook-ignore-low-volume').checked;
-            const lowNames = ['Spodumain', 'Bezdnacine', 'Rakovene', 'Talassonite'];
+            const lowNames = ['Bezdnacine', 'Rakovene', 'Talassonite'];
             oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
               const excluded = ignoreLow && lowNames.includes(input.dataset.oreName);
               if (excluded) input.checked = false;
