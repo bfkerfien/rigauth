@@ -17,6 +17,7 @@ FILES=(
   "src/Http/Controllers/ExplorationController.php"
   "src/Http/Routes/Exploration.php"
   "src/database/migrations/2026_11_08_000001_create_tc_exploration_system_status_table.php"
+  "src/database/migrations/2026_11_08_000002_create_tc_exploration_signatures_table.php"
   "src/resources/views/exploration/index.blade.php"
 )
 PROFILE_FILE="src/resources/views/profile/view.blade.php"
