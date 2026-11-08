@@ -335,7 +335,7 @@ class ExplorationController extends Controller
         abort_unless($systemName, 404);
         $signatures = DB::table('tc_exploration_signatures')
             ->where('solar_system_id', $systemId)->orderBy('signature_id')
-            ->get(['signature_id', 'group_name', 'type_name', 'signature_name', 'signal_strength', 'scanned_at']);
+            ->get(['signature_id', 'group_name', 'type_name', 'signature_name', 'signal_strength', 'scanned_at', 'wormhole_type', 'connection_system', 'wormhole_exits']);
         return response()->json(['system' => $systemName, 'signatures' => $signatures, 'scanned_at' => $signatures->max('scanned_at')]);
     }
 
