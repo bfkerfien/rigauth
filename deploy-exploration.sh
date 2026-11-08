@@ -19,6 +19,7 @@ FILES=(
   "src/database/migrations/2026_11_08_000001_create_tc_exploration_system_status_table.php"
   "src/database/migrations/2026_11_08_000002_create_tc_exploration_signatures_table.php"
   "src/database/migrations/2026_11_08_000003_add_wormhole_notes_to_tc_exploration_signatures.php"
+  "src/database/migrations/2026_11_08_000004_ensure_wormhole_note_columns.php"
   "src/resources/views/exploration/index.blade.php"
   "src/resources/exploration/layouts.php"
 )
@@ -126,6 +127,15 @@ printf '%s\n' "$ROUTES" | grep -qiE 'exploration|ExplorationController' || {
 }
 printf '%s\n' "$ROUTES" | grep -qE '^[[:space:]]*GET\\|HEAD[[:space:]]+exploration([[:space:]]|$)' || {
   echo "ERROR: Exploration index URI is missing. Route output is shown above."
+  exit 1
+}
+
+printf '%s\\n' "$ROUTES" | grep -qi 'wormhole-notes' || {
+  echo "ERROR: Wormhole notes route is missing. The notes editor cannot save."
+  exit 1
+}
+printf '%s\\n' "$ROUTES" | grep -qi 'player-location' || {
+  echo "ERROR: Player location route is missing. System Information cannot load."
   exit 1
 }
 
