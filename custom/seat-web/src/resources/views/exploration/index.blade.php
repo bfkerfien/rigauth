@@ -132,7 +132,7 @@
 @media(max-width:760px) { .exploration-modal-body { grid-template-columns:1fr; } .exploration-signature-list { max-height:35vh; } }
 
 @media (max-width: 767px) { .exploration-legend { margin-bottom: 6px; } }
-</style>>
+</style>
 
 @if(!$mapError)
 <script>
