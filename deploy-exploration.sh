@@ -18,6 +18,7 @@ FILES=(
   "src/Http/Routes/Exploration.php"
   "src/database/migrations/2026_11_08_000001_create_tc_exploration_system_status_table.php"
   "src/database/migrations/2026_11_08_000002_create_tc_exploration_signatures_table.php"
+  "src/database/migrations/2026_11_08_000003_add_wormhole_notes_to_tc_exploration_signatures.php"
   "src/resources/views/exploration/index.blade.php"
   "src/resources/exploration/layouts.php"
 )
