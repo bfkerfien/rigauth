@@ -116,15 +116,22 @@ CURRENT_STEP="clearing view cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
 
 CURRENT_STEP="checking Exploration routes"
-ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration)"
-printf '%s\n' "$ROUTES"
-# Laravel's route:list output can omit or truncate package route names depending
-# on terminal width/version. Verify the registered URI and controller instead.
+# Capture route:list failures explicitly: with set -e, command substitution
+# otherwise exits before its stderr/output can be shown.
+if ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration 2>&1)"; then
+  echo "$ROUTES"
+else
+  ROUTE_STATUS=$?
+  echo "ERROR: php artisan route:list --path=exploration failed (exit code $ROUTE_STATUS):"
+  echo "$ROUTES"
+  exit "$ROUTE_STATUS"
+fi
+
+# Verify actual Exploration routes without depending on package route-name formatting.
 printf '%s\n' "$ROUTES" | grep -qiE 'exploration|ExplorationController' || {
   echo "ERROR: No Exploration routes were registered. Route output is shown above."
   exit 1
 }
-# Require the index URI specifically; do not depend on the package route-name column.
 printf '%s\n' "$ROUTES" | grep -qE 'GET[^[:alnum:]]+exploration/?([[:space:]]|$)|exploration[[:space:]]+GET' || {
   echo "ERROR: Exploration index URI is missing. Route output is shown above."
   exit 1
