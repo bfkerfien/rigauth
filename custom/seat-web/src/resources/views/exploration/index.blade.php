@@ -55,6 +55,7 @@
       </div>
     @endif
   </div>
+  <div class="small text-muted text-center mt-3 exploration-map-attribution">Native exploration map by Triglavian Consortium · System data from the EVE Online Static Data Export.</div>
   <div class="exploration-modal-backdrop" id="exploration-signature-modal" aria-hidden="true">
     <div class="exploration-modal" role="dialog" aria-modal="true" aria-labelledby="exploration-modal-title">
       <div class="exploration-modal-header">
