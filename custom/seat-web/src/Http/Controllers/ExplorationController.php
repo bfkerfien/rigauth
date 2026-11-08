@@ -20,8 +20,9 @@ class ExplorationController extends Controller
     // Synergy of Steel [SYN] alliance ID. Red systems are based on alliance sovereignty claims.
     private const SOV_ALLIANCE_ID = 99002685;
 
-    // Tenal constellations that must always render red.
+    // Tenal constellations and Branch systems that must always render red.
     private const TENAL_RED_CONSTELLATIONS = ['1D-65L', 'O-E019', 'E-72A3', '9P57-V', '2-ZRM0'];
+    private const BRANCH_RED_SYSTEMS = ['3KNA-N', 'ME-4IU', 'BU-IU4', '1-7JR4', 'QYZM-W', 'CH9L-K', '9-B1DS'];
 
     public function index(): View
     {
@@ -181,6 +182,39 @@ class ExplorationController extends Controller
     private function redSystemIds(string $region): array
     {
         $ids = $this->synergyOfSteelSovereigntySystemIds();
+
+        if ($region === 'Branch') {
+            $regionId = DB::table('invNames')
+                ->where('itemName', 'Branch')
+                ->value('itemID');
+
+            if (!$regionId) {
+                logger()->error('Exploration: Branch region ID was not found in invNames.');
+                return array_values(array_unique($ids));
+            }
+
+            $normalize = static fn ($value) => strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $value));
+            $wanted = array_fill_keys(array_map($normalize, self::BRANCH_RED_SYSTEMS), true);
+            $branchSystems = DB::table('mapDenormalize')
+                ->where('groupID', 5)
+                ->where('regionID', (int) $regionId)
+                ->get(['itemID', 'itemName']);
+
+            $found = $branchSystems
+                ->filter(fn ($row) => isset($wanted[$normalize($row->itemName)]));
+            $foundNames = $found->pluck('itemName')->map($normalize)->all();
+            $missing = array_values(array_diff(array_keys($wanted), $foundNames));
+
+            if ($missing) {
+                logger()->error('Exploration: Branch red-system lookup incomplete.', [
+                    'missing_normalized_systems' => $missing,
+                    'region_id' => (int) $regionId,
+                ]);
+            }
+
+            $ids = array_merge($ids, $found->pluck('itemID')->map(fn ($id) => (int) $id)->all());
+            return array_values(array_unique($ids));
+        }
 
         if ($region !== 'Tenal') {
             return array_values(array_unique($ids));
