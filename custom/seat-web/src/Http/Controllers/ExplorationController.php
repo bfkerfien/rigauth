@@ -339,6 +339,35 @@ class ExplorationController extends Controller
         return response()->json(['system' => $systemName, 'signatures' => $signatures, 'scanned_at' => $signatures->max('scanned_at')]);
     }
 
+    public function saveWormholeNotes(Request $request, string $region, int $systemId, string $signatureId): JsonResponse
+    {
+        $systemName = $this->explorationSystem($region, $systemId);
+        abort_unless($systemName, 404);
+
+        $validated = $request->validate([
+            'wormhole_type' => ['nullable', 'string', 'max:64'],
+            'connection_system' => ['nullable', 'string', 'max:128'],
+            'wormhole_exits' => ['nullable', 'string', 'max:10000'],
+        ]);
+
+        $updated = DB::table('tc_exploration_signatures')
+            ->where('region_name', $region)
+            ->where('solar_system_id', $systemId)
+            ->where('signature_id', strtoupper($signatureId))
+            ->update([
+                'wormhole_type' => trim((string) ($validated['wormhole_type'] ?? '')) ?: null,
+                'connection_system' => trim((string) ($validated['connection_system'] ?? '')) ?: null,
+                'wormhole_exits' => trim((string) ($validated['wormhole_exits'] ?? '')) ?: null,
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($updated > 0 || DB::table('tc_exploration_signatures')
+            ->where('region_name', $region)->where('solar_system_id', $systemId)
+            ->where('signature_id', strtoupper($signatureId))->exists(), 404);
+
+        return response()->json(['status' => 'saved', 'signature_id' => strtoupper($signatureId)]);
+    }
+
     public function saveSignatures(Request $request, string $region, int $systemId): JsonResponse
     {
         $systemName = $this->explorationSystem($region, $systemId);
