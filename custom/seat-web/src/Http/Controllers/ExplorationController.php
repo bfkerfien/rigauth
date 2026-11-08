@@ -254,8 +254,6 @@ class ExplorationController extends Controller
                 'client_id' => config('eve.client_id'),
                 'secret' => config('eve.client_secret'),
                 'refresh_token' => $token->refresh_token,
-                'token' => $token->token ?? null,
-                'scopes' => $scopes,
             ]));
 
             // Eseye invoke() returns the decoded response object directly.
