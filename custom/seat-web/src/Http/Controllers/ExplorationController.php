@@ -184,10 +184,10 @@ class ExplorationController extends Controller
             // Apply status to the nearest SVG group so both node graphic and label
             // receive the correct status and click handling.
             $group = $label->parentNode;
-            while ($group instanceof \\DOMElement && strtolower($group->localName) !== 'g' && $group->parentNode instanceof \\DOMElement) {
+            while ($group instanceof \DOMElement && strtolower($group->localName) !== 'g' && $group->parentNode instanceof \DOMElement) {
                 $group = $group->parentNode;
             }
-            if (!$group instanceof \\DOMElement) continue;
+            if (!($group instanceof \DOMElement)) continue;
 
             $classes = preg_split('/\\s+/', trim($group->getAttribute('class')));
             $classes[] = 'exploration-system';
