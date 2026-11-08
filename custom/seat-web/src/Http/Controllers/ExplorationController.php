@@ -347,8 +347,8 @@ class ExplorationController extends Controller
         $lines = preg_split('/\\r\\n|\\r|\\n/', trim($validated['scan_data']));
         $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\t"), $lines),
             fn ($row) => count($row) > 1 || trim((string) ($row[0] ?? '')) !== ''));
-        if (count($rows) < 2) {
-            return response()->json(['message' => 'No scan rows found. Copy the Probe Scanner results, including column headings.'], 422);
+        if (count($rows) === 0) {
+            return response()->json(['message' => 'The pasted scan is empty. Copy the Probe Scanner rows and paste them again.'], 422);
         }
 
         $normalize = fn ($value) => mb_strtolower(preg_replace('/[^a-z0-9]+/i', '', trim((string) $value)));
