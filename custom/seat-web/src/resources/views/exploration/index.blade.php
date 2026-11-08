@@ -293,7 +293,7 @@
     if (signatureModal && signatureModal.parentNode !== document.body) document.body.appendChild(signatureModal);
     var selectedSystem = null;
     function renderSignatures(items) {
-        var list = root.querySelector('#exploration-signature-list');
+        var list = signatureModal.querySelector('#exploration-signature-list');
         if (!items || !items.length) { list.textContent = 'No signatures recorded for this system yet.'; return; }
         var table = document.createElement('table');
         table.className = 'exploration-signature-table';
@@ -316,12 +316,12 @@
         region = region.charAt(0).toUpperCase() + region.slice(1);
         signatureModal.dataset.region = region;
         signatureModal.dataset.systemId = node.dataset.systemId;
-        root.querySelector('#exploration-modal-title').textContent = node.dataset.systemName + ' signatures';
-        root.querySelector('#exploration-modal-status').textContent = node.dataset.status === 'green' ? 'Clear explored' : 'Mark explored';
-        root.querySelector('#exploration-modal-meta').textContent = region + ' · Loading scan…';
-        root.querySelector('#exploration-signature-list').textContent = 'Loading…';
-        root.querySelector('#exploration-scan-input').value = '';
-        root.querySelector('#exploration-scan-message').textContent = '';
+        signatureModal.querySelector('#exploration-modal-title').textContent = node.dataset.systemName + ' signatures';
+        signatureModal.querySelector('#exploration-modal-status').textContent = node.dataset.status === 'green' ? 'Clear explored' : 'Mark explored';
+        signatureModal.querySelector('#exploration-modal-meta').textContent = region + ' · Loading scan…';
+        signatureModal.querySelector('#exploration-signature-list').textContent = 'Loading…';
+        signatureModal.querySelector('#exploration-scan-input').value = '';
+        signatureModal.querySelector('#exploration-scan-message').textContent = '';
         signatureModal.classList.add('is-open'); signatureModal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
         fetch(@json(url('/exploration')) + '/' + region + '/systems/' + node.dataset.systemId + '/signatures', {
@@ -329,15 +329,15 @@
         }).then(function (response) { if (!response.ok) throw new Error('Could not load this system scan.'); return response.json(); })
           .then(function (data) {
               renderSignatures(data.signatures);
-              root.querySelector('#exploration-modal-meta').textContent = region + ' · ' + data.signatures.length + ' signatures' + (data.scanned_at ? ' · Last scanned ' + data.scanned_at : '');
-          }).catch(function (error) { root.querySelector('#exploration-signature-list').textContent = error.message; });
+              signatureModal.querySelector('#exploration-modal-meta').textContent = region + ' · ' + data.signatures.length + ' signatures' + (data.scanned_at ? ' · Last scanned ' + data.scanned_at : '');
+          }).catch(function (error) { signatureModal.querySelector('#exploration-signature-list').textContent = error.message; });
     }
     function closeSignatureModal() {
         signatureModal.classList.remove('is-open'); signatureModal.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = ''; selectedSystem = null;
     }
-    root.querySelector('#exploration-modal-close').addEventListener('click', closeSignatureModal);
-    root.querySelector('#exploration-modal-status').addEventListener('click', function () {
+    signatureModal.querySelector('#exploration-modal-close').addEventListener('click', closeSignatureModal);
+    signatureModal.querySelector('#exploration-modal-status').addEventListener('click', function () {
         if (!selectedSystem || selectedSystem.dataset.status === 'red') return;
         var button = this; button.disabled = true;
         toggleSystem(selectedSystem).then(function () {
@@ -346,11 +346,11 @@
     });
     signatureModal.addEventListener('click', function (event) { if (event.target === signatureModal) closeSignatureModal(); });
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && signatureModal.classList.contains('is-open')) closeSignatureModal(); });
-    root.querySelector('#exploration-scan-submit').addEventListener('click', function () {
+    signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
         if (!selectedSystem) return;
-        var input = root.querySelector('#exploration-scan-input');
-        var message = root.querySelector('#exploration-scan-message');
-        var submit = root.querySelector('#exploration-scan-submit');
+        var input = signatureModal.querySelector('#exploration-scan-input');
+        var message = signatureModal.querySelector('#exploration-scan-message');
+        var submit = signatureModal.querySelector('#exploration-scan-submit');
         if (!input.value.trim()) { message.textContent = 'Paste the new scan before submitting.'; return; }
         submit.disabled = true; message.textContent = 'Replacing previous scan…';
         fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
@@ -366,7 +366,7 @@
           }).then(function (response) { if (!response.ok) throw new Error('Saved, but could not refresh the displayed scan.'); return response.json(); })
           .then(function (data) {
               renderSignatures(data.signatures);
-              root.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
+              signatureModal.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
               input.value = '';
           }).catch(function (error) { message.textContent = error.message; })
           .finally(function () { submit.disabled = false; });
