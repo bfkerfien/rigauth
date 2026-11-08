@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use EveSeat\Eseye\Containers\EsiAuthentication;
+use EveSeat\Eseye\Eseye;
+use Seat\Eveapi\Models\RefreshToken;
+use Throwable;
 
 class ExplorationController extends Controller
 {
@@ -115,6 +119,82 @@ class ExplorationController extends Controller
             'links' => $links,
             'green_count' => $mapped->where('status', 'green')->count(),
         ];
+    }
+
+    /**
+     * Return the authenticated user's main character location for the live map overlay.
+     * Location is fetched on demand and is never persisted by this feature.
+     */
+    public function playerLocation(): JsonResponse
+    {
+        $user = request()->user();
+        $characterId = (int) ($user->main_character_id ?? 0);
+
+        if ($characterId < 1) {
+            return response()->json([
+                'status' => 'not_configured',
+                'message' => 'No main character is selected in SeAT.',
+            ])->header('Cache-Control', 'no-store');
+        }
+
+        $token = RefreshToken::find($characterId);
+        if (!$token) {
+            return response()->json([
+                'status' => 'not_configured',
+                'message' => 'No SeAT ESI token is available for your main character.',
+            ])->header('Cache-Control', 'no-store');
+        }
+
+        $scopes = $token->scopes;
+        if (is_string($scopes)) {
+            $decoded = json_decode($scopes, true);
+            $scopes = is_array($decoded) ? $decoded : preg_split('/\\s+/', trim($scopes));
+        }
+        $scopes = is_array($scopes) ? $scopes : [];
+
+        if (!in_array('esi-location.read_location.v1', $scopes, true)) {
+            return response()->json([
+                'status' => 'needs_authorization',
+                'message' => 'Authorize esi-location.read_location.v1 for your main character in SeAT.',
+            ])->header('Cache-Control', 'no-store');
+        }
+
+        try {
+            $esi = new Eseye(new EsiAuthentication([
+                'client_id' => config('eve.client_id'),
+                'secret' => config('eve.client_secret'),
+                'refresh_token' => $token->refresh_token,
+                'token' => $token->token,
+                'scopes' => $scopes,
+            ]));
+
+            $response = $esi->invoke('get', '/characters/{character_id}/location/', [
+                'character_id' => $characterId,
+            ]);
+            $location = $response->getBody();
+            $systemId = (int) ($location->solar_system_id ?? 0);
+
+            if ($systemId < 1) {
+                return response()->json([
+                    'status' => 'unavailable',
+                    'message' => 'EVE Online has not returned a current solar-system location.',
+                ])->header('Cache-Control', 'no-store');
+            }
+
+            return response()->json([
+                'status' => 'located',
+                'character_id' => $characterId,
+                'character_name' => $user->name ?? 'Main character',
+                'solar_system_id' => $systemId,
+            ])->header('Cache-Control', 'no-store');
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'status' => 'unavailable',
+                'message' => 'Live location is temporarily unavailable. Check the character ESI authorization and try again.',
+            ])->header('Cache-Control', 'no-store');
+        }
     }
 
     public function toggle(Request $request, string $region, int $systemId): JsonResponse
