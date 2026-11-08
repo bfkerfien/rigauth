@@ -233,12 +233,15 @@ class ExplorationController extends Controller
                 'client_id' => config('eve.client_id'),
                 'secret' => config('eve.client_secret'),
                 'refresh_token' => $token->refresh_token,
+                'token' => $token->token ?? null,
+                'scopes' => $scopes,
             ]));
 
-            $response = $esi->invoke('get', '/characters/{character_id}/location/', [
+            // Eseye's invoke() returns the decoded response body (stdClass),
+            // not an HTTP response wrapper. Read solar_system_id directly.
+            $location = $esi->invoke('get', '/characters/{character_id}/location/', [
                 'character_id' => $characterId,
             ]);
-            $location = $response->getBody();
             $systemId = (int) ($location->solar_system_id ?? 0);
 
             if ($systemId < 1) {
