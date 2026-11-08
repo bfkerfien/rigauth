@@ -56,6 +56,17 @@ class ExplorationController extends Controller
             ->orderBy('systems.itemName')
             ->get();
 
+        // ZXA-V6 is solar system 30003620 and belongs to Tenal (09-4XW).
+        // Keep it as a real clickable Tenal node even if a local SDE region join is stale.
+        if ($region === 'Tenal' && !$systems->contains(fn ($system) => (int) $system->id === 30003620)) {
+            $zxa = DB::table('mapDenormalize')
+                ->where('itemID', 30003620)
+                ->where('groupID', 5)
+                ->select(['itemID as id', 'itemName as name', 'x', 'z'])
+                ->first();
+            if ($zxa) $systems->push($zxa);
+        }
+
         $greenIds = Schema::hasTable('tc_exploration_system_status')
             ? DB::table('tc_exploration_system_status')
                 ->where('region_name', $region)
@@ -286,7 +297,7 @@ class ExplorationController extends Controller
 
             return response()->json([
                 'status' => 'unavailable',
-                'message' => 'SeAT found the character token, but ESI location lookup failed. Check the Laravel log for the Exploration live-location error.',
+                'message' => 'ESI location lookup failed: ' . get_class($exception) . ': ' . mb_substr($exception->getMessage(), 0, 300),
             ])->header('Cache-Control', 'no-store');
         }
     }
