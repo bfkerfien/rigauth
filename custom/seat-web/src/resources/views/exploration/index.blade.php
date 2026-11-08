@@ -81,7 +81,6 @@
 .exploration-dotlan-grid line { stroke: #26364a; stroke-width: 1; opacity: .7; }
 .exploration-dotlan-grid text { fill: #71839a; font: 12px Arial, sans-serif; text-anchor: middle; }
 .exploration-system { cursor: pointer; outline: none; }
-.exploration-system { cursor: pointer; }
 .exploration-system .s { fill: #f7f8fa !important; stroke: #293746 !important; stroke-width: 1.5px !important; }
 .exploration-system .ss { fill: #17212c !important; }
 .exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
@@ -96,7 +95,7 @@
 .exploration-map-caption { fill: #6f829d; font: 12px Arial, sans-serif; }
 .exploration-card .btn-outline-secondary { color: #bdcadd; border-color: #52657e; }
 .exploration-card .btn-outline-secondary:hover { color: #fff; background: #25364d; }
-@media (max-width: 767px) { .exploration-map { min-width: 1000px; } .exploration-legend { margin-bottom: 6px; } }
+@media (max-width: 767px) { .exploration-legend { margin-bottom: 6px; } }
 </style>>
 
 @if(!$mapError)
