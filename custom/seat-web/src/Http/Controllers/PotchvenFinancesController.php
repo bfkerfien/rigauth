@@ -23,43 +23,33 @@ class PotchvenFinancesController extends Controller
 
 
     /**
-     * Total telemetry units in Corporation Hangar Division 3 across all stations.
-     * Type 89219 is the corporation telemetry item; each 60 units represents one site.
+     * Current corporation telemetry inventory in CorpSAG3 across all stations.
+     * Type 89219; every 60 units represents one site.
      */
-    private function telemetryQuantity($atOrBefore = null): ?int
+    private function telemetryQuantity(): ?int
     {
         $db = DB::connection();
         $schema = $db->getSchemaBuilder();
-        foreach (['fin_owners', 'fin_asset_snapshots', 'fin_asset_items'] as $table) {
-            if (!$schema->hasTable($table)) {
-                return null;
-            }
+
+        if (!$schema->hasTable('fin_owners') || !$schema->hasTable('assetmgr_assets')) {
+            return null;
         }
 
-        $ownerId = $db->table('fin_owners')
+        $corporationId = $db->table('fin_owners')
             ->where('owner_type', 'corporation')
             ->where('is_active', 1)
-            ->value('id');
-        if (!$ownerId) {
+            ->value('eve_id');
+
+        if (!$corporationId) {
             return null;
         }
 
-        $snapshotQuery = $db->table('fin_asset_snapshots')->where('owner_id', $ownerId);
-        if ($atOrBefore !== null) {
-            $snapshotQuery->where('captured_at', '<=', $atOrBefore);
-        }
-        $latestCapturedAt = $snapshotQuery->max('captured_at');
-        if (!$latestCapturedAt) {
-            return null;
-        }
-
-        return (int) $db->table('fin_asset_items as i')
-            ->join('fin_asset_snapshots as s', 's.id', '=', 'i.snapshot_id')
-            ->where('s.owner_id', $ownerId)
-            ->where('s.captured_at', $latestCapturedAt)
-            ->where('i.item_type_id', 89219)
-            ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(i.raw_payload, '$.location_flag')) = ?", ['CorpSAG3'])
-            ->sum('i.quantity');
+        return (int) $db->table('assetmgr_assets')
+            ->where('owner_kind', 'corporation')
+            ->where('owner_id', $corporationId)
+            ->where('type_id', 89219)
+            ->where('location_flag', 'CorpSAG3')
+            ->sum('quantity');
     }
 
 
