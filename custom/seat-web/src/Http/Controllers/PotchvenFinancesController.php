@@ -222,22 +222,10 @@ class PotchvenFinancesController extends Controller
 
         $owners = $has('fin_owners') ? $db->table('fin_owners')->orderBy('owner_type')->orderBy('display_name')->get() : collect();
         $telemetryQuantity = $this->telemetryQuantity();
-        $telemetryBaseline = $has('fin_app_settings')
-            ? $db->table('fin_app_settings')->where('setting_key', 'telemetry_baseline_quantity')->value('setting_value')
-            : null;
-        if ($telemetryQuantity !== null && $telemetryBaseline === null && $has('fin_app_settings')) {
-            // Prefer the latest saved inventory snapshot at or before period start so
-            // telemetry already earned this period is retained. If none exists, start
-            // from current inventory to avoid counting older items as new sites.
-            $baselineQuantity = $this->telemetryQuantity($periodStart) ?? $telemetryQuantity;
-            $telemetryBaseline = (string) $baselineQuantity;
-            $db->table('fin_app_settings')->updateOrInsert(
-                ['setting_key' => 'telemetry_baseline_quantity'],
-                ['setting_value' => $telemetryBaseline, 'updated_at' => now()]
-            );
-        }
-        $sites = ($telemetryQuantity !== null && $telemetryBaseline !== null)
-            ? intdiv(max(0, $telemetryQuantity - (int) $telemetryBaseline), 60)
+        // Sites this period are the current telemetry inventory in CorpSAG3 divided by 60.
+        // Do not subtract a baseline; ISK/hour session telemetry is calculated separately.
+        $sites = $telemetryQuantity !== null
+            ? intdiv(max(0, $telemetryQuantity), 60)
             : 0;
         $expenses = 0;
         if ($has('fin_wallet_entries') && $has('fin_owners')) {
