@@ -359,23 +359,22 @@
             });
             var typeCell = document.createElement('td');
             typeCell.appendChild(document.createTextNode([item.type_name, item.signature_name].filter(Boolean).join(' — ')));
-            var wormholeText = [item.type_name, item.signature_name, item.group_name].filter(Boolean).join(' ').toLowerCase();
-            // Unknown cosmic signatures may be wormholes before their name resolves.
-            if (wormholeText.indexOf('wormhole') !== -1 || wormholeText.indexOf('cosmic signature') !== -1) {
-                var noteButton = document.createElement('button');
-                noteButton.type = 'button';
-                noteButton.className = 'exploration-wormhole-note';
-                noteButton.title = 'Add or edit wormhole notes';
-                noteButton.setAttribute('aria-label', 'Wormhole notes for ' + item.signature_id);
-                noteButton.dataset.signatureId = item.signature_id;
-                noteButton.innerHTML = '<i class="far fa-sticky-note"></i>';
-                typeCell.appendChild(noteButton);
-                if (item.wormhole_type || item.connection_system || item.wormhole_exits) {
-                    var summary = document.createElement('span');
-                    summary.className = 'exploration-wormhole-summary';
-                    summary.textContent = [item.wormhole_type ? 'Type: ' + item.wormhole_type : '', item.connection_system ? 'Connection: ' + item.connection_system : '', item.wormhole_exits ? 'Exits: ' + item.wormhole_exits : ''].filter(Boolean).join(' · ');
-                    typeCell.appendChild(summary);
-                }
+            // Every signature gets a notes action. EVE's scanner often leaves
+            // wormholes unresolved, so filtering by a "Wormhole" name hides the
+            // exact signatures users need to annotate.
+            var noteButton = document.createElement('button');
+            noteButton.type = 'button';
+            noteButton.className = 'exploration-wormhole-note';
+            noteButton.title = 'Add or edit wormhole / signature notes';
+            noteButton.setAttribute('aria-label', 'Add or edit notes for ' + item.signature_id);
+            noteButton.dataset.signatureId = item.signature_id;
+            noteButton.innerHTML = '<i class="far fa-sticky-note"></i> Notes';
+            typeCell.appendChild(noteButton);
+            if (item.wormhole_type || item.connection_system || item.wormhole_exits) {
+                var summary = document.createElement('span');
+                summary.className = 'exploration-wormhole-summary';
+                summary.textContent = [item.wormhole_type ? 'Type: ' + item.wormhole_type : '', item.connection_system ? 'Connection: ' + item.connection_system : '', item.wormhole_exits ? 'Exits: ' + item.wormhole_exits : ''].filter(Boolean).join(' · ');
+                typeCell.appendChild(summary);
             }
             tr.appendChild(typeCell);
             var strengthCell = document.createElement('td');
