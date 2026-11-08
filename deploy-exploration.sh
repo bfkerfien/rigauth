@@ -132,7 +132,7 @@ printf '%s\n' "$ROUTES" | grep -qiE 'exploration|ExplorationController' || {
   echo "ERROR: No Exploration routes were registered. Route output is shown above."
   exit 1
 }
-printf '%s\n' "$ROUTES" | grep -qE 'GET[^[:alnum:]]+exploration/?([[:space:]]|$)|exploration[[:space:]]+GET' || {
+printf '%s\n' "$ROUTES" | grep -qE '^[[:space:]]*GET\\|HEAD[[:space:]]+exploration([[:space:]]|$)' || {
   echo "ERROR: Exploration index URI is missing. Route output is shown above."
   exit 1
 }
