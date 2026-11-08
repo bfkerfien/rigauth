@@ -82,7 +82,7 @@ for region in Branch Tenal Venal; do
 done
 
 sudo mkdir -p "$BACKUP"
-for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "$PROFILE_FILE"; do
   if sudo test -f "$WEB/$rel"; then
     sudo mkdir -p "$BACKUP/$(dirname "$rel")"
     sudo cp -a "$WEB/$rel" "$BACKUP/$rel"
