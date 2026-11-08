@@ -104,7 +104,18 @@ done
 CURRENT_STEP="running migrations"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
 CURRENT_STEP="verifying wormhole notes migration"
-if ! sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate:status 2>&1 | grep -q '2026_11_08_000004_ensure_wormhole_note_columns'; then
+# Capture the complete output before searching it. With pipefail enabled,
+# grep -q can close the pipe early and make docker exec appear to have failed
+# with SIGPIPE even when migrate:status succeeded and the migration is applied.
+if MIGRATION_STATUS="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate:status 2>&1)"; then
+  echo "$MIGRATION_STATUS"
+else
+  MIGRATION_STATUS_EXIT=$?
+  echo "ERROR: php artisan migrate:status failed (exit code $MIGRATION_STATUS_EXIT):"
+  echo "$MIGRATION_STATUS"
+  exit "$MIGRATION_STATUS_EXIT"
+fi
+if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_08_000004_ensure_wormhole_note_columns'; then
   echo "ERROR: Wormhole notes schema repair migration is not recorded as applied."
   exit 1
 fi
