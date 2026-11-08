@@ -70,18 +70,7 @@ if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{
   exit 1
 fi
 
-# Download DOTLAN's original vector maps before changing the live SeAT installation.
-# These SVGs contain the exact DOTLAN node placement, grid, and stargate routing.
-MAP_CACHE="$REPO/.exploration-map-cache"
-mkdir -p "$MAP_CACHE"
-for region in Branch Tenal Venal; do
-  map_file="$MAP_CACHE/$region.dark.svg"
-  curl --fail --location --silent --show-error --retry 2 \
-    "https://evemaps.dotlan.net/svg/$region.dark.svg" -o "$map_file"
-  grep -q '<svg' "$map_file" || { echo "STOP: DOTLAN did not return a valid SVG for $region."; exit 1; }
-  grep -Eq 'class="[^"]*ss' "$map_file" || { echo "STOP: DOTLAN SVG for $region has no system-label class; refusing an unusable map."; exit 1; }
-done
-
+# Native Exploration maps are generated directly from the SeAT EVE SDE at request time.
 sudo mkdir -p "$BACKUP"
 for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "$PROFILE_FILE"; do
   if sudo test -f "$WEB/$rel"; then
@@ -104,8 +93,9 @@ CURRENT_STEP="installing Exploration source files"
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
 done
-for region in Branch Tenal Venal; do
-  sudo install -D -m 0644 "$MAP_CACHE/$region.dark.svg" "$WEB/resources/exploration/$region.dark.svg"
+# Retire the old downloaded map artwork; the controller now renders native SDE maps.
+for rel in "${MAP_FILES[@]}"; do
+  sudo rm -f "$WEB/$rel"
 done
 
 CURRENT_STEP="running migrations"
