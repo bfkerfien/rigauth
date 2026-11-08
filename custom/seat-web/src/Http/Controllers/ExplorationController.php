@@ -175,34 +175,53 @@ class ExplorationController extends Controller
         $root->setAttribute('role', 'img');
         $root->setAttribute('aria-label', 'DOTLAN ' . basename($path, '.dark.svg') . ' solar system map');
         $xpath = new \DOMXPath($document);
-        // Match visible labels regardless of optional DOTLAN text classes.
+        // DOTLAN system labels can sit inside links and shared SVG groups.
+        // Never assign system classes to a shared group: doing so recolors an
+        // entire region and makes the whole map respond as one system.
         foreach ($xpath->query('//*[local-name()="text"]') as $label) {
             $name = trim($label->textContent);
             $system = $byName->get(mb_strtolower($name));
             if (!$system) continue;
 
-            // Apply status to the nearest SVG group so both node graphic and label
-            // receive the correct status and click handling.
-            $group = $label->parentNode;
-            while ($group instanceof \DOMElement && strtolower($group->localName) !== 'g' && $group->parentNode instanceof \DOMElement) {
-                $group = $group->parentNode;
+            $node = null;
+            $ancestor = $label->parentNode;
+            while ($ancestor instanceof \DOMElement && $ancestor !== $root) {
+                $tag = strtolower($ancestor->localName);
+                if ($tag === 'g' || $tag === 'a') {
+                    // A system container must not contain labels for other
+                    // systems. Prefer the smallest qualifying ancestor.
+                    $labels = $xpath->query('.//*[local-name()="text" and contains(concat(" ", normalize-space(@class), " "), " ss ")]', $ancestor);
+                    if ($labels !== false && $labels->length === 1) {
+                        $node = $ancestor;
+                        break;
+                    }
+                }
+                $ancestor = $ancestor->parentNode;
             }
-            if (!($group instanceof \DOMElement)) continue;
+            // Safe fallback: only the label is interactive; never the map root.
+            if (!$node) $node = $label;
 
-            $classes = preg_split('/\\s+/', trim($group->getAttribute('class')));
+            $classes = preg_split('/\\s+/', trim($node->getAttribute('class')));
             $classes[] = 'exploration-system';
             $classes[] = 'is-' . $system['status'];
-            if ($system['status'] === 'red') {
-                $classes[] = 'is-locked';
-            }
-            $group->setAttribute('class', implode(' ', array_unique(array_filter($classes))));
-            $group->setAttribute('data-system-id', (string) $system['id']);
-            $group->setAttribute('data-system-name', $system['name']);
-            $group->setAttribute('data-status', $system['status']);
-            $group->setAttribute('tabindex', $system['status'] === 'red' ? '-1' : '0');
-            $group->setAttribute('role', $system['status'] === 'red' ? 'img' : 'button');
-            $group->setAttribute('aria-label', $system['name'] . ': ' . ($system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored')));
-            $group->setAttribute('aria-pressed', $system['status'] === 'green' ? 'true' : 'false');
+            if ($system['status'] === 'red') $classes[] = 'is-locked';
+            $node->setAttribute('class', implode(' ', array_unique(array_filter($classes))));
+            $node->setAttribute('data-system-id', (string) $system['id']);
+            $node->setAttribute('data-system-name', $system['name']);
+            $node->setAttribute('data-status', $system['status']);
+            $node->setAttribute('tabindex', $system['status'] === 'red' ? '-1' : '0');
+            $node->setAttribute('role', $system['status'] === 'red' ? 'img' : 'button');
+            $node->setAttribute('aria-label', $system['name'] . ': ' . ($system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored')));
+            $node->setAttribute('aria-pressed', $system['status'] === 'green' ? 'true' : 'false');
+        }
+
+        // The downloaded DOTLAN map contains external links. Remove every
+        // link destination, including namespaced xlink:href, so clicking
+        // anywhere in Exploration never navigates away to DOTLAN.
+        foreach ($xpath->query('//*[local-name()="a"]') as $anchor) {
+            $anchor->removeAttribute('href');
+            $anchor->removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            $anchor->removeAttributeNS('http://www.w3.org/2000/svg', 'href');
         }
 
         // Remove executable or embedded content before rendering the downloaded SVG inline.
