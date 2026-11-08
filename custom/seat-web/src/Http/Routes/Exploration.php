@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'exploration'], function () {
+    Route::get('/player-location', 'ExplorationController@playerLocation')
+        ->name('seatcore::exploration.player-location');
+
     Route::get('/', 'ExplorationController@index')
         ->name('seatcore::exploration.index');
 

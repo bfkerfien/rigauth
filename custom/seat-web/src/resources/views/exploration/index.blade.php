@@ -24,6 +24,8 @@
           <span class="exploration-legend"><span class="exploration-legend-dot white"></span> Unexplored</span>
           <span class="exploration-legend"><span class="exploration-legend-dot green"></span> Explored</span>
           <span class="exploration-legend"><span class="exploration-legend-dot red"></span> Permanently excluded</span>
+          <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Your live location</span>
+          <span id="exploration-live-status" class="ml-2">Live location: connecting…</span>
         </div>
         <div class="small text-muted">Select a white system to mark it explored. Select a green system to clear it.</div>
       </div>
@@ -86,6 +88,7 @@
 .exploration-legend-dot.white { background: #fff; }
 .exploration-legend-dot.green { background: #35a853; border-color: #25843e; }
 .exploration-legend-dot.red { background: #d9534f; border-color: #b52b27; }
+.exploration-legend-dot.gold { background: #f2b632; border-color: #bd8310; }
 .exploration-map-wrap { width: 100%; overflow: auto; border: 1px solid #d8dde4; border-radius: 4px; background: #f8f9fb; }
 .exploration-map { display: block; width: 100%; min-width: 760px; height: auto; }
 .exploration-map-links line { stroke: #aeb7c2; stroke-width: 1.5; opacity: .8; }
@@ -99,6 +102,8 @@
 .exploration-system.is-red rect { fill: #d9534f; stroke: #b52b27; }
 .exploration-system.is-red text { fill: #fff; font-weight: 700; }
 .exploration-system.is-locked:hover rect, .exploration-system.is-locked:focus rect { stroke: #b52b27; }
+.exploration-system.is-player-location rect { stroke: #e4a11b; stroke-width: 3.5; }
+.exploration-player-dot { fill: #f2b632; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
 .exploration-map-caption { fill: #687585; font: 12px Arial, sans-serif; }
 @media (max-width: 767px) {
   .exploration-map { min-width: 900px; }
@@ -128,6 +133,52 @@
         var count = pane.querySelectorAll('.exploration-system[data-status="green"]').length;
         var target = pane.querySelector('.exploration-green-count');
         if (target) target.textContent = count.toLocaleString();
+    }
+
+    function updatePlayerLocation() {
+        var status = root.querySelector('#exploration-live-status');
+        fetch(@json(url('/exploration/player-location')), {
+            method: 'GET',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Location request failed.');
+            return response.json();
+        }).then(function (data) {
+            root.querySelectorAll('.exploration-system.is-player-location').forEach(function (node) {
+                node.classList.remove('is-player-location');
+                var dot = node.querySelector('.exploration-player-dot');
+                if (dot) dot.remove();
+                var original = node.getAttribute('aria-label') || '';
+                node.setAttribute('aria-label', original.replace(/, current location$/, ''));
+            });
+
+            if (data.status === 'located') {
+                var target = null;
+                root.querySelectorAll('.exploration-system').forEach(function (node) {
+                    if (node.dataset.systemId === String(data.solar_system_id)) target = node;
+                });
+                if (target) {
+                    target.classList.add('is-player-location');
+                    var rect = target.querySelector('rect');
+                    var width = rect ? Number(rect.getAttribute('width')) : 48;
+                    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    dot.setAttribute('class', 'exploration-player-dot');
+                    dot.setAttribute('cx', String(width / 2 + 2));
+                    dot.setAttribute('cy', '-12');
+                    dot.setAttribute('r', '5');
+                    target.appendChild(dot);
+                    target.setAttribute('aria-label', (target.getAttribute('aria-label') || '') + ', current location');
+                    if (status) status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' in ' + (target.dataset.systemName || 'unknown system');
+                } else if (status) {
+                    status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' is outside Branch, Tenal and Venal';
+                }
+            } else if (status) {
+                status.textContent = data.message || 'Live location: unavailable';
+            }
+        }).catch(function () {
+            if (status) status.textContent = 'Live location: temporarily unavailable';
+        });
     }
 
     function toggleSystem(node) {
@@ -162,6 +213,14 @@
             toggleSystem(node);
         }
     });
+    updatePlayerLocation();
+    var locationTimer = window.setInterval(function () {
+        if (!document.hidden) updatePlayerLocation();
+    }, 15000);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) updatePlayerLocation();
+    });
+
     root.querySelectorAll('.exploration-reset').forEach(function (button) {
         button.addEventListener('click', function () {
             var region = button.dataset.region;
