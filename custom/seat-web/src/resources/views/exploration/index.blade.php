@@ -42,6 +42,7 @@
                 <i class="fas fa-undo"></i> Reset {{ $region }}
               </button>
             </div>
+            <div class="exploration-map-toolbar small text-muted mb-2">Mouse wheel: zoom · Drag: pan · Center: your live location</div>
             <div class="exploration-map-wrap">
               <svg class="exploration-map" viewBox="0 0 1200 800" role="img" aria-label="{{ $region }} solar system map. Click a white or green system to change its exploration status.">
                 <defs>
@@ -96,8 +97,10 @@
 .exploration-legend-dot.green { background: #31c66b; border-color: #31c66b; }
 .exploration-legend-dot.red { background: #e05252; border-color: #e05252; }
 .exploration-legend-dot.gold { background: #f2b632; border-color: #f2b632; }
-.exploration-map-wrap { width: 100%; overflow: auto; border: 1px solid #263b55; border-radius: 5px; background: #070d18; box-shadow: inset 0 0 40px rgba(0,0,0,.45); }
-.exploration-map { display: block; width: 100%; min-width: 900px; height: auto; }
+.exploration-map-toolbar { color: #91a2b8; }
+.exploration-map-wrap { width: 100%; height: min(72vh, 820px); min-height: 520px; overflow: hidden; border: 1px solid #263b55; border-radius: 5px; background: #070d18; box-shadow: inset 0 0 40px rgba(0,0,0,.45); cursor: grab; touch-action: none; }
+.exploration-map-wrap.is-dragging { cursor: grabbing; }
+.exploration-map { display: block; width: 100%; height: 100%; min-width: 0; user-select: none; }
 .exploration-map-links line { stroke: #344b67; stroke-width: 1.35; opacity: .82; }
 .exploration-system { cursor: pointer; outline: none; }
 .exploration-system-marker { fill: #e8eef7; stroke: #8194ad; stroke-width: 1.3; transition: fill .12s ease, stroke .12s ease; }
@@ -141,6 +144,65 @@
         if (target) target.textContent = count.toLocaleString();
     }
 
+    function activateRegion(region) {
+        var tab = root.querySelector('#exploration-' + region.toLowerCase() + '-tab');
+        if (tab) {
+            if (window.jQuery && window.jQuery.fn && window.jQuery.fn.tab) window.jQuery(tab).tab('show');
+            else tab.click();
+        }
+    }
+
+    function mapApi(svg) {
+        var wrap = svg.closest('.exploration-map-wrap');
+        var view = { x: 0, y: 0, w: 1200, h: 800 };
+        var minW = 150, maxW = 1200;
+        function apply() { svg.setAttribute('viewBox', [view.x, view.y, view.w, view.h].join(' ')); }
+        function point(event) {
+            var rect = svg.getBoundingClientRect();
+            return { x: view.x + ((event.clientX - rect.left) / rect.width) * view.w,
+                     y: view.y + ((event.clientY - rect.top) / rect.height) * view.h };
+        }
+        wrap.addEventListener('wheel', function (event) {
+            event.preventDefault();
+            var at = point(event);
+            var factor = event.deltaY < 0 ? 0.82 : 1.22;
+            var nextW = Math.max(minW, Math.min(maxW, view.w * factor));
+            var ratio = nextW / view.w;
+            var nextH = view.h * ratio;
+            view.x = at.x - (at.x - view.x) * ratio;
+            view.y = at.y - (at.y - view.y) * ratio;
+            view.w = nextW; view.h = nextH; apply();
+        }, { passive: false });
+        var drag = null;
+        wrap.addEventListener('pointerdown', function (event) {
+            if (event.target.closest('.exploration-system')) return;
+            drag = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
+            wrap.classList.add('is-dragging'); wrap.setPointerCapture(event.pointerId);
+        });
+        wrap.addEventListener('pointermove', function (event) {
+            if (!drag) return;
+            var rect = svg.getBoundingClientRect();
+            view.x = drag.vx - ((event.clientX - drag.x) / rect.width) * view.w;
+            view.y = drag.vy - ((event.clientY - drag.y) / rect.height) * view.h;
+            apply();
+        });
+        function endDrag() { drag = null; wrap.classList.remove('is-dragging'); }
+        wrap.addEventListener('pointerup', endDrag);
+        wrap.addEventListener('pointercancel', endDrag);
+        return {
+            center: function (node) {
+                var match = (node.getAttribute('transform') || '').match(/translate\\(([-0-9.]+)[ ,]+([-0-9.]+)\\)/);
+                if (!match) return;
+                var cx = parseFloat(match[1]), cy = parseFloat(match[2]);
+                view.w = 600; view.h = 400; view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply();
+            }
+        };
+    }
+    var mapApis = {};
+    root.querySelectorAll('.exploration-map').forEach(function (svg) {
+        mapApis[svg.closest('.tab-pane').id] = mapApi(svg);
+    });
+
     function updatePlayerLocation() {
         var status = root.querySelector('#exploration-live-status');
         fetch(@json(url('/exploration/player-location')), {
@@ -165,6 +227,9 @@
                     if (node.dataset.systemId === String(data.solar_system_id)) target = node;
                 });
                 if (target) {
+                    var pane = target.closest('.tab-pane');
+                    var region = pane.id.replace('exploration-', '');
+                    activateRegion(region);
                     target.classList.add('is-player-location');
                                         var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     dot.setAttribute('class', 'exploration-player-dot');
@@ -174,6 +239,7 @@
                     target.appendChild(dot);
                     target.setAttribute('aria-label', (target.getAttribute('aria-label') || '') + ', current location');
                     if (status) status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' in ' + (target.dataset.systemName || 'unknown system');
+                    if (mapApis[pane.id]) mapApis[pane.id].center(target);
                 } else if (status) {
                     status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' is outside Branch, Tenal and Venal';
                 }
