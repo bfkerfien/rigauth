@@ -68,23 +68,7 @@ class ExplorationController extends Controller
             : [];
 
         $redNames = array_map('mb_strtolower', self::PERMANENT_RED_SYSTEMS[$region] ?? []);
-        $minX = (float) $systems->min('x');
-        $maxX = (float) $systems->max('x');
-        $minY = (float) $systems->min('z');
-        $maxY = (float) $systems->max('z');
-        $rangeX = max(1.0, $maxX - $minX);
-        $rangeY = max(1.0, $maxY - $minY);
-        $width = 1200.0;
-        $height = 800.0;
-        $padding = 58.0;
-        // Keep one scale on both axes so the top-down system geometry is not stretched.
-        $scale = min(($width - ($padding * 2)) / $rangeX, ($height - ($padding * 2)) / $rangeY);
-        $drawWidth = $rangeX * $scale;
-        $drawHeight = $rangeY * $scale;
-        $offsetX = ($width - $drawWidth) / 2;
-        $offsetY = ($height - $drawHeight) / 2;
-
-        $mapped = $systems->map(function ($system) use ($greenIds, $redNames, $minX, $minY, $scale, $height, $offsetX, $offsetY) {
+        $mapped = $systems->map(function ($system) use ($greenIds, $redNames) {
             $name = (string) $system->name;
             $isRed = in_array(mb_strtolower($name), $redNames, true);
             $isGreen = in_array((int) $system->id, $greenIds, true) && !$isRed;
@@ -92,59 +76,78 @@ class ExplorationController extends Controller
             return [
                 'id' => (int) $system->id,
                 'name' => $name,
-                'x' => $offsetX + (((float) $system->x - $minX) * $scale),
-                'y' => $height - ($offsetY + (((float) $system->z - $minY) * $scale)),
                 'status' => $isRed ? 'red' : ($isGreen ? 'green' : 'white'),
             ];
         })->values();
 
-        // Stargate rows use itemName = "Stargate (Destination System)" and
-        // solarSystemID = the system containing that gate. Resolve destinations by system name.
-        $links = [];
-        if ($systems->isNotEmpty()) {
-            $ids = $systems->pluck('id')->map(fn ($id) => (int) $id)->all();
-            $positions = $mapped->keyBy('id');
-            $systemIdsByName = $mapped->keyBy(fn ($system) => mb_strtolower($system['name']));
-            $gates = DB::table('mapDenormalize')
-                ->where('groupID', 10)
-                ->whereIn('solarSystemID', $ids)
-                ->get(['solarSystemID', 'itemName']);
-
-            $seenLinks = [];
-            foreach ($gates as $gate) {
-                if (!preg_match('/^Stargate \\((.+)\\)$/u', (string) $gate->itemName, $matches)) {
-                    continue;
-                }
-
-                $fromId = (int) $gate->solarSystemID;
-                $to = $systemIdsByName->get(mb_strtolower(trim($matches[1])));
-                if (!$to || $fromId === (int) $to['id']) {
-                    continue;
-                }
-
-                $key = min($fromId, (int) $to['id']) . ':' . max($fromId, (int) $to['id']);
-                if (isset($seenLinks[$key])) {
-                    continue;
-                }
-                $seenLinks[$key] = true;
-
-                $from = $positions->get($fromId);
-                if (!$from) {
-                    continue;
-                }
-
-                $links[] = [
-                    'x1' => $from['x'], 'y1' => $from['y'],
-                    'x2' => $to['x'], 'y2' => $to['y'],
-                ];
-            }
-        }
+        $svgPath = base_path('packages/eveseat/web/resources/exploration/' . $region . '.dark.svg');
+        $svg = $this->prepareDotlanSvg($svgPath, $mapped);
 
         return [
             'systems' => $mapped->all(),
-            'links' => $links,
+            'svg' => $svg,
             'green_count' => $mapped->where('status', 'green')->count(),
         ];
+    }
+
+    /**
+     * Load DOTLAN's original vector map and attach SeAT system identifiers/statuses
+     * to the existing DOTLAN system groups. The map's original geometry and gates
+     * remain untouched.
+     */
+    private function prepareDotlanSvg(string $path, $systems): string
+    {
+        if (!is_file($path)) {
+            return '';
+        }
+
+        $byName = $systems->keyBy(fn ($system) => mb_strtolower($system['name']));
+        $document = new DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->load($path, LIBXML_NONET | LIBXML_NOBLANKS);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (!$loaded || !$document->documentElement || strtolower($document->documentElement->localName) !== 'svg') {
+            return '';
+        }
+
+        $xpath = new \DOMXPath($document);
+        foreach ($xpath->query('//*[local-name()="text" and contains(concat(" ", normalize-space(@class), " "), " ss ")]') as $label) {
+            $name = trim($label->textContent);
+            $system = $byName->get(mb_strtolower($name));
+            $group = $label->parentNode;
+            if (!$system || !$group instanceof \DOMElement) {
+                continue;
+            }
+
+            $classes = preg_split('/\\s+/', trim($group->getAttribute('class')));
+            $classes[] = 'exploration-system';
+            $classes[] = 'is-' . $system['status'];
+            if ($system['status'] === 'red') {
+                $classes[] = 'is-locked';
+            }
+            $group->setAttribute('class', implode(' ', array_unique(array_filter($classes))));
+            $group->setAttribute('data-system-id', (string) $system['id']);
+            $group->setAttribute('data-system-name', $system['name']);
+            $group->setAttribute('data-status', $system['status']);
+            $group->setAttribute('tabindex', $system['status'] === 'red' ? '-1' : '0');
+            $group->setAttribute('role', $system['status'] === 'red' ? 'img' : 'button');
+            $group->setAttribute('aria-label', $system['name'] . ': ' . ($system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored')));
+            $group->setAttribute('aria-pressed', $system['status'] === 'green' ? 'true' : 'false');
+        }
+
+        // Remove executable or embedded content before rendering the downloaded SVG inline.
+        foreach ($xpath->query('//*[local-name()="script" or local-name()="foreignObject"]') as $unsafe) {
+            $unsafe->parentNode?->removeChild($unsafe);
+        }
+        foreach ($xpath->query('//@*') as $attribute) {
+            if (str_starts_with(strtolower($attribute->nodeName), 'on')) {
+                $attribute->ownerElement?->removeAttributeNode($attribute);
+            }
+        }
+
+        return $document->saveXML($document->documentElement) ?: '';
     }
 
     /**
