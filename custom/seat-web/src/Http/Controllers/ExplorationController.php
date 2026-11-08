@@ -104,7 +104,7 @@ class ExplorationController extends Controller
      */
     private function synergyOfSteelSovereigntySystemIds(): array
     {
-        return Cache::remember('tc_exploration_syn_sov_system_ids_v3', now()->addMinutes(15), function () {
+        return Cache::remember('tc_exploration_syn_sov_system_ids_v4', now()->addMinutes(15), function () {
             $response = Http::acceptJson()
                 ->withHeaders(['X-Compatibility-Date' => '2026-08-18'])
                 ->timeout(25)
@@ -118,7 +118,7 @@ class ExplorationController extends Controller
                     'status' => $response->status(),
                     'body' => mb_substr($response->body(), 0, 1000),
                 ]);
-                return Cache::get('tc_exploration_syn_sov_system_ids_v3_stale', []);
+                return Cache::get('tc_exploration_syn_sov_system_ids_v4_stale', []);
             }
 
             $payload = $response->json();
@@ -130,11 +130,12 @@ class ExplorationController extends Controller
 
             $ids = collect($claims)
                 ->filter(function ($entry) {
-                    // ESI models the claim as a one-of object:
-                    // claim.alliance, claim.faction, or claim.unclaimed.
-                    $allianceClaim = $entry['claim']['alliance'] ?? null;
-                    return is_array($allianceClaim)
-                        && (int) ($allianceClaim['alliance_id'] ?? 0) === self::SOV_ALLIANCE_ID;
+                    // ESI sovereignty payloads have appeared in both direct
+                    // alliance_id form and wrapped claim.alliance form.
+                    $allianceId = $entry['alliance_id']
+                        ?? $entry['claim']['alliance']['alliance_id']
+                        ?? 0;
+                    return (int) $allianceId === self::SOV_ALLIANCE_ID;
                 })
                 ->pluck('solar_system_id')
                 ->map(fn ($id) => (int) $id)
@@ -143,7 +144,7 @@ class ExplorationController extends Controller
                 ->values()
                 ->all();
 
-            Cache::put('tc_exploration_pl_sov_system_ids_v2_stale', $ids, now()->addDays(7));
+            Cache::put('tc_exploration_syn_sov_system_ids_v4_stale', $ids, now()->addDays(7));
             return $ids;
         });
     }
