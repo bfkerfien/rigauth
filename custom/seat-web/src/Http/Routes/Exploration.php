@@ -17,6 +17,10 @@ Route::group(['prefix' => 'exploration'], function () {
         ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.signatures.save');
 
+    Route::post('/{region}/systems/{systemId}/signatures/{signatureId}/wormhole-notes', 'ExplorationController@saveWormholeNotes')
+        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+', 'signatureId' => '[A-Za-z0-9-]+'])
+        ->name('seatcore::exploration.signatures.wormhole-notes');
+
     Route::post('/{region}/systems/{systemId}/toggle', 'ExplorationController@toggle')
         ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.toggle');
