@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
-use Seat\Eseye\Containers\EsiAuthentication;
-use Seat\Eseye\Eseye;
+use Seat\Services\Contracts\EsiClient;
 use Seat\Eveapi\Models\RefreshToken;
 use Throwable;
 
