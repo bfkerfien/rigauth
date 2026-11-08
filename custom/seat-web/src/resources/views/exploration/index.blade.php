@@ -371,17 +371,20 @@
           }).catch(function (error) { message.textContent = error.message; })
           .finally(function () { submit.disabled = false; });
     });
-    // Bind directly to the SVG group elements; this works reliably with inline DOTLAN SVGs.
+    // Capture clicks before DOTLAN's original SVG link handlers can navigate.
+    root.addEventListener('click', function (event) {
+        var anchor = event.target.closest('a');
+        if (anchor) event.preventDefault();
+        var node = event.target.closest('.exploration-system');
+        if (!node || !root.contains(node) || node.dataset.status === 'red') return;
+        event.preventDefault();
+        event.stopPropagation();
+        loadSignatures(node);
+    }, true);
     root.querySelectorAll('.exploration-system').forEach(function (node) {
         node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
-        if (node.dataset.status === 'red') return;
-        node.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            loadSignatures(node);
-        });
         node.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
+            if ((event.key === 'Enter' || event.key === ' ') && node.dataset.status !== 'red') {
                 event.preventDefault();
                 loadSignatures(node);
             }
