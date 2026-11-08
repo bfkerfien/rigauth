@@ -1,0 +1,30 @@
+diff --git a/src/Http/routes.php b/src/Http/routes.php
+index 0a3f7a90..f3ac1e7d 100644
+--- a/src/Http/routes.php
++++ b/src/Http/routes.php
+@@ -48,6 +48,9 @@ Route::group(['middleware' => ['auth', 'locale']], function () {
+         // just include it
+         include __DIR__ . '/Routes/Home.php';
+ 
++        // Triglavian Consortium regional exploration maps.
++        include __DIR__ . '/Routes/Exploration.php';
++
+         // Support Routes
+         Route::group([
+diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
+index bf07b76c..f6c7d7e1 100644
+--- a/src/resources/views/includes/sidebar.blade.php
++++ b/src/resources/views/includes/sidebar.blade.php
+@@ -29,6 +29,13 @@
+       <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+ 
++        <li class="nav-item">
++          <a href="{{ route('seatcore::exploration.index') }}" class="nav-link {{ Request::segment(1) === 'exploration' ? 'active' : null }}">
++            <i class="nav-icon fas fa-compass"></i>
++            <p>Exploration</p>
++          </a>
++        </li>
++
+         @foreach($menu as $entry)
+ 
+           {{-- determine if we should pop a treeview --}}
