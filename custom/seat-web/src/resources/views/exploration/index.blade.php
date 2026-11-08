@@ -100,9 +100,8 @@
 .exploration-map-wrap.is-dragging { cursor: grabbing; }
 .exploration-map { display: block; width: 100%; height: 100%; min-width: 0; user-select: none; }
 .exploration-map svg { display: block; width: 100%; height: 100%; }
-.exploration-map-links line { stroke: #344b67; stroke-width: 1.35; opacity: .82; }
-.exploration-dotlan-grid line { stroke: #26364a; stroke-width: 1; opacity: .7; }
-.exploration-dotlan-grid text { fill: #71839a; font: 12px Arial, sans-serif; text-anchor: middle; }
+.exploration-map-links line { stroke: #344b67; stroke-width: 1.6; opacity: .78; }
+.exploration-map .ss { fill: #c4d2e4 !important; font: 11px Arial, sans-serif; text-anchor: start; dominant-baseline: middle; pointer-events: none; }
 .exploration-system { cursor: pointer; outline: none; }
 .exploration-system .s { fill: #f7f8fa !important; stroke: #293746 !important; stroke-width: 1.5px !important; }
 .exploration-system .ss { fill: #17212c !important; }
