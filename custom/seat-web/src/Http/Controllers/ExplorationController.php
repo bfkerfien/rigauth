@@ -287,16 +287,24 @@ class ExplorationController extends Controller
         }
 
         try {
-            $esi = new Eseye(new EsiAuthentication([
-                'client_id' => config('eve.client_id'),
-                'secret' => config('eve.client_secret'),
-                'refresh_token' => $token->refresh_token,
-            ]));
+            // Use SeAT's configured ESI client so its Guzzle HTTP client,
+            // request factories, logger, cache, and ESI configuration are initialized.
+            // RefreshToken implements SeAT's EsiToken contract directly.
+            $esi = app(EsiClient::class);
+            $esi->setAuthentication($token);
 
-            // Eseye invoke() returns the decoded response object directly.
-            $location = $esi->invoke('get', '/characters/{character_id}/location/', [
+            $response = $esi->invoke('get', '/characters/{character_id}/location/', [
                 'character_id' => $characterId,
             ]);
+
+            if ($response->isFailed()) {
+                return response()->json([
+                    'status' => 'unavailable',
+                    'message' => 'ESI location request failed (' . $response->getStatusCode() . '): ' . mb_substr($response->error(), 0, 250),
+                ])->header('Cache-Control', 'no-store');
+            }
+
+            $location = $response->getBody();
             $systemId = (int) ($location->solar_system_id ?? 0);
 
             if ($systemId < 1) {
