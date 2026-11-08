@@ -61,7 +61,7 @@ git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0005-reaction-planner.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0006-exploration-section.patch"
+python3 "$(dirname "$0")/apply-exploration-navigation.py" "$DEST/seat-docker/packages/eveseat/web/src/Http/routes.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/includes/sidebar.blade.php"
 cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
 cp "$(dirname "$0")/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
