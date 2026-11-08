@@ -102,172 +102,68 @@ class ExplorationController extends Controller
      */
     private function renderNativeExplorationMap(string $region, $systems): string
     {
-        if ($systems->isEmpty()) {
+        $layoutFile = __DIR__ . '/../../resources/exploration/layouts.php';
+        if (!is_file($layoutFile)) {
+            logger()->error('Exploration native layout asset is missing.', ['path' => $layoutFile]);
             return '';
         }
 
-        $width = 1600.0;
-        $height = 1050.0;
-        $padding = 105.0;
-        $systemIds = $systems->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $systemSet = array_fill_keys($systemIds, true);
-        $minX = (float) $systems->min('x');
-        $maxX = (float) $systems->max('x');
-        $minZ = (float) $systems->min('z');
-        $maxZ = (float) $systems->max('z');
-        $rangeX = max(1.0, $maxX - $minX);
-        $rangeZ = max(1.0, $maxZ - $minZ);
-
-        // Normalize the SDE projection into a broad initial graph layout.
-        $positions = [];
-        $anchors = [];
-        $names = [];
-        $statuses = [];
-        foreach ($systems as $system) {
-            $id = (int) $system['id'];
-            $point = [
-                'x' => 180.0 + (($system['x'] - $minX) / $rangeX) * 1240.0,
-                'y' => 130.0 + (1.0 - (($system['z'] - $minZ) / $rangeZ)) * 790.0,
-            ];
-            $positions[$id] = $point;
-            $anchors[$id] = $point;
-            $names[$id] = (string) $system['name'];
-            $statuses[$id] = (string) $system['status'];
+        $layouts = require $layoutFile;
+        $layout = $layouts[$region] ?? null;
+        if (!is_array($layout) || empty($layout['nodes'])) {
+            logger()->error('Exploration native layout is invalid.', ['region' => $region]);
+            return '';
         }
 
-        $edges = [];
-        if (Schema::hasTable('mapSolarSystemJumps')) {
-            $jumps = DB::table('mapSolarSystemJumps')
-                ->whereIn('fromSolarSystemID', $systemIds)
-                ->whereIn('toSolarSystemID', $systemIds)
-                ->get(['fromSolarSystemID', 'toSolarSystemID']);
-
-            foreach ($jumps as $jump) {
-                $from = (int) $jump->fromSolarSystemID;
-                $to = (int) $jump->toSolarSystemID;
-                if ($from === $to || !isset($systemSet[$from], $systemSet[$to])) {
-                    continue;
-                }
-                $key = min($from, $to) . ':' . max($from, $to);
-                $edges[$key] = [$from, $to];
-            }
-        }
-
-        // Deterministic force-directed relaxation: gate-connected systems form
-        // recognizable clusters while repulsion prevents marker pile-ups.
-        $ids = array_keys($positions);
-        $count = count($ids);
-        $iterations = 190;
-        for ($iteration = 0; $iteration < $iterations; $iteration++) {
-            $forces = [];
-            foreach ($ids as $id) {
-                $forces[$id] = ['x' => 0.0, 'y' => 0.0];
-            }
-
-            for ($i = 0; $i < $count; $i++) {
-                $a = $ids[$i];
-                for ($j = $i + 1; $j < $count; $j++) {
-                    $b = $ids[$j];
-                    $dx = $positions[$a]['x'] - $positions[$b]['x'];
-                    $dy = $positions[$a]['y'] - $positions[$b]['y'];
-                    $distanceSquared = ($dx * $dx) + ($dy * $dy);
-                    if ($distanceSquared < 0.01) {
-                        $dx = (($a % 17) - 8) * 0.2;
-                        $dy = (($b % 19) - 9) * 0.2;
-                        $distanceSquared = max(0.01, ($dx * $dx) + ($dy * $dy));
-                    }
-                    $distance = sqrt($distanceSquared);
-                    $push = min(22.0, 5200.0 / $distanceSquared);
-                    $fx = ($dx / $distance) * $push;
-                    $fy = ($dy / $distance) * $push;
-                    $forces[$a]['x'] += $fx;
-                    $forces[$a]['y'] += $fy;
-                    $forces[$b]['x'] -= $fx;
-                    $forces[$b]['y'] -= $fy;
-                }
-            }
-
-            foreach ($edges as [$a, $b]) {
-                $dx = $positions[$b]['x'] - $positions[$a]['x'];
-                $dy = $positions[$b]['y'] - $positions[$a]['y'];
-                $distance = max(0.01, sqrt(($dx * $dx) + ($dy * $dy)));
-                $pull = ($distance - 88.0) * 0.018;
-                $fx = ($dx / $distance) * $pull;
-                $fy = ($dy / $distance) * $pull;
-                $forces[$a]['x'] += $fx;
-                $forces[$a]['y'] += $fy;
-                $forces[$b]['x'] -= $fx;
-                $forces[$b]['y'] -= $fy;
-            }
-
-            $temperature = max(0.7, 13.0 * (1.0 - ($iteration / $iterations)));
-            foreach ($ids as $id) {
-                // A light anchor keeps the broad regional orientation familiar.
-                $forces[$id]['x'] += ($anchors[$id]['x'] - $positions[$id]['x']) * 0.003;
-                $forces[$id]['y'] += ($anchors[$id]['y'] - $positions[$id]['y']) * 0.003;
-                $magnitude = sqrt(($forces[$id]['x'] ** 2) + ($forces[$id]['y'] ** 2));
-                if ($magnitude > 0.001) {
-                    $step = min($temperature, $magnitude);
-                    $positions[$id]['x'] += ($forces[$id]['x'] / $magnitude) * $step;
-                    $positions[$id]['y'] += ($forces[$id]['y'] / $magnitude) * $step;
-                }
-            }
-        }
-
-        // Fit the relaxed graph into the viewBox without distorting its aspect.
-        $xs = array_column($positions, 'x');
-        $ys = array_column($positions, 'y');
-        $layoutMinX = min($xs);
-        $layoutMaxX = max($xs);
-        $layoutMinY = min($ys);
-        $layoutMaxY = max($ys);
-        $layoutWidth = max(1.0, $layoutMaxX - $layoutMinX);
-        $layoutHeight = max(1.0, $layoutMaxY - $layoutMinY);
-        $scale = min(($width - 2 * $padding) / $layoutWidth, ($height - 2 * $padding) / $layoutHeight);
-        $offsetX = ($width - ($layoutWidth * $scale)) / 2.0;
-        $offsetY = ($height - ($layoutHeight * $scale)) / 2.0;
-        foreach ($positions as $id => $point) {
-            $positions[$id] = [
-                'x' => $offsetX + (($point['x'] - $layoutMinX) * $scale),
-                'y' => $offsetY + (($point['y'] - $layoutMinY) * $scale),
-            ];
-        }
-
-        $safeRegion = htmlspecialchars($region, ENT_QUOTES | ENT_XML1, 'UTF-8');
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="exploration-map" viewBox="0 0 1600 1050" role="img" aria-label="Native EVE star map of ' . $safeRegion . '">';
+        // Preserve the exact DOTLAN-authored 1024x768 node and gate coordinates.
+        // Only the visual rendering and interactive SeAT state are native.
+        $liveSystems = $systems->keyBy(fn ($system) => (int) $system['id']);
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="exploration-map" viewBox="0 0 1024 768" role="img" aria-label="Native exploration map of ' . htmlspecialchars($region, ENT_QUOTES | ENT_XML1, 'UTF-8') . '">';
         $svg .= '<defs>
-            <radialGradient id="exploration-space"><stop offset="0" stop-color="#101c2b"/><stop offset="1" stop-color="#050a12"/></radialGradient>
-            <pattern id="exploration-grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="#172536" stroke-width="1" opacity=".36"/></pattern>
-            <filter id="exploration-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <radialGradient id="exploration-space" cx="50%" cy="48%" r="75%"><stop offset="0" stop-color="#1b1b1b"/><stop offset="1" stop-color="#111111"/></radialGradient>
+            <filter id="exploration-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="2.2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>';
-        $svg .= '<rect width="1600" height="1050" fill="url(#exploration-space)"/><rect width="1600" height="1050" fill="url(#exploration-grid)"/>';
-        $svg .= '<text x="42" y="58" class="exploration-region-title">' . $safeRegion . '</text>';
-        $svg .= '<text x="44" y="82" class="exploration-region-subtitle">NEW EDEN · STARGATE NETWORK</text>';
-
-        // Gate connections are drawn first so all system labels remain legible.
+        $svg .= '<rect x="0" y="0" width="1024" height="768" fill="url(#exploration-space)"/>';
         $svg .= '<g class="exploration-map-links">';
-        foreach ($edges as [$from, $to]) {
-            $a = $positions[$from];
-            $b = $positions[$to];
-            $svg .= '<line x1="' . round($a['x'], 2) . '" y1="' . round($a['y'], 2)
-                . '" x2="' . round($b['x'], 2) . '" y2="' . round($b['y'], 2) . '"/>';
+        foreach (($layout['edges'] ?? []) as $edge) {
+            [$from, $to, $x1, $y1, $x2, $y2, $class] = $edge;
+            $class = in_array($class, ['j', 'jc', 'jr', 'jx', 'jxc', 'jxr', 'jb'], true) ? $class : 'j';
+            $stroke = $class === 'jc' || $class === 'jxc' ? '#dd0000' : ($class === 'jr' || $class === 'jxr' ? '#800080' : '#bbbbbb');
+            $strokeWidth = in_array($class, ['jx', 'jxc', 'jxr', 'jb'], true) ? '2.5' : '1';
+            $svg .= '<line class="' . $class . '" x1="' . $x1 . '" y1="' . $y1 . '" x2="' . $x2 . '" y2="' . $y2 . '" style="stroke:' . $stroke . ';stroke-width:' . $strokeWidth . ';fill:none;opacity:.9"/>';
         }
         $svg .= '</g>';
 
-        foreach ($ids as $id) {
-            $point = $positions[$id];
-            $name = htmlspecialchars($names[$id], ENT_QUOTES | ENT_XML1, 'UTF-8');
-            $status = $statuses[$id];
+        foreach (($layout['nodes'] ?? []) as $node) {
+            [$id, $name, $x, $y, $fill, $rect, $extra] = $node;
+            $id = (int) $id;
+            [$rx, $ry, $rw, $rh] = $rect;
+            $name = (string) $name;
+            $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_XML1, 'UTF-8');
+            $system = $liveSystems->get($id);
+
+            if (!$system) {
+                // DOTLAN's adjacent-region and out-of-region systems remain visible
+                // as context, but are not clickable or status-bearing.
+                $svg .= '<g class="exploration-external-system" transform="translate(' . $x . ' ' . $y . ')">';
+                $svg .= '<rect x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11" fill="#252525" stroke="#777" stroke-width=".8"/>';
+                $svg .= '<text class="exploration-external-label" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
+                if ($extra !== '') {
+                    $svg .= '<text class="exploration-external-region" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
+                }
+                $svg .= '</g>';
+                continue;
+            }
+
+            $status = (string) $system['status'];
             $label = $name . ': ' . ($status === 'red' ? 'permanently excluded' : ($status === 'green' ? 'explored' : 'unexplored'));
-            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $id
-                . '" data-system-name="' . $name . '" data-status="' . $status . '" transform="translate('
-                . round($point['x'], 2) . ' ' . round($point['y'], 2) . ')" tabindex="' . ($status === 'red' ? '-1' : '0')
-                . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="'
-                . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="'
-                . ($status === 'green' ? 'true' : 'false') . '">';
-            $svg .= '<circle class="exploration-hit" r="17"/>';
-            $svg .= '<circle class="s" r="4.2"/>';
-            $svg .= '<text class="ss" x="9" y="3">' . $name . '</text>';
+            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $id . '" data-system-name="' . $safeName . '" data-status="' . $status . '" transform="translate(' . $x . ' ' . $y . ')" tabindex="' . ($status === 'red' ? '-1' : '0') . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="' . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="' . ($status === 'green' ? 'true' : 'false') . '">';
+            $svg .= '<rect class="exploration-hit" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11"/>';
+            $svg .= '<rect class="s" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11" style="fill:' . htmlspecialchars((string) $fill, ENT_QUOTES | ENT_XML1, 'UTF-8') . '"/>';
+            $svg .= '<text class="ss" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
+            if ($extra !== '') {
+                $svg .= '<text class="st" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
+            }
             $svg .= '</g>';
         }
 
