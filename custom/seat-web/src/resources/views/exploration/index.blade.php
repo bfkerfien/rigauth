@@ -55,16 +55,16 @@
                 <rect x="0" y="0" width="1200" height="800" fill="url(#exploration-grid-{{ strtolower($region) }})"/>
                 <g class="exploration-dotlan-grid" aria-hidden="true">
                   @for($column = 0; $column <= 8; $column++)
-                    <line x1="{{ 96 + ($column * 126) }}" y1="42" x2="{{ 96 + ($column * 126) }}" y2="744"/>
+                    <line x1="{{ 58 + ($column * 135.5) }}" y1="42" x2="{{ 58 + ($column * 135.5) }}" y2="744"/>
                     @if($column < 8)
-                      <text x="{{ 159 + ($column * 126) }}" y="766">{{ $column + 1 }}</text>
+                      <text x="{{ 125.75 + ($column * 135.5) }}" y="766">{{ $column + 1 }}</text>
                     @endif
                   @endfor
                   @foreach(['A','B','C','D','E','F'] as $rowLabel)
                     <text x="24" y="{{ 105 + ($loop->index * 116) }}">{{ $rowLabel }}</text>
                   @endforeach
                   @for($row = 0; $row <= 6; $row++)
-                    <line x1="96" y1="{{ 52 + ($row * 116) }}" x2="1104" y2="{{ 52 + ($row * 116) }}"/>
+                    <line x1="58" y1="{{ 52 + ($row * 116) }}" x2="1142" y2="{{ 52 + ($row * 116) }}"/>
                   @endfor
                 </g>
                 <g class="exploration-map-links">
