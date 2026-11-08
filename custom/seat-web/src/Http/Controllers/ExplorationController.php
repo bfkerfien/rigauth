@@ -102,7 +102,7 @@ class ExplorationController extends Controller
         }
 
         $byName = $systems->keyBy(fn ($system) => mb_strtolower($system['name']));
-        $document = new DOMDocument('1.0', 'UTF-8');
+        $document = new \\DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
         $loaded = $document->load($path, LIBXML_NONET | LIBXML_NOBLANKS);
         libxml_clear_errors();
