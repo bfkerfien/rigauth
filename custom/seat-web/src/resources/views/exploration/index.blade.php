@@ -55,6 +55,29 @@
       </div>
     @endif
   </div>
+  <div class="exploration-modal-backdrop" id="exploration-signature-modal" aria-hidden="true">
+    <div class="exploration-modal" role="dialog" aria-modal="true" aria-labelledby="exploration-modal-title">
+      <div class="exploration-modal-header">
+        <div><h4 id="exploration-modal-title" class="mb-1">System signatures</h4><small id="exploration-modal-meta" class="text-muted"></small></div>
+        <div><button type="button" class="btn btn-outline-secondary btn-sm mr-2" id="exploration-modal-status">Mark explored</button><button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-modal-close">Close</button></div>
+      </div>
+      <div class="exploration-modal-body">
+        <section>
+          <h5>Currently scanned</h5>
+          <div id="exploration-signature-list" class="exploration-signature-list"><span class="text-muted">Select a system to view its scan.</span></div>
+        </section>
+        <section>
+          <h5>Paste new scan</h5>
+          <p class="small text-muted">Copy the Probe Scanner results from EVE and paste them here. Submitting replaces the previous scan for this system.</p>
+          <textarea id="exploration-scan-input" class="form-control" rows="12" placeholder="Paste Probe Scanner results here…"></textarea>
+          <div class="d-flex justify-content-between align-items-center mt-2">
+            <span id="exploration-scan-message" class="small text-muted"></span>
+            <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace scan</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -95,6 +118,19 @@
 .exploration-map-caption { fill: #6f829d; font: 12px Arial, sans-serif; }
 .exploration-card .btn-outline-secondary { color: #bdcadd; border-color: #52657e; }
 .exploration-card .btn-outline-secondary:hover { color: #fff; background: #25364d; }
+.exploration-modal-backdrop { display:none; position:fixed; inset:0; z-index:1055; background:rgba(0,0,0,.78); padding:4vh 2vw; overflow:auto; }
+.exploration-modal-backdrop.is-open { display:flex; align-items:flex-start; justify-content:center; }
+.exploration-modal { width:min(1100px, 96vw); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
+.exploration-modal-header { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #26364b; }
+.exploration-modal-body { display:grid; grid-template-columns:1fr 1fr; gap:1rem; padding:1.25rem; }
+.exploration-modal-body h5 { color:#fff; margin-bottom:.75rem; }
+.exploration-signature-list { max-height:58vh; overflow:auto; }
+.exploration-signature-table { width:100%; font-size:.88rem; border-collapse:collapse; }
+.exploration-signature-table th,.exploration-signature-table td { padding:.45rem; border-bottom:1px solid #26364b; text-align:left; vertical-align:top; }
+.exploration-signature-table th { color:#9eafc5; position:sticky; top:0; background:#111a29; }
+#exploration-scan-input { min-height:280px; background:#08111e; color:#e5edf7; border-color:#52657e; font-family:monospace; }
+@media(max-width:760px) { .exploration-modal-body { grid-template-columns:1fr; } .exploration-signature-list { max-height:35vh; } }
+
 @media (max-width: 767px) { .exploration-legend { margin-bottom: 6px; } }
 </style>>
 
@@ -233,11 +269,11 @@
     }
 
     function toggleSystem(node) {
-        if (node.dataset.status === 'red' || node.dataset.busy === '1') return;
+        if (node.dataset.status === 'red' || node.dataset.busy === '1') return Promise.reject(new Error('This system cannot be changed.'));
         var pane = node.closest('.tab-pane');
         var region = pane.id.replace('exploration-', '');
         node.dataset.busy = '1';
-        fetch(@json(url('/exploration')) + '/' + encodeURIComponent(region.charAt(0).toUpperCase() + region.slice(1)) + '/systems/' + node.dataset.systemId + '/toggle', {
+        return fetch(@json(url('/exploration')) + '/' + encodeURIComponent(region.charAt(0).toUpperCase() + region.slice(1)) + '/systems/' + node.dataset.systemId + '/toggle', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function (response) {
@@ -246,23 +282,101 @@
         }).then(function (data) {
             setSystemStatus(node, data.status);
             updateCount(region);
+            return data;
         }).catch(function (error) {
             window.alert(error.message || 'Could not update this system.');
-        }).finally(function () {
-            delete node.dataset.busy;
-        });
+            throw error;
+        }).finally(function () { delete node.dataset.busy; });
     }
 
+    var signatureModal = root.querySelector('#exploration-signature-modal');
+    var selectedSystem = null;
+    function renderSignatures(items) {
+        var list = root.querySelector('#exploration-signature-list');
+        if (!items || !items.length) { list.textContent = 'No signatures recorded for this system yet.'; return; }
+        var table = document.createElement('table');
+        table.className = 'exploration-signature-table';
+        var head = document.createElement('thead');
+        head.innerHTML = '<tr><th>ID</th><th>Group</th><th>Type / Name</th><th>Strength</th></tr>';
+        table.appendChild(head);
+        var body = document.createElement('tbody');
+        items.forEach(function (item) {
+            var tr = document.createElement('tr');
+            [item.signature_id, item.group_name, [item.type_name, item.signature_name].filter(Boolean).join(' — '), item.signal_strength + '%'].forEach(function (value) {
+                var td = document.createElement('td'); td.textContent = value == null ? '' : String(value); tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+        table.appendChild(body); list.replaceChildren(table);
+    }
+    function loadSignatures(node) {
+        selectedSystem = node;
+        var region = node.closest('.tab-pane').id.replace('exploration-', '');
+        region = region.charAt(0).toUpperCase() + region.slice(1);
+        signatureModal.dataset.region = region;
+        signatureModal.dataset.systemId = node.dataset.systemId;
+        root.querySelector('#exploration-modal-title').textContent = node.dataset.systemName + ' signatures';
+        root.querySelector('#exploration-modal-status').textContent = node.dataset.status === 'green' ? 'Clear explored' : 'Mark explored';
+        root.querySelector('#exploration-modal-meta').textContent = region + ' · Loading scan…';
+        root.querySelector('#exploration-signature-list').textContent = 'Loading…';
+        root.querySelector('#exploration-scan-input').value = '';
+        root.querySelector('#exploration-scan-message').textContent = '';
+        signatureModal.classList.add('is-open'); signatureModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        fetch(@json(url('/exploration')) + '/' + region + '/systems/' + node.dataset.systemId + '/signatures', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) { if (!response.ok) throw new Error('Could not load this system scan.'); return response.json(); })
+          .then(function (data) {
+              renderSignatures(data.signatures);
+              root.querySelector('#exploration-modal-meta').textContent = region + ' · ' + data.signatures.length + ' signatures' + (data.scanned_at ? ' · Last scanned ' + data.scanned_at : '');
+          }).catch(function (error) { root.querySelector('#exploration-signature-list').textContent = error.message; });
+    }
+    function closeSignatureModal() {
+        signatureModal.classList.remove('is-open'); signatureModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = ''; selectedSystem = null;
+    }
+    root.querySelector('#exploration-modal-close').addEventListener('click', closeSignatureModal);
+    root.querySelector('#exploration-modal-status').addEventListener('click', function () {
+        if (!selectedSystem || selectedSystem.dataset.status === 'red') return;
+        var button = this; button.disabled = true;
+        toggleSystem(selectedSystem).then(function () {
+            button.textContent = selectedSystem.dataset.status === 'green' ? 'Clear explored' : 'Mark explored';
+        }).catch(function () {}).finally(function () { button.disabled = false; });
+    });
+    signatureModal.addEventListener('click', function (event) { if (event.target === signatureModal) closeSignatureModal(); });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && signatureModal.classList.contains('is-open')) closeSignatureModal(); });
+    root.querySelector('#exploration-scan-submit').addEventListener('click', function () {
+        if (!selectedSystem) return;
+        var input = root.querySelector('#exploration-scan-input');
+        var message = root.querySelector('#exploration-scan-message');
+        var submit = root.querySelector('#exploration-scan-submit');
+        if (!input.value.trim()) { message.textContent = 'Paste the new scan before submitting.'; return; }
+        submit.disabled = true; message.textContent = 'Replacing previous scan…';
+        fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ scan_data: input.value })
+        }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.message || 'Could not save scan.'); return data; }); })
+          .then(function (data) {
+              message.textContent = 'Saved ' + data.count + ' signatures. Previous scan replaced.';
+              return fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
+                  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+              });
+          }).then(function (response) { if (!response.ok) throw new Error('Saved, but could not refresh the displayed scan.'); return response.json(); })
+          .then(function (data) {
+              renderSignatures(data.signatures);
+              root.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
+              input.value = '';
+          }).catch(function (error) { message.textContent = error.message; })
+          .finally(function () { submit.disabled = false; });
+    });
     root.addEventListener('click', function (event) {
         var node = event.target.closest('.exploration-system');
-        if (node && root.contains(node)) toggleSystem(node);
+        if (node && root.contains(node)) { event.preventDefault(); loadSignatures(node); }
     });
     root.addEventListener('keydown', function (event) {
         var node = event.target.closest('.exploration-system');
-        if (node && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault();
-            toggleSystem(node);
-        }
+        if (node && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); loadSignatures(node); }
     });
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
