@@ -18,8 +18,8 @@ class ExplorationController extends Controller
 {
     private const REGIONS = ['Branch', 'Tenal', 'Venal'];
 
-    // Pandemic Legion alliance ID. Sovereignty is refreshed from CCP's public ESI map.
-    private const PANDEMIC_LEGION_ALLIANCE_ID = 386292982;
+    // Synergy of Steel [SYN] alliance ID. Red systems are based on alliance sovereignty claims.
+    private const SOV_ALLIANCE_ID = 99002685;
 
     public function index(): View
     {
@@ -64,7 +64,7 @@ class ExplorationController extends Controller
                 ->all()
             : [];
 
-        $redIds = $this->pandemicLegionSovereigntySystemIds();
+        $redIds = $this->synergyOfSteelSovereigntySystemIds();
         $mapped = $systems->map(function ($system) use ($greenIds, $redIds) {
             $name = (string) $system->name;
             $isRed = in_array((int) $system->id, $redIds, true);
@@ -93,7 +93,7 @@ class ExplorationController extends Controller
      */
     private function pandemicLegionSovereigntySystemIds(): array
     {
-        return Cache::remember('tc_exploration_pl_sov_system_ids_v2', now()->addMinutes(15), function () {
+        return Cache::remember('tc_exploration_syn_sov_system_ids_v3', now()->addMinutes(15), function () {
             $response = Http::acceptJson()
                 ->withHeaders(['X-Compatibility-Date' => '2026-08-18'])
                 ->timeout(25)
@@ -107,7 +107,7 @@ class ExplorationController extends Controller
                     'status' => $response->status(),
                     'body' => mb_substr($response->body(), 0, 1000),
                 ]);
-                return Cache::get('tc_exploration_pl_sov_system_ids_v2_stale', []);
+                return Cache::get('tc_exploration_syn_sov_system_ids_v3_stale', []);
             }
 
             $payload = $response->json();
@@ -123,7 +123,7 @@ class ExplorationController extends Controller
                     // claim.alliance, claim.faction, or claim.unclaimed.
                     $allianceClaim = $entry['claim']['alliance'] ?? null;
                     return is_array($allianceClaim)
-                        && (int) ($allianceClaim['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID;
+                        && (int) ($allianceClaim['alliance_id'] ?? 0) === self::SOV_ALLIANCE_ID;
                 })
                 ->pluck('solar_system_id')
                 ->map(fn ($id) => (int) $id)
