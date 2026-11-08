@@ -28,11 +28,11 @@ class ExplorationController extends Controller
     {
         $maps = [];
         $mapError = null;
-        $requiredTables = ['mapSolarSystems', 'mapRegions'];
+        $requiredTables = ['mapDenormalize', 'invNames'];
 
         foreach ($requiredTables as $table) {
             if (!Schema::hasTable($table)) {
-                $mapError = 'The EVE Static Data map tables are not installed. Import the SeAT SDE before using Exploration.';
+                $mapError = 'The SeAT SDE tables mapDenormalize and invNames are missing. Run the SeAT SDE import before using Exploration.';
                 break;
             }
         }
@@ -46,12 +46,13 @@ class ExplorationController extends Controller
 
     private function buildMap(string $region): array
     {
-        $systems = DB::table('mapSolarSystems as systems')
-            ->join('mapRegions as regions', 'regions.regionID', '=', 'systems.regionID')
-            ->where('regions.regionName', $region)
+        $systems = DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->where('systems.groupID', 5)
+            ->where('regions.itemName', $region)
             ->select([
-                'systems.solarSystemID as id',
-                'systems.solarSystemName as name',
+                'systems.itemID as id',
+                'systems.itemName as name',
                 'systems.x',
                 'systems.y',
             ])
@@ -201,11 +202,12 @@ class ExplorationController extends Controller
     {
         abort_unless(in_array($region, self::REGIONS, true), 404);
 
-        $systemName = DB::table('mapSolarSystems as systems')
-            ->join('mapRegions as regions', 'regions.regionID', '=', 'systems.regionID')
-            ->where('regions.regionName', $region)
-            ->where('systems.solarSystemID', $systemId)
-            ->value('systems.solarSystemName');
+        $systemName = DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->where('systems.groupID', 5)
+            ->where('regions.itemName', $region)
+            ->where('systems.itemID', $systemId)
+            ->value('systems.itemName');
 
         abort_unless($systemName, 404);
 
