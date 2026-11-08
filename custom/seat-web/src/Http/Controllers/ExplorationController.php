@@ -291,6 +291,86 @@ class ExplorationController extends Controller
         }
     }
 
+    private function explorationSystem(string $region, int $systemId): ?string
+    {
+        abort_unless(in_array($region, self::REGIONS, true), 404);
+        return DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->where('systems.groupID', 5)->where('regions.itemName', $region)
+            ->where('systems.itemID', $systemId)->value('systems.itemName');
+    }
+
+    public function signatures(string $region, int $systemId): JsonResponse
+    {
+        $systemName = $this->explorationSystem($region, $systemId);
+        abort_unless($systemName, 404);
+        $signatures = DB::table('tc_exploration_signatures')
+            ->where('solar_system_id', $systemId)->orderBy('signature_id')
+            ->get(['signature_id', 'group_name', 'type_name', 'signature_name', 'signal_strength', 'scanned_at']);
+        return response()->json(['system' => $systemName, 'signatures' => $signatures, 'scanned_at' => $signatures->max('scanned_at')]);
+    }
+
+    public function saveSignatures(Request $request, string $region, int $systemId): JsonResponse
+    {
+        $systemName = $this->explorationSystem($region, $systemId);
+        abort_unless($systemName, 404);
+        $validated = $request->validate(['scan_data' => ['required', 'string', 'max:100000']]);
+        $lines = preg_split('/\\r\\n|\\r|\\n/', trim($validated['scan_data']));
+        $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\\t"), $lines),
+            fn ($row) => count($row) > 1 || trim((string) ($row[0] ?? '')) !== ''));
+        if (count($rows) < 2) {
+            return response()->json(['message' => 'No scan rows found. Copy the Probe Scanner results, including column headings.'], 422);
+        }
+
+        $normalize = fn ($value) => mb_strtolower(preg_replace('/[^a-z0-9]+/i', '', trim((string) $value)));
+        $headers = array_map($normalize, $rows[0]);
+        $find = function (array $names) use ($headers) {
+            foreach ($names as $name) { $index = array_search($name, $headers, true); if ($index !== false) return $index; }
+            return null;
+        };
+        $idCol = $find(['id', 'signatureid', 'scanid']);
+        $groupCol = $find(['group', 'groupname', 'category']);
+        $typeCol = $find(['type', 'typename']);
+        $nameCol = $find(['name', 'signature', 'signaturename']);
+        $strengthCol = $find(['signalstrength', 'strength', 'certainty']);
+
+        // EVE Probe Scanner clipboard order: ID, Group, Type, Name, Signal Strength.
+        if ($idCol === null || $strengthCol === null) {
+            [$idCol, $groupCol, $typeCol, $nameCol, $strengthCol] = [0, 1, 2, 3, 4];
+            $dataRows = $rows;
+        } else {
+            $dataRows = array_slice($rows, 1);
+        }
+
+        $parsed = [];
+        foreach ($dataRows as $row) {
+            $sigId = strtoupper(trim((string) ($row[$idCol] ?? '')));
+            if (!preg_match('/^[A-Z0-9]{3}-[A-Z0-9]{3}$/', $sigId)) continue;
+            $strength = str_replace('%', '', trim((string) ($row[$strengthCol] ?? '')));
+            if ($strength === '' || !is_numeric($strength)) continue;
+            $parsed[$sigId] = [
+                'region_name' => $region, 'solar_system_id' => $systemId, 'system_name' => $systemName,
+                'signature_id' => $sigId,
+                'group_name' => trim((string) ($row[$groupCol] ?? '')),
+                'type_name' => trim((string) ($row[$typeCol] ?? '')),
+                'signature_name' => trim((string) ($row[$nameCol] ?? '')),
+                'signal_strength' => max(0, min(100, (float) $strength)),
+                'raw_data' => implode("\\t", $row), 'scanned_by' => $request->user()->id,
+                'scanned_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+            ];
+        }
+        if (!$parsed) {
+            return response()->json(['message' => 'No valid cosmic signatures found. The previous scan was left unchanged. Check that rows include signature IDs and signal strengths.'], 422);
+        }
+
+        DB::transaction(function () use ($systemId, $parsed) {
+            // New scan submissions replace the complete previous list for this system.
+            DB::table('tc_exploration_signatures')->where('solar_system_id', $systemId)->delete();
+            DB::table('tc_exploration_signatures')->insert(array_values($parsed));
+        });
+        return response()->json(['status' => 'saved', 'system' => $systemName, 'count' => count($parsed)]);
+    }
+
     public function toggle(Request $request, string $region, int $systemId): JsonResponse
     {
         abort_unless(in_array($region, self::REGIONS, true), 404);
