@@ -20,6 +20,9 @@ class ExplorationController extends Controller
     // Synergy of Steel [SYN] alliance ID. Red systems are based on alliance sovereignty claims.
     private const SOV_ALLIANCE_ID = 99002685;
 
+    // Tenal constellations excluded from exploration tracking at the user's request.
+    private const TENAL_RED_CONSTELLATIONS = ['1D-65L', 'O-E019', 'E-72A3', '9P57-V', '2-ZRM0'];
+
     public function index(): View
     {
         $maps = [];
@@ -67,7 +70,7 @@ class ExplorationController extends Controller
                 ->all()
             : [];
 
-        $redIds = $this->synergyOfSteelSovereigntySystemIds();
+        $redIds = $this->redSystemIds($region);
         $mapped = $systems->map(function ($system) use ($greenIds, $redIds) {
             $id = (int) $system->id;
             $isRed = in_array($id, $redIds, true);
@@ -169,6 +172,31 @@ class ExplorationController extends Controller
 
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /**
+     * Systems that must remain red: Synergy of Steel sovereignty plus any
+     * explicitly excluded constellations configured for the requested region.
+     */
+    private function redSystemIds(string $region): array
+    {
+        $ids = $this->synergyOfSteelSovereigntySystemIds();
+
+        if ($region === 'Tenal') {
+            $constellationIds = DB::table('mapDenormalize as systems')
+                ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+                ->join('invNames as constellations', 'constellations.itemID', '=', 'systems.constellationID')
+                ->where('systems.groupID', 5)
+                ->where('regions.itemName', 'Tenal')
+                ->whereIn('constellations.itemName', self::TENAL_RED_CONSTELLATIONS)
+                ->pluck('systems.itemID')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $ids = array_merge($ids, $constellationIds);
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -442,7 +470,7 @@ class ExplorationController extends Controller
 
         abort_unless($systemName, 404);
 
-        if (in_array($systemId, $this->synergyOfSteelSovereigntySystemIds(), true)) {
+        if (in_array($systemId, $this->redSystemIds($region), true)) {
             return response()->json(['message' => 'This system is permanently marked red.'], 403);
         }
 
