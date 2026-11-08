@@ -290,6 +290,7 @@
     }
 
     var signatureModal = root.querySelector('#exploration-signature-modal');
+    if (signatureModal && signatureModal.parentNode !== document.body) document.body.appendChild(signatureModal);
     var selectedSystem = null;
     function renderSignatures(items) {
         var list = root.querySelector('#exploration-signature-list');
@@ -370,13 +371,21 @@
           }).catch(function (error) { message.textContent = error.message; })
           .finally(function () { submit.disabled = false; });
     });
-    root.addEventListener('click', function (event) {
-        var node = event.target.closest('.exploration-system');
-        if (node && root.contains(node)) { event.preventDefault(); loadSignatures(node); }
-    });
-    root.addEventListener('keydown', function (event) {
-        var node = event.target.closest('.exploration-system');
-        if (node && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); loadSignatures(node); }
+    // Bind directly to the SVG group elements; this works reliably with inline DOTLAN SVGs.
+    root.querySelectorAll('.exploration-system').forEach(function (node) {
+        node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
+        if (node.dataset.status === 'red') return;
+        node.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            loadSignatures(node);
+        });
+        node.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                loadSignatures(node);
+            }
+        });
     });
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
