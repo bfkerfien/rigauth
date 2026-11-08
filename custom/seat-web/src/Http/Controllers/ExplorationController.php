@@ -20,8 +20,15 @@ class ExplorationController extends Controller
     // Synergy of Steel [SYN] alliance ID. Red systems are based on alliance sovereignty claims.
     private const SOV_ALLIANCE_ID = 99002685;
 
-    // Tenal constellations excluded from exploration tracking at the user's request.
-    private const TENAL_RED_CONSTELLATIONS = ['1D-65L', 'O-E019', 'E-72A3', '9P57-V', '2-ZRM0'];
+    // Solar systems in the five Tenal constellations requested as permanently red.
+    // Using system names avoids dependence on optional/variant constellation SDE tables.
+    private const TENAL_RED_SYSTEMS = [
+        '2-3Q2G', 'JSI-LL', 'M-UC0S', 'Q1U-IU', 'SY0W-2', 'V7-MID',
+        'EN-GTB', 'JI-1UQ', 'MZPH-W', 'U5-XW7', 'W0X-MG', 'ZK-YQ3',
+        '3-QYVE', '7D-PAT', 'C-XNUA', 'P-UCRP', 'T-K10W', 'V-LDEJ',
+        '1BWK-S', 'KMV-CQ', 'NV-3KA', 'RKE-CP', 'S-1LIO', 'U1TX-A',
+        'A-1IJ9', 'A1RR-M', 'AR-5SY', 'GW7P-8', 'OE-4HB', 'SF-XJS', 'Y-YHZQ', 'Z-SR1I',
+    ];
 
     public function index(): View
     {
@@ -182,56 +189,28 @@ class ExplorationController extends Controller
     {
         $ids = $this->synergyOfSteelSovereigntySystemIds();
 
-        if ($region !== 'Tenal') {
-            return array_values(array_unique($ids));
-        }
-
-        // Constellations are defined in mapConstellations, not invNames.
-        // Normalize punctuation so the user's "1D_65L" also matches SDE's "1D-65L".
-        if (!Schema::hasTable('mapConstellations')) {
-            logger()->error('Exploration cannot resolve Tenal exclusions: mapConstellations SDE table is missing.');
-            return array_values(array_unique($ids));
-        }
-
-        $regionId = DB::table('invNames')
-            ->where('itemName', 'Tenal')
-            ->value('itemID');
-
-        if (!$regionId) {
-            logger()->error('Exploration cannot resolve Tenal exclusions: Tenal region ID is missing from invNames.');
-            return array_values(array_unique($ids));
-        }
-
-        $normalize = static fn ($value) => strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $value));
-        $wanted = array_fill_keys(array_map($normalize, self::TENAL_RED_CONSTELLATIONS), true);
-
-        $constellationIds = DB::table('mapConstellations')
-            ->where('regionID', (int) $regionId)
-            ->get(['constellationID', 'constellationName'])
-            ->filter(fn ($constellation) => isset($wanted[$normalize($constellation->constellationName)]))
-            ->pluck('constellationID')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->values()
-            ->all();
-
-        if (count($constellationIds) !== count(self::TENAL_RED_CONSTELLATIONS)) {
-            logger()->warning('Exploration Tenal exclusion lookup did not resolve all configured constellations.', [
-                'requested' => self::TENAL_RED_CONSTELLATIONS,
-                'resolved_ids' => $constellationIds,
-            ]);
-        }
-
-        if ($constellationIds) {
-            $systemIds = DB::table('mapDenormalize')
+        if ($region === 'Tenal') {
+            $tenalIds = DB::table('mapDenormalize')
                 ->where('groupID', 5)
-                ->where('regionID', (int) $regionId)
-                ->whereIn('constellationID', $constellationIds)
+                ->whereIn('itemName', self::TENAL_RED_SYSTEMS)
                 ->pluck('itemID')
                 ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
                 ->all();
 
-            $ids = array_merge($ids, $systemIds);
+            $missing = array_values(array_diff(self::TENAL_RED_SYSTEMS,
+                DB::table('mapDenormalize')->where('groupID', 5)
+                    ->whereIn('itemName', self::TENAL_RED_SYSTEMS)
+                    ->pluck('itemName')->all()
+            ));
+
+            if ($missing) {
+                logger()->warning('Some configured Tenal red systems were not found in mapDenormalize.', [
+                    'missing_systems' => $missing,
+                ]);
+            }
+
+            $ids = array_merge($ids, $tenalIds);
         }
 
         return array_values(array_unique($ids));
