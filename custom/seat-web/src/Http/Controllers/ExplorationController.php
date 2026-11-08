@@ -355,7 +355,7 @@ class ExplorationController extends Controller
                 'type_name' => trim((string) ($row[$typeCol] ?? '')),
                 'signature_name' => trim((string) ($row[$nameCol] ?? '')),
                 'signal_strength' => max(0, min(100, (float) $strength)),
-                'raw_data' => implode("\\t", $row), 'scanned_by' => $request->user()->id,
+                'raw_data' => implode("\t", $row), 'scanned_by' => $request->user()->id,
                 'scanned_at' => now(), 'created_at' => now(), 'updated_at' => now(),
             ];
         }
