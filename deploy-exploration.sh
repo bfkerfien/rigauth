@@ -73,7 +73,7 @@ for region in Branch Tenal Venal; do
   curl --fail --location --silent --show-error --retry 2 \
     "https://evemaps.dotlan.net/svg/$region.dark.svg" -o "$map_file"
   grep -q '<svg' "$map_file" || { echo "STOP: DOTLAN did not return a valid SVG for $region."; exit 1; }
-  grep -Eq 'class=["\x27][^"\x27]*ss' "$map_file" || { echo "STOP: DOTLAN SVG for $region has no system-label class; refusing an unusable map."; exit 1; }
+  grep -Eq 'class="[^"]*ss' "$map_file" || { echo "STOP: DOTLAN SVG for $region has no system-label class; refusing an unusable map."; exit 1; }
 done
 
 sudo mkdir -p "$BACKUP"
