@@ -77,6 +77,32 @@
           </div>
         </section>
       </div>
+      <div class="exploration-wormhole-backdrop" id="exploration-wormhole-editor" aria-hidden="true">
+        <div class="exploration-wormhole-panel" role="dialog" aria-modal="true" aria-labelledby="exploration-wormhole-title">
+          <div class="exploration-modal-header">
+            <div><h4 id="exploration-wormhole-title" class="mb-1">Wormhole notes</h4><small id="exploration-wormhole-meta" class="text-muted"></small></div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-wormhole-close">Back to signatures</button>
+          </div>
+          <div class="p-3">
+            <div class="form-group">
+              <label for="exploration-wormhole-type">Wormhole type</label>
+              <input id="exploration-wormhole-type" class="form-control" type="text" maxlength="64" placeholder="e.g. C2, C5, K162">
+            </div>
+            <div class="form-group">
+              <label for="exploration-connection-system">Connection system</label>
+              <input id="exploration-connection-system" class="form-control" type="text" maxlength="128" placeholder="Connected system name">
+            </div>
+            <div class="form-group">
+              <label for="exploration-wormhole-exits">Added wormhole exits</label>
+              <textarea id="exploration-wormhole-exits" class="form-control" rows="5" maxlength="10000" placeholder="List additional exits, one per line…"></textarea>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span id="exploration-wormhole-message" class="small text-muted"></span>
+              <button type="button" class="btn btn-primary" id="exploration-wormhole-save">Save wormhole notes</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -125,6 +151,14 @@
 .exploration-modal-backdrop { display:none; position:fixed; inset:0; z-index:1055; background:rgba(0,0,0,.78); padding:4vh 2vw; overflow:auto; }
 .exploration-modal-backdrop.is-open { display:flex; align-items:flex-start; justify-content:center; }
 .exploration-modal { width:min(1100px, 96vw); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
+.exploration-wormhole-backdrop { display:none; position:absolute; inset:0; z-index:2; background:rgba(4,9,17,.96); padding:1rem; }
+.exploration-wormhole-backdrop.is-open { display:flex; align-items:center; justify-content:center; }
+.exploration-wormhole-panel { width:min(620px, 96%); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
+.exploration-wormhole-panel label { color:#c4d2e4; }
+.exploration-wormhole-panel .form-control { background:#08111e; color:#e5edf7; border-color:#52657e; }
+.exploration-wormhole-note { color:#f2b632; border:0; background:transparent; padding:0 .35rem; cursor:pointer; }
+.exploration-wormhole-note:hover { color:#ffe09a; }
+.exploration-wormhole-summary { display:block; color:#91a2b8; font-size:.78rem; margin-top:.2rem; white-space:pre-line; }
 .exploration-modal-header { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #26364b; }
 .exploration-modal-body { display:grid; grid-template-columns:1fr 1fr; gap:1rem; padding:1.25rem; }
 .exploration-modal-body h5 { color:#fff; margin-bottom:.75rem; }
@@ -300,6 +334,7 @@
     var selectedSystem = null;
     function renderSignatures(items) {
         var list = signatureModal.querySelector('#exploration-signature-list');
+        signatureModal._signatureItems = items || [];
         if (!items || !items.length) { list.textContent = 'No signatures recorded for this system yet.'; return; }
         var table = document.createElement('table');
         table.className = 'exploration-signature-table';
@@ -309,13 +344,100 @@
         var body = document.createElement('tbody');
         items.forEach(function (item) {
             var tr = document.createElement('tr');
-            [item.signature_id, item.group_name, [item.type_name, item.signature_name].filter(Boolean).join(' — '), item.signal_strength + '%'].forEach(function (value) {
+            [item.signature_id, item.group_name].forEach(function (value) {
                 var td = document.createElement('td'); td.textContent = value == null ? '' : String(value); tr.appendChild(td);
             });
+            var typeCell = document.createElement('td');
+            typeCell.appendChild(document.createTextNode([item.type_name, item.signature_name].filter(Boolean).join(' — ')));
+            var wormholeText = [item.type_name, item.signature_name].filter(Boolean).join(' ').toLowerCase();
+            if (wormholeText.indexOf('wormhole') !== -1) {
+                var noteButton = document.createElement('button');
+                noteButton.type = 'button';
+                noteButton.className = 'exploration-wormhole-note';
+                noteButton.title = 'Add or edit wormhole notes';
+                noteButton.setAttribute('aria-label', 'Wormhole notes for ' + item.signature_id);
+                noteButton.dataset.signatureId = item.signature_id;
+                noteButton.innerHTML = '<i class="far fa-sticky-note"></i>';
+                typeCell.appendChild(noteButton);
+                if (item.wormhole_type || item.connection_system || item.wormhole_exits) {
+                    var summary = document.createElement('span');
+                    summary.className = 'exploration-wormhole-summary';
+                    summary.textContent = [item.wormhole_type ? 'Type: ' + item.wormhole_type : '', item.connection_system ? 'Connection: ' + item.connection_system : '', item.wormhole_exits ? 'Exits: ' + item.wormhole_exits : ''].filter(Boolean).join(' · ');
+                    typeCell.appendChild(summary);
+                }
+            }
+            tr.appendChild(typeCell);
+            var strengthCell = document.createElement('td');
+            strengthCell.textContent = item.signal_strength == null ? '' : String(item.signal_strength) + '%';
+            tr.appendChild(strengthCell);
             body.appendChild(tr);
         });
         table.appendChild(body); list.replaceChildren(table);
     }
+    var wormholeEditor = signatureModal.querySelector('#exploration-wormhole-editor');
+    var selectedWormholeSignature = null;
+    function openWormholeEditor(itemButton) {
+        var signatureId = itemButton.dataset.signatureId;
+        var row = itemButton.closest('tr');
+        var cells = row ? row.querySelectorAll('td') : [];
+        selectedWormholeSignature = signatureId;
+        wormholeEditor.querySelector('#exploration-wormhole-title').textContent = 'Wormhole notes · ' + signatureId;
+        wormholeEditor.querySelector('#exploration-wormhole-meta').textContent = signatureModal.dataset.region + ' · ' + signatureModal.querySelector('#exploration-modal-title').textContent;
+        wormholeEditor.querySelector('#exploration-wormhole-type').value = '';
+        wormholeEditor.querySelector('#exploration-connection-system').value = '';
+        wormholeEditor.querySelector('#exploration-wormhole-exits').value = '';
+        wormholeEditor.querySelector('#exploration-wormhole-message').textContent = '';
+        // Populate from the signature data retained on the row's note button.
+        wormholeEditor.querySelector('#exploration-wormhole-type').value = itemButton.dataset.wormholeType || '';
+        wormholeEditor.querySelector('#exploration-connection-system').value = itemButton.dataset.connectionSystem || '';
+        wormholeEditor.querySelector('#exploration-wormhole-exits').value = itemButton.dataset.wormholeExits || '';
+        wormholeEditor.classList.add('is-open');
+        wormholeEditor.setAttribute('aria-hidden', 'false');
+    }
+    function closeWormholeEditor() {
+        wormholeEditor.classList.remove('is-open');
+        wormholeEditor.setAttribute('aria-hidden', 'true');
+        selectedWormholeSignature = null;
+    }
+    wormholeEditor.querySelector('#exploration-wormhole-close').addEventListener('click', closeWormholeEditor);
+    wormholeEditor.querySelector('#exploration-wormhole-save').addEventListener('click', function () {
+        if (!selectedWormholeSignature) return;
+        var button = this;
+        var message = wormholeEditor.querySelector('#exploration-wormhole-message');
+        button.disabled = true; message.textContent = 'Saving…';
+        var region = signatureModal.dataset.region;
+        var systemId = signatureModal.dataset.systemId;
+        fetch(@json(url('/exploration')) + '/' + region + '/systems/' + systemId + '/signatures/' + encodeURIComponent(selectedWormholeSignature) + '/wormhole-notes', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({
+                wormhole_type: wormholeEditor.querySelector('#exploration-wormhole-type').value,
+                connection_system: wormholeEditor.querySelector('#exploration-connection-system').value,
+                wormhole_exits: wormholeEditor.querySelector('#exploration-wormhole-exits').value
+            })
+        }).then(function (response) {
+            return response.json().then(function (data) { if (!response.ok) throw new Error(data.message || 'Could not save wormhole notes.'); return data; });
+        }).then(function () {
+            message.textContent = 'Wormhole notes saved.';
+            return fetch(@json(url('/exploration')) + '/' + region + '/systems/' + systemId + '/signatures', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+        }).then(function (response) { if (!response.ok) throw new Error('Saved, but could not refresh signatures.'); return response.json(); })
+          .then(function (data) { renderSignatures(data.signatures); closeWormholeEditor(); })
+          .catch(function (error) { message.textContent = error.message; })
+          .finally(function () { button.disabled = false; });
+    });
+    signatureModal.querySelector('#exploration-signature-list').addEventListener('click', function (event) {
+        var noteButton = event.target.closest('.exploration-wormhole-note');
+        if (!noteButton) return;
+        event.preventDefault();
+        var signatureId = noteButton.dataset.signatureId;
+        var rowData = (signatureModal._signatureItems || []).find(function (item) { return item.signature_id === signatureId; });
+        noteButton.dataset.wormholeType = rowData ? (rowData.wormhole_type || '') : '';
+        noteButton.dataset.connectionSystem = rowData ? (rowData.connection_system || '') : '';
+        noteButton.dataset.wormholeExits = rowData ? (rowData.wormhole_exits || '') : '';
+        openWormholeEditor(noteButton);
+    });
     function loadSignatures(node) {
         selectedSystem = node;
         var region = node.closest('.tab-pane').id.replace('exploration-', '');
