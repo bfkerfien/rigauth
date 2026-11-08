@@ -45,11 +45,12 @@
             <div class="exploration-map-wrap">
               <svg class="exploration-map" viewBox="0 0 1200 800" role="img" aria-label="{{ $region }} solar system map. Click a white or green system to change its exploration status.">
                 <defs>
-                  <pattern id="exploration-grid-{{ strtolower($region) }}" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e6e9ed" stroke-width="1"/>
+                  <pattern id="exploration-grid-{{ strtolower($region) }}" width="48" height="48" patternUnits="userSpaceOnUse">
+                    <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#17263a" stroke-width="1"/>
+                    <circle cx="1" cy="1" r="1" fill="#31435b"/>
                   </pattern>
                 </defs>
-                <rect x="0" y="0" width="1200" height="800" fill="#f8f9fb"/>
+                <rect x="0" y="0" width="1200" height="800" fill="#070d18"/>
                 <rect x="0" y="0" width="1200" height="800" fill="url(#exploration-grid-{{ strtolower($region) }})"/>
                 <g class="exploration-map-links">
                   @foreach($map['links'] as $link)
@@ -58,7 +59,6 @@
                 </g>
                 <g class="exploration-map-systems">
                   @foreach($map['systems'] as $system)
-                    @php($pillWidth = max(48, (strlen($system['name']) * 7.4) + 18))
                     <g class="exploration-system is-{{ $system['status'] }} {{ $system['status'] === 'red' ? 'is-locked' : '' }}"
                        data-system-id="{{ $system['id'] }}" data-system-name="{{ $system['name'] }}"
                        data-status="{{ $system['status'] }}" tabindex="{{ $system['status'] === 'red' ? '-1' : '0' }}"
@@ -66,12 +66,12 @@
                        aria-label="{{ $system['name'] }}: {{ $system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored') }}"
                        aria-pressed="{{ $system['status'] === 'green' ? 'true' : 'false' }}"
                        transform="translate({{ $system['x'] }}, {{ $system['y'] }})">
-                      <rect x="{{ -$pillWidth / 2 }}" y="-12" width="{{ $pillWidth }}" height="24" rx="5"/>
-                      <text text-anchor="middle" dominant-baseline="central">{{ $system['name'] }}</text>
+                      <circle class="exploration-system-marker" cx="0" cy="0" r="5"/>
+                      <text x="10" y="4">{{ $system['name'] }}</text>
                     </g>
                   @endforeach
                 </g>
-                <text x="24" y="770" class="exploration-map-caption">{{ $region }} · {{ count($map['systems']) }} solar systems</text>
+                <text x="24" y="770" class="exploration-map-caption">{{ $region }} · {{ count($map['systems']) }} solar systems · {{ count($map['links']) }} stargate connections</text>
               </svg>
             </div>
           </div>
@@ -82,34 +82,40 @@
 </div>
 
 <style>
+.exploration-card { background: #111a29; border: 1px solid #26364b; color: #dbe5f1; }
+.exploration-card .card-header, .exploration-card .card-body { background: #111a29; }
+.exploration-card .card-header { border-bottom: 1px solid #26364b; }
 .exploration-card .card-body { padding: 1rem; }
+.exploration-card .nav-tabs { border-bottom: 1px solid #26364b; }
+.exploration-card .nav-tabs .nav-link { color: #9eafc5; border: 0; border-bottom: 2px solid transparent; }
+.exploration-card .nav-tabs .nav-link.active { color: #fff; background: transparent; border-bottom-color: #3b9bd8; }
+.exploration-card .text-muted, .exploration-card small { color: #91a2b8 !important; }
 .exploration-legend { display: inline-flex; align-items: center; margin-right: 16px; white-space: nowrap; }
-.exploration-legend-dot { display: inline-block; width: 12px; height: 12px; border: 1px solid #64748b; border-radius: 3px; margin-right: 6px; }
-.exploration-legend-dot.white { background: #fff; }
-.exploration-legend-dot.green { background: #35a853; border-color: #25843e; }
-.exploration-legend-dot.red { background: #d9534f; border-color: #b52b27; }
-.exploration-legend-dot.gold { background: #f2b632; border-color: #bd8310; }
-.exploration-map-wrap { width: 100%; overflow: auto; border: 1px solid #d8dde4; border-radius: 4px; background: #f8f9fb; }
-.exploration-map { display: block; width: 100%; min-width: 760px; height: auto; }
-.exploration-map-links line { stroke: #aeb7c2; stroke-width: 1.5; opacity: .8; }
+.exploration-legend-dot { display: inline-block; width: 10px; height: 10px; border: 1px solid #8292a8; border-radius: 50%; margin-right: 6px; }
+.exploration-legend-dot.white { background: #e8eef7; }
+.exploration-legend-dot.green { background: #31c66b; border-color: #31c66b; }
+.exploration-legend-dot.red { background: #e05252; border-color: #e05252; }
+.exploration-legend-dot.gold { background: #f2b632; border-color: #f2b632; }
+.exploration-map-wrap { width: 100%; overflow: auto; border: 1px solid #263b55; border-radius: 5px; background: #070d18; box-shadow: inset 0 0 40px rgba(0,0,0,.45); }
+.exploration-map { display: block; width: 100%; min-width: 900px; height: auto; }
+.exploration-map-links line { stroke: #344b67; stroke-width: 1.35; opacity: .82; }
 .exploration-system { cursor: pointer; outline: none; }
-.exploration-system rect { fill: #fff; stroke: #687585; stroke-width: 1.4; transition: fill .12s ease, stroke .12s ease; }
-.exploration-system text { fill: #253140; font: 11px Arial, sans-serif; pointer-events: none; user-select: none; }
-.exploration-system:hover rect, .exploration-system:focus rect { stroke: #1674c5; stroke-width: 2.5; }
-.exploration-system.is-green rect { fill: #35a853; stroke: #25843e; }
-.exploration-system.is-green text { fill: #fff; font-weight: 700; }
+.exploration-system-marker { fill: #e8eef7; stroke: #8194ad; stroke-width: 1.3; transition: fill .12s ease, stroke .12s ease; }
+.exploration-system text { fill: #c4d1e1; font: 11px Arial, sans-serif; pointer-events: none; user-select: none; paint-order: stroke; stroke: #070d18; stroke-width: 3px; stroke-linejoin: round; }
+.exploration-system:hover .exploration-system-marker, .exploration-system:focus .exploration-system-marker { stroke: #55b9ff; stroke-width: 2.5; }
+.exploration-system.is-green .exploration-system-marker { fill: #31c66b; stroke: #15964a; }
+.exploration-system.is-green text { fill: #e2ffed; font-weight: 700; }
 .exploration-system.is-red { cursor: not-allowed; }
-.exploration-system.is-red rect { fill: #d9534f; stroke: #b52b27; }
-.exploration-system.is-red text { fill: #fff; font-weight: 700; }
-.exploration-system.is-locked:hover rect, .exploration-system.is-locked:focus rect { stroke: #b52b27; }
-.exploration-system.is-player-location rect { stroke: #e4a11b; stroke-width: 3.5; }
+.exploration-system.is-red .exploration-system-marker { fill: #e05252; stroke: #a92f38; }
+.exploration-system.is-red text { fill: #ffdede; font-weight: 700; }
+.exploration-system.is-locked:hover .exploration-system-marker, .exploration-system.is-locked:focus .exploration-system-marker { stroke: #e05252; }
+.exploration-system.is-player-location .exploration-system-marker { stroke: #f2b632; stroke-width: 3.5; }
 .exploration-player-dot { fill: #f2b632; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
-.exploration-map-caption { fill: #687585; font: 12px Arial, sans-serif; }
-@media (max-width: 767px) {
-  .exploration-map { min-width: 900px; }
-  .exploration-legend { margin-bottom: 6px; }
-}
-</style>
+.exploration-map-caption { fill: #6f829d; font: 12px Arial, sans-serif; }
+.exploration-card .btn-outline-secondary { color: #bdcadd; border-color: #52657e; }
+.exploration-card .btn-outline-secondary:hover { color: #fff; background: #25364d; }
+@media (max-width: 767px) { .exploration-map { min-width: 1000px; } .exploration-legend { margin-bottom: 6px; } }
+</style>>
 
 @if(!$mapError)
 <script>
@@ -160,11 +166,9 @@
                 });
                 if (target) {
                     target.classList.add('is-player-location');
-                    var rect = target.querySelector('rect');
-                    var width = rect ? Number(rect.getAttribute('width')) : 48;
-                    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                                        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     dot.setAttribute('class', 'exploration-player-dot');
-                    dot.setAttribute('cx', String(width / 2 + 2));
+                    dot.setAttribute('cx', '0');
                     dot.setAttribute('cy', '-12');
                     dot.setAttribute('r', '5');
                     target.appendChild(dot);
