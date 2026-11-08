@@ -5,6 +5,8 @@ namespace Seat\Web\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use EveSeat\Eseye\Containers\EsiAuthentication;
@@ -16,13 +18,8 @@ class ExplorationController extends Controller
 {
     private const REGIONS = ['Branch', 'Tenal', 'Venal'];
 
-    // Add the user's permanent exclusions here when their system list is supplied.
-    // These systems are rendered red and cannot be changed or removed by map reset.
-    private const PERMANENT_RED_SYSTEMS = [
-        'Branch' => [],
-        'Tenal' => [],
-        'Venal' => [],
-    ];
+    // Pandemic Legion alliance ID. Sovereignty is refreshed from CCP's public ESI map.
+    private const PANDEMIC_LEGION_ALLIANCE_ID = 386292982;
 
     public function index(): View
     {
@@ -67,10 +64,10 @@ class ExplorationController extends Controller
                 ->all()
             : [];
 
-        $redNames = array_map('mb_strtolower', self::PERMANENT_RED_SYSTEMS[$region] ?? []);
-        $mapped = $systems->map(function ($system) use ($greenIds, $redNames) {
+        $redIds = $this->pandemicLegionSovereigntySystemIds();
+        $mapped = $systems->map(function ($system) use ($greenIds, $redIds) {
             $name = (string) $system->name;
-            $isRed = in_array(mb_strtolower($name), $redNames, true);
+            $isRed = in_array((int) $system->id, $redIds, true);
             $isGreen = in_array((int) $system->id, $greenIds, true) && !$isRed;
 
             return [
@@ -88,6 +85,35 @@ class ExplorationController extends Controller
             'svg' => $svg,
             'green_count' => $mapped->where('status', 'green')->count(),
         ];
+    }
+
+    /**
+     * Fetch current sov ownership from CCP ESI and cache it for one hour.
+     * A failed refresh falls back to the last successful cached snapshot.
+     */
+    private function pandemicLegionSovereigntySystemIds(): array
+    {
+        return Cache::remember('tc_exploration_pl_sov_system_ids', now()->addHour(), function () {
+            $response = Http::acceptJson()
+                ->timeout(20)
+                ->retry(2, 500)
+                ->get('https://esi.evetech.net/v1/sovereignty/map/', [
+                    'datasource' => 'tranquility',
+                ]);
+
+            if (!$response->successful() || !is_array($response->json())) {
+                throw new RuntimeException('Unable to retrieve current sovereignty map from ESI.');
+            }
+
+            return collect($response->json())
+                ->filter(fn ($entry) => (int) ($entry['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID)
+                ->pluck('system_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        });
     }
 
     /**
@@ -257,8 +283,7 @@ class ExplorationController extends Controller
 
         abort_unless($systemName, 404);
 
-        $redNames = array_map('mb_strtolower', self::PERMANENT_RED_SYSTEMS[$region] ?? []);
-        if (in_array(mb_strtolower((string) $systemName), $redNames, true)) {
+        if (in_array($systemId, $this->pandemicLegionSovereigntySystemIds(), true)) {
             return response()->json(['message' => 'This system is permanently marked red.'], 403);
         }
 
