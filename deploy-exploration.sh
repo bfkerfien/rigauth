@@ -8,6 +8,11 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-exploration-backup-$STAMP"
 SUCCESS=0
 ROLLBACK_ENABLED=0
+MAP_FILES=(
+  "resources/exploration/Branch.dark.svg"
+  "resources/exploration/Tenal.dark.svg"
+  "resources/exploration/Venal.dark.svg"
+)
 FILES=(
   "src/Http/Controllers/ExplorationController.php"
   "src/Http/Routes/Exploration.php"
@@ -20,7 +25,7 @@ rollback() {
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: Exploration deployment did not complete; restoring backed-up SeAT files."
-    for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+    for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -59,8 +64,20 @@ if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{
   exit 1
 fi
 
+# Download DOTLAN's original vector maps before changing the live SeAT installation.
+# These SVGs contain the exact DOTLAN node placement, grid, and stargate routing.
+MAP_CACHE="$REPO/.exploration-map-cache"
+mkdir -p "$MAP_CACHE"
+for region in Branch Tenal Venal; do
+  map_file="$MAP_CACHE/$region.dark.svg"
+  curl --fail --location --silent --show-error --retry 2 \
+    "https://evemaps.dotlan.net/svg/$region.dark.svg" -o "$map_file"
+  grep -q '<svg' "$map_file" || { echo "STOP: DOTLAN did not return a valid SVG for $region."; exit 1; }
+  grep -Eq 'class=["\x27][^"\x27]*ss' "$map_file" || { echo "STOP: DOTLAN SVG for $region has no system-label class; refusing an unusable map."; exit 1; }
+done
+
 sudo mkdir -p "$BACKUP"
-for rel in "${FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
   if sudo test -f "$WEB/$rel"; then
     sudo mkdir -p "$BACKUP/$(dirname "$rel")"
     sudo cp -a "$WEB/$rel" "$BACKUP/$rel"
@@ -76,6 +93,9 @@ sudo python3 "$REPO/apply-exploration-navigation.py" "$WEB/src/Http/routes.php" 
 
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
+done
+for region in Branch Tenal Venal; do
+  sudo install -D -m 0644 "$MAP_CACHE/$region.dark.svg" "$WEB/resources/exploration/$region.dark.svg"
 done
 
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
