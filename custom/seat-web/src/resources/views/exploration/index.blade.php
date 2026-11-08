@@ -206,7 +206,8 @@
         wrap.addEventListener('pointercancel', endDrag);
         return {
             center: function (node) {
-                var bounds = node.getBBox();
+                var marker = node.querySelector('.s') || node;
+                var bounds = marker.getBBox();
                 var cx = bounds.x + bounds.width / 2, cy = bounds.y + bounds.height / 2;
                 view.w = initial[2] * 0.42; view.h = initial[3] * 0.42;
                 view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply();
@@ -246,7 +247,8 @@
                     var region = pane.id.replace('exploration-', '');
                     activateRegion(region);
                     target.classList.add('is-player-location');
-                    var bounds = target.getBBox();
+                    var marker = target.querySelector('.s') || target;
+                    var bounds = marker.getBBox();
                     var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     dot.setAttribute('class', 'exploration-player-dot');
                     dot.setAttribute('cx', String(bounds.x + bounds.width / 2));
