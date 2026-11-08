@@ -13,6 +13,9 @@
           <a class="nav-link {{ $loop->first ? 'active' : '' }}" id="exploration-{{ strtolower($region) }}-tab" data-toggle="tab" href="#exploration-{{ strtolower($region) }}" role="tab" aria-controls="exploration-{{ strtolower($region) }}" aria-selected="{{ $loop->first ? 'true' : 'false' }}">{{ $region }}</a>
         </li>
       @endforeach
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-system-information-tab" data-toggle="tab" href="#exploration-system-information" role="tab" aria-controls="exploration-system-information" aria-selected="false">System Information</a>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -52,6 +55,13 @@
             </div>
           </div>
         @endforeach
+        <div class="tab-pane fade" id="exploration-system-information" role="tabpanel" aria-labelledby="exploration-system-information-tab">
+          <div class="p-3">
+            <h4>Current system</h4>
+            <p id="exploration-system-info-status" class="text-muted">Loading your main character's current system…</p>
+            <div id="exploration-system-info-content"></div>
+          </div>
+        </div>
       </div>
     @endif
   </div>
@@ -349,8 +359,9 @@
             });
             var typeCell = document.createElement('td');
             typeCell.appendChild(document.createTextNode([item.type_name, item.signature_name].filter(Boolean).join(' — ')));
-            var wormholeText = [item.type_name, item.signature_name].filter(Boolean).join(' ').toLowerCase();
-            if (wormholeText.indexOf('wormhole') !== -1) {
+            var wormholeText = [item.type_name, item.signature_name, item.group_name].filter(Boolean).join(' ').toLowerCase();
+            // Unknown cosmic signatures may be wormholes before their name resolves.
+            if (wormholeText.indexOf('wormhole') !== -1 || wormholeText.indexOf('cosmic signature') !== -1) {
                 var noteButton = document.createElement('button');
                 noteButton.type = 'button';
                 noteButton.className = 'exploration-wormhole-note';
@@ -532,6 +543,82 @@
             }
         });
     });
+    function loadSystemInformation() {
+        var status = root.querySelector('#exploration-system-info-status');
+        var content = root.querySelector('#exploration-system-info-content');
+        if (!status || !content) return;
+        status.textContent = 'Checking your main character location…';
+        content.replaceChildren();
+        fetch(@json(url('/exploration/player-location')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) { if (!response.ok) throw new Error('Could not retrieve live location.'); return response.json(); })
+          .then(function (location) {
+              if (location.status !== 'located') throw new Error(location.message || 'Your main character location is unavailable.');
+              var systemNode = null;
+              root.querySelectorAll('.exploration-system').forEach(function (node) {
+                  if (node.dataset.systemId === String(location.solar_system_id)) systemNode = node;
+              });
+              if (!systemNode) throw new Error('Your character is in ' + (location.solar_system_name || 'a system') + ', outside the Branch, Tenal, and Venal maps.');
+              var region = systemNode.closest('.tab-pane').id.replace('exploration-', '');
+              region = region.charAt(0).toUpperCase() + region.slice(1);
+              var heading = document.createElement('h5');
+              heading.textContent = systemNode.dataset.systemName + ' · ' + region;
+              content.appendChild(heading);
+              var character = document.createElement('p');
+              character.className = 'text-muted';
+              character.textContent = 'Main character: ' + (location.character_name || 'Unknown') + ' · Live system location';
+              content.appendChild(character);
+              return fetch(@json(url('/exploration')) + '/' + region + '/systems/' + location.solar_system_id + '/signatures', {
+                  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+              });
+          }).then(function (response) {
+              if (!response) return null;
+              if (!response.ok) throw new Error('Could not load signatures for your current system.');
+              return response.json();
+          }).then(function (data) {
+              if (!data) return;
+              var content = root.querySelector('#exploration-system-info-content');
+              var title = document.createElement('h5');
+              title.textContent = 'Recorded signatures and wormholes';
+              content.appendChild(title);
+              var wormholes = (data.signatures || []).filter(function (item) {
+                  return [item.group_name, item.type_name, item.signature_name].filter(Boolean).join(' ').toLowerCase().indexOf('wormhole') !== -1
+                      || (item.group_name || '').toLowerCase().indexOf('cosmic signature') !== -1;
+              });
+              if (!wormholes.length) {
+                  var empty = document.createElement('p');
+                  empty.className = 'text-muted';
+                  empty.textContent = 'No wormhole or unresolved cosmic-signature records are saved for this system yet.';
+                  content.appendChild(empty);
+              }
+              wormholes.forEach(function (item) {
+                  var card = document.createElement('div');
+                  card.className = 'card mb-2';
+                  card.style.cssText = 'background:#0b1421;border:1px solid #263b55;color:#dbe5f1';
+                  var body = document.createElement('div');
+                  body.className = 'card-body';
+                  var name = document.createElement('strong');
+                  name.textContent = item.signature_id + ' · ' + [item.type_name, item.signature_name].filter(Boolean).join(' — ');
+                  body.appendChild(name);
+                  var details = document.createElement('p');
+                  details.className = 'mb-0 mt-2 text-muted';
+                  details.style.whiteSpace = 'pre-line';
+                  details.textContent = [
+                      item.wormhole_type ? 'Wormhole type: ' + item.wormhole_type : 'Wormhole type: not entered',
+                      item.connection_system ? 'Connection system: ' + item.connection_system : 'Connection system: not entered',
+                      item.wormhole_exits ? 'Added exits: ' + item.wormhole_exits : 'Added exits: none entered'
+                  ].join('\n');
+                  body.appendChild(details);
+                  card.appendChild(body);
+                  content.appendChild(card);
+              });
+              status.textContent = 'System information refreshed from live location and saved scan data.';
+          }).catch(function (error) { status.textContent = error.message; });
+    }
+    var infoTab = root.querySelector('#exploration-system-information-tab');
+    if (infoTab) infoTab.addEventListener('click', loadSystemInformation);
+
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
         if (!document.hidden) updatePlayerLocation();
