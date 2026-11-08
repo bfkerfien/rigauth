@@ -260,11 +260,22 @@
         wrap.addEventListener('pointercancel', endDrag);
         return {
             center: function (node) {
+                // getBBox() is local to the marker; its parent system group is
+                // translated on the map. Convert the marker center through its
+                // screen CTM back into SVG coordinates before setting the viewBox.
                 var marker = node.querySelector('.s') || node;
                 var bounds = marker.getBBox();
-                var cx = bounds.x + bounds.width / 2, cy = bounds.y + bounds.height / 2;
-                view.w = initial[2] * 0.42; view.h = initial[3] * 0.42;
-                view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply();
+                var localCenter = svg.createSVGPoint();
+                localCenter.x = bounds.x + bounds.width / 2;
+                localCenter.y = bounds.y + bounds.height / 2;
+                var matrix = marker.getCTM();
+                if (!matrix) return;
+                var center = localCenter.matrixTransform(matrix);
+                view.w = initial[2] * 0.42;
+                view.h = initial[3] * 0.42;
+                view.x = center.x - view.w / 2;
+                view.y = center.y - view.h / 2;
+                apply();
             }
         };
     }
@@ -273,6 +284,7 @@
         mapApis[svg.closest('.tab-pane').id] = mapApi(svg);
     });
 
+    var lastCenteredSystemId = null;
     function updatePlayerLocation() {
         var status = root.querySelector('#exploration-live-status');
         fetch(@json(url('/exploration/player-location')), {
@@ -311,7 +323,14 @@
                     target.appendChild(dot);
                     target.setAttribute('aria-label', (target.getAttribute('aria-label') || '') + ', current location');
                     if (status) status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' in ' + (target.dataset.systemName || 'unknown system');
-                    if (mapApis[pane.id]) mapApis[pane.id].center(target);
+                    // Recenter only when the character actually changes systems.
+                    // Repeated 15-second location refreshes must not yank the map
+                    // away while the user is inspecting or panning it.
+                    var currentSystemId = String(data.solar_system_id);
+                    if (lastCenteredSystemId !== currentSystemId) {
+                        if (mapApis[pane.id]) mapApis[pane.id].center(target);
+                        lastCenteredSystemId = currentSystemId;
+                    }
                 } else if (status) {
                     status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' is outside Branch, Tenal and Venal';
                 }
