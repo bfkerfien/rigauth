@@ -103,6 +103,12 @@ done
 
 CURRENT_STEP="running migrations"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
+CURRENT_STEP="verifying wormhole notes migration"
+if ! sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate:status 2>&1 | grep -q '2026_11_08_000004_ensure_wormhole_note_columns'; then
+  echo "ERROR: Wormhole notes schema repair migration is not recorded as applied."
+  exit 1
+fi
+
 CURRENT_STEP="clearing route cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 CURRENT_STEP="clearing view cache"
