@@ -112,6 +112,10 @@ class ExplorationController extends Controller
             return '';
         }
 
+        $root = $document->documentElement;
+        $root->setAttribute('class', trim($root->getAttribute('class') . ' exploration-map'));
+        $root->setAttribute('role', 'img');
+        $root->setAttribute('aria-label', 'DOTLAN ' . basename($path, '.dark.svg') . ' solar system map');
         $xpath = new \DOMXPath($document);
         foreach ($xpath->query('//*[local-name()="text" and contains(concat(" ", normalize-space(@class), " "), " ss ")]') as $label) {
             $name = trim($label->textContent);
