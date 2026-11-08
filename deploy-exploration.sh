@@ -118,8 +118,15 @@ sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan 
 CURRENT_STEP="checking Exploration routes"
 ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration)"
 printf '%s\n' "$ROUTES"
-printf '%s\n' "$ROUTES" | grep -q 'seatcore::exploration.index' || {
-  echo "ERROR: Exploration index route was not registered."
+# Laravel's route:list output can omit or truncate package route names depending
+# on terminal width/version. Verify the registered URI and controller instead.
+printf '%s\n' "$ROUTES" | grep -qiE 'exploration|ExplorationController' || {
+  echo "ERROR: No Exploration routes were registered. Route output is shown above."
+  exit 1
+}
+# Require the index URI specifically; do not depend on the package route-name column.
+printf '%s\n' "$ROUTES" | grep -qE 'GET[^[:alnum:]]+exploration/?([[:space:]]|$)|exploration[[:space:]]+GET' || {
+  echo "ERROR: Exploration index URI is missing. Route output is shown above."
   exit 1
 }
 
