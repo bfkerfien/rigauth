@@ -44,11 +44,30 @@ class PotchvenFinancesController extends Controller
             return null;
         }
 
+        // Only count telemetry stored in corporation Hangar Division 3 at
+        // NPC stations inside Pochven. CorpSAG3 assets elsewhere must not
+        // contribute to the Pochven site counter.
+        if (!$schema->hasTable('staStations') || !$schema->hasTable('solar_systems')) {
+            return null;
+        }
+
+        $pochvenStationIds = $db->table('staStations as st')
+            ->join('solar_systems as ss', 'ss.system_id', '=', 'st.solarSystemID')
+            ->where('ss.region_id', 10000070)
+            ->pluck('st.stationID')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (count($pochvenStationIds) === 0) {
+            return null;
+        }
+
         return (int) $db->table('assetmgr_assets')
             ->where('owner_kind', 'corporation')
             ->where('owner_id', $corporationId)
             ->where('type_id', 89219)
             ->where('location_flag', 'CorpSAG3')
+            ->whereIn('location_id', $pochvenStationIds)
             ->sum('quantity');
     }
 
