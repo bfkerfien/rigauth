@@ -19,6 +19,7 @@ FILES=(
   "src/database/migrations/2026_11_08_000001_create_tc_exploration_system_status_table.php"
   "src/resources/views/exploration/index.blade.php"
 )
+PROFILE_FILE="src/resources/views/profile/view.blade.php"
 
 CURRENT_STEP="initialization"
 rollback() {
@@ -29,7 +30,7 @@ rollback() {
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: Exploration deployment did not complete; restoring backed-up SeAT files."
-    for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php"; do
+    for rel in "${FILES[@]}" "${MAP_FILES[@]}" "src/Http/routes.php" "src/resources/views/includes/sidebar.blade.php" "$PROFILE_FILE"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -95,6 +96,8 @@ ROLLBACK_ENABLED=1
 
 CURRENT_STEP="patching SeAT navigation"
 sudo python3 "$REPO/apply-exploration-navigation.py" "$WEB/src/Http/routes.php" "$WEB/src/resources/views/includes/sidebar.blade.php"
+CURRENT_STEP="adding main-character selector to SeAT profile"
+sudo python3 "$REPO/apply-main-character-selector.py" "$WEB/$PROFILE_FILE"
 
 CURRENT_STEP="installing Exploration source files"
 for rel in "${FILES[@]}"; do
