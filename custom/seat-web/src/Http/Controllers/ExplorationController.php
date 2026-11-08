@@ -54,7 +54,7 @@ class ExplorationController extends Controller
                 'systems.itemID as id',
                 'systems.itemName as name',
                 'systems.x',
-                'systems.y',
+                'systems.z',
             ])
             ->orderBy('systems.itemName')
             ->get();
@@ -70,8 +70,8 @@ class ExplorationController extends Controller
         $redNames = array_map('mb_strtolower', self::PERMANENT_RED_SYSTEMS[$region] ?? []);
         $minX = (float) $systems->min('x');
         $maxX = (float) $systems->max('x');
-        $minY = (float) $systems->min('y');
-        $maxY = (float) $systems->max('y');
+        $minY = (float) $systems->min('z');
+        $maxY = (float) $systems->max('z');
         $rangeX = max(1.0, $maxX - $minX);
         $rangeY = max(1.0, $maxY - $minY);
         $width = 1200.0;
@@ -87,32 +87,51 @@ class ExplorationController extends Controller
                 'id' => (int) $system->id,
                 'name' => $name,
                 'x' => $padding + (((float) $system->x - $minX) / $rangeX) * ($width - ($padding * 2)),
-                'y' => $height - $padding - (((float) $system->y - $minY) / $rangeY) * ($height - ($padding * 2)),
+                'y' => $height - $padding - (((float) $system->z - $minY) / $rangeY) * ($height - ($padding * 2)),
                 'status' => $isRed ? 'red' : ($isGreen ? 'green' : 'white'),
             ];
         })->values();
 
+        // Stargate rows use itemName = "Stargate (Destination System)" and
+        // solarSystemID = the system containing that gate. Resolve destinations by system name.
         $links = [];
-        if (Schema::hasTable('mapSolarSystemJumps') && $systems->isNotEmpty()) {
+        if ($systems->isNotEmpty()) {
             $ids = $systems->pluck('id')->map(fn ($id) => (int) $id)->all();
             $positions = $mapped->keyBy('id');
-            $links = DB::table('mapSolarSystemJumps')
-                ->whereIn('fromSolarSystemID', $ids)
-                ->whereIn('toSolarSystemID', $ids)
-                ->get(['fromSolarSystemID', 'toSolarSystemID'])
-                ->map(function ($jump) use ($positions) {
-                    $from = $positions->get((int) $jump->fromSolarSystemID);
-                    $to = $positions->get((int) $jump->toSolarSystemID);
+            $systemIdsByName = $mapped->keyBy(fn ($system) => mb_strtolower($system['name']));
+            $gates = DB::table('mapDenormalize')
+                ->where('groupID', 10)
+                ->whereIn('solarSystemID', $ids)
+                ->get(['solarSystemID', 'itemName']);
 
-                    if (!$from || !$to || $from['id'] >= $to['id']) {
-                        return null;
-                    }
+            $seenLinks = [];
+            foreach ($gates as $gate) {
+                if (!preg_match('/^Stargate \\((.+)\\)$/u', (string) $gate->itemName, $matches)) {
+                    continue;
+                }
 
-                    return ['x1' => $from['x'], 'y1' => $from['y'], 'x2' => $to['x'], 'y2' => $to['y']];
-                })
-                ->filter()
-                ->values()
-                ->all();
+                $fromId = (int) $gate->solarSystemID;
+                $to = $systemIdsByName->get(mb_strtolower(trim($matches[1])));
+                if (!$to || $fromId === (int) $to['id']) {
+                    continue;
+                }
+
+                $key = min($fromId, (int) $to['id']) . ':' . max($fromId, (int) $to['id']);
+                if (isset($seenLinks[$key])) {
+                    continue;
+                }
+                $seenLinks[$key] = true;
+
+                $from = $positions->get($fromId);
+                if (!$from) {
+                    continue;
+                }
+
+                $links[] = [
+                    'x1' => $from['x'], 'y1' => $from['y'],
+                    'x2' => $to['x'], 'y2' => $to['y'],
+                ];
+            }
         }
 
         return [
