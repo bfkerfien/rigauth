@@ -258,12 +258,10 @@ class ExplorationController extends Controller
                 'scopes' => $scopes,
             ]));
 
-            // Eseye invoke() returns an EsiResponse container. The decoded
-            // location payload is exposed through getBody().
-            $esiResponse = $esi->invoke('get', '/characters/{character_id}/location/', [
+            // Eseye invoke() returns the decoded response object directly.
+            $location = $esi->invoke('get', '/characters/{character_id}/location/', [
                 'character_id' => $characterId,
             ]);
-            $location = $esiResponse->getBody();
             $systemId = (int) ($location->solar_system_id ?? 0);
 
             if ($systemId < 1) {
