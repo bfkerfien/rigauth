@@ -9,6 +9,14 @@ Route::group(['prefix' => 'exploration'], function () {
     Route::get('/', 'ExplorationController@index')
         ->name('seatcore::exploration.index');
 
+    Route::get('/{region}/systems/{systemId}/signatures', 'ExplorationController@signatures')
+        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->name('seatcore::exploration.signatures.index');
+
+    Route::post('/{region}/systems/{systemId}/signatures', 'ExplorationController@saveSignatures')
+        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->name('seatcore::exploration.signatures.save');
+
     Route::post('/{region}/systems/{systemId}/toggle', 'ExplorationController@toggle')
         ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.toggle');
