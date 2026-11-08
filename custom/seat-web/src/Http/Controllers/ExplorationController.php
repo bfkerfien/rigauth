@@ -316,7 +316,7 @@ class ExplorationController extends Controller
         abort_unless($systemName, 404);
         $validated = $request->validate(['scan_data' => ['required', 'string', 'max:100000']]);
         $lines = preg_split('/\\r\\n|\\r|\\n/', trim($validated['scan_data']));
-        $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\\t"), $lines),
+        $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\t"), $lines),
             fn ($row) => count($row) > 1 || trim((string) ($row[0] ?? '')) !== ''));
         if (count($rows) < 2) {
             return response()->json(['message' => 'No scan rows found. Copy the Probe Scanner results, including column headings.'], 422);
