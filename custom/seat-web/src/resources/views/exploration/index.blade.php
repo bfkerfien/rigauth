@@ -81,8 +81,9 @@
                        aria-label="{{ $system['name'] }}: {{ $system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored') }}"
                        aria-pressed="{{ $system['status'] === 'green' ? 'true' : 'false' }}"
                        transform="translate({{ $system['x'] }}, {{ $system['y'] }})">
-                      <circle class="exploration-system-marker" cx="0" cy="0" r="5"/>
-                      <text x="10" y="4">{{ $system['name'] }}</text>
+                      @php($nodeWidth = max(54, (strlen($system['name']) * 7) + 18))
+                      <rect class="exploration-system-marker" x="{{ -($nodeWidth / 2) }}" y="-12" width="{{ $nodeWidth }}" height="24" rx="9"/>
+                      <text x="0" y="4" text-anchor="middle">{{ $system['name'] }}</text>
                     </g>
                   @endforeach
                 </g>
@@ -120,13 +121,13 @@
 .exploration-dotlan-grid text { fill: #71839a; font: 12px Arial, sans-serif; text-anchor: middle; }
 .exploration-system { cursor: pointer; outline: none; }
 .exploration-system-marker { fill: #e8eef7; stroke: #8194ad; stroke-width: 1.3; transition: fill .12s ease, stroke .12s ease; }
-.exploration-system text { fill: #c4d1e1; font: 11px Arial, sans-serif; pointer-events: none; user-select: none; paint-order: stroke; stroke: #070d18; stroke-width: 3px; stroke-linejoin: round; }
+.exploration-system text { fill: #101a29; font: 11px Arial, sans-serif; font-weight: 700; pointer-events: none; user-select: none; }
 .exploration-system:hover .exploration-system-marker, .exploration-system:focus .exploration-system-marker { stroke: #55b9ff; stroke-width: 2.5; }
 .exploration-system.is-green .exploration-system-marker { fill: #31c66b; stroke: #15964a; }
-.exploration-system.is-green text { fill: #e2ffed; font-weight: 700; }
+.exploration-system.is-green text { fill: #092516; font-weight: 700; }
 .exploration-system.is-red { cursor: not-allowed; }
 .exploration-system.is-red .exploration-system-marker { fill: #e05252; stroke: #a92f38; }
-.exploration-system.is-red text { fill: #ffdede; font-weight: 700; }
+.exploration-system.is-red text { fill: #fff; font-weight: 700; }
 .exploration-system.is-locked:hover .exploration-system-marker, .exploration-system.is-locked:focus .exploration-system-marker { stroke: #e05252; }
 .exploration-system.is-player-location .exploration-system-marker { stroke: #f2b632; stroke-width: 3.5; }
 .exploration-player-dot { fill: #f2b632; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
