@@ -112,9 +112,10 @@ CURRENT_STEP="clearing view cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
 
 CURRENT_STEP="checking Exploration routes"
-sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration
-sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration --format=json | grep -q '"uri":"exploration' || {
-  echo "ERROR: Exploration routes were not registered."
+ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration)"
+printf '%s\n' "$ROUTES"
+printf '%s\n' "$ROUTES" | grep -q 'seatcore::exploration.index' || {
+  echo "ERROR: Exploration index route was not registered."
   exit 1
 }
 
