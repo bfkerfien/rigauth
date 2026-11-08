@@ -167,8 +167,11 @@ class ExplorationController extends Controller
                 . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="'
                 . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="'
                 . ($status === 'green' ? 'true' : 'false') . '">';
-            $svg .= '<circle class="s" cx="0" cy="0" r="7"/>';
-            $svg .= '<text class="ss" x="11" y="1">' . $name . '</text>';
+            // A generous transparent hit area keeps system interaction reliable
+            // even when the visible node is small at full-region zoom.
+            $svg .= '<rect class="exploration-hit" x="-12" y="-10" width="24" height="20" fill="transparent" pointer-events="all"/>';
+            $svg .= '<rect class="s" x="-4" y="-4" width="8" height="8" rx="1"/>';
+            $svg .= '<text class="ss" x="9" y="1">' . $name . '</text>';
             $svg .= '</g>';
         }
 
