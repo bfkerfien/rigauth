@@ -47,7 +47,7 @@
               @if(!empty($map['svg']))
                 {!! $map['svg'] !!}
               @else
-                <div class="alert alert-warning m-3">The original DOTLAN vector map for {{ $region }} is missing or could not be read. Run the Exploration deployment again to download it.</div>
+                <div class="alert alert-warning m-3">No solar-system map data is available for {{ $region }}. Check that the SeAT EVE SDE system coordinates are imported.</div>
               @endif
             </div>
           </div>
@@ -104,7 +104,7 @@
 .exploration-map .ss { fill: #c4d2e4 !important; font: 11px Arial, sans-serif; text-anchor: start; dominant-baseline: middle; pointer-events: none; }
 .exploration-system { cursor: pointer; outline: none; }
 .exploration-system .s { fill: #f7f8fa !important; stroke: #293746 !important; stroke-width: 1.5px !important; }
-.exploration-system .ss { fill: #17212c !important; }
+.exploration-system .ss { fill: #c4d2e4 !important; }
 .exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
 .exploration-system.is-green .s { fill: #31c66b !important; stroke: #15964a !important; }
 .exploration-system.is-green .ss { fill: #092516 !important; }
@@ -370,7 +370,7 @@
           }).catch(function (error) { message.textContent = error.message; })
           .finally(function () { submit.disabled = false; });
     });
-    // Capture clicks before DOTLAN's original SVG link handlers can navigate.
+    // Handle native map-node clicks without allowing navigation.
     root.addEventListener('click', function (event) {
         var anchor = event.target.closest('a');
         if (anchor) event.preventDefault();
