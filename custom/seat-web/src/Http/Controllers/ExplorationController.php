@@ -175,13 +175,19 @@ class ExplorationController extends Controller
         $root->setAttribute('role', 'img');
         $root->setAttribute('aria-label', 'DOTLAN ' . basename($path, '.dark.svg') . ' solar system map');
         $xpath = new \DOMXPath($document);
-        foreach ($xpath->query('//*[local-name()="text" and contains(concat(" ", normalize-space(@class), " "), " ss ")]') as $label) {
+        // Match visible labels regardless of optional DOTLAN text classes.
+        foreach ($xpath->query('//*[local-name()="text"]') as $label) {
             $name = trim($label->textContent);
             $system = $byName->get(mb_strtolower($name));
+            if (!$system) continue;
+
+            // Apply status to the nearest SVG group so both node graphic and label
+            // receive the correct status and click handling.
             $group = $label->parentNode;
-            if (!$system || !$group instanceof \DOMElement) {
-                continue;
+            while ($group instanceof \\DOMElement && strtolower($group->localName) !== 'g' && $group->parentNode instanceof \\DOMElement) {
+                $group = $group->parentNode;
             }
+            if (!$group instanceof \\DOMElement) continue;
 
             $classes = preg_split('/\\s+/', trim($group->getAttribute('class')));
             $classes[] = 'exploration-system';
