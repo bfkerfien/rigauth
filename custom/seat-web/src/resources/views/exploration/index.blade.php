@@ -53,6 +53,20 @@
                 </defs>
                 <rect x="0" y="0" width="1200" height="800" fill="#070d18"/>
                 <rect x="0" y="0" width="1200" height="800" fill="url(#exploration-grid-{{ strtolower($region) }})"/>
+                <g class="exploration-dotlan-grid" aria-hidden="true">
+                  @for($column = 0; $column <= 8; $column++)
+                    <line x1="{{ 96 + ($column * 126) }}" y1="42" x2="{{ 96 + ($column * 126) }}" y2="744"/>
+                    @if($column < 8)
+                      <text x="{{ 159 + ($column * 126) }}" y="766">{{ $column + 1 }}</text>
+                    @endif
+                  @endfor
+                  @foreach(['A','B','C','D','E','F'] as $rowLabel)
+                    <text x="24" y="{{ 105 + ($loop->index * 116) }}">{{ $rowLabel }}</text>
+                  @endforeach
+                  @for($row = 0; $row <= 6; $row++)
+                    <line x1="96" y1="{{ 52 + ($row * 116) }}" x2="1104" y2="{{ 52 + ($row * 116) }}"/>
+                  @endfor
+                </g>
                 <g class="exploration-map-links">
                   @foreach($map['links'] as $link)
                     <line x1="{{ $link['x1'] }}" y1="{{ $link['y1'] }}" x2="{{ $link['x2'] }}" y2="{{ $link['y2'] }}"/>
@@ -102,6 +116,8 @@
 .exploration-map-wrap.is-dragging { cursor: grabbing; }
 .exploration-map { display: block; width: 100%; height: 100%; min-width: 0; user-select: none; }
 .exploration-map-links line { stroke: #344b67; stroke-width: 1.35; opacity: .82; }
+.exploration-dotlan-grid line { stroke: #26364a; stroke-width: 1; opacity: .7; }
+.exploration-dotlan-grid text { fill: #71839a; font: 12px Arial, sans-serif; text-anchor: middle; }
 .exploration-system { cursor: pointer; outline: none; }
 .exploration-system-marker { fill: #e8eef7; stroke: #8194ad; stroke-width: 1.3; transition: fill .12s ease, stroke .12s ease; }
 .exploration-system text { fill: #c4d1e1; font: 11px Arial, sans-serif; pointer-events: none; user-select: none; paint-order: stroke; stroke: #070d18; stroke-width: 3px; stroke-linejoin: round; }
