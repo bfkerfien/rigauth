@@ -56,7 +56,7 @@ class ExplorationController extends Controller
                 'systems.x',
                 'systems.y',
             ])
-            ->orderBy('systems.solarSystemName')
+            ->orderBy('systems.itemName')
             ->get();
 
         $greenIds = Schema::hasTable('tc_exploration_system_status')
