@@ -96,8 +96,9 @@ class ExplorationController extends Controller
     }
 
     /**
-     * Render a self-contained SVG map using EVE SDE coordinates and gate topology.
-     * No third-party map artwork or downloaded SVG files are used.
+     * Render a native, topology-first star map. EVE's gate graph drives the
+     * composition; SDE coordinates provide a stable starting orientation.
+     * The SVG is generated locally and has no DOTLAN artwork/runtime dependency.
      */
     private function renderNativeExplorationMap(string $region, $systems): string
     {
@@ -105,73 +106,168 @@ class ExplorationController extends Controller
             return '';
         }
 
-        $width = 1200.0;
-        $height = 800.0;
-        $padding = 72.0;
+        $width = 1600.0;
+        $height = 1050.0;
+        $padding = 105.0;
+        $systemIds = $systems->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $systemSet = array_fill_keys($systemIds, true);
         $minX = (float) $systems->min('x');
         $maxX = (float) $systems->max('x');
         $minZ = (float) $systems->min('z');
         $maxZ = (float) $systems->max('z');
         $rangeX = max(1.0, $maxX - $minX);
         $rangeZ = max(1.0, $maxZ - $minZ);
-        $scale = min(($width - 2 * $padding) / $rangeX, ($height - 2 * $padding) / $rangeZ);
-        $drawWidth = $rangeX * $scale;
-        $drawHeight = $rangeZ * $scale;
-        $offsetX = ($width - $drawWidth) / 2;
-        $offsetY = ($height - $drawHeight) / 2;
 
+        // Normalize the SDE projection into a broad initial graph layout.
         $positions = [];
+        $anchors = [];
+        $names = [];
+        $statuses = [];
         foreach ($systems as $system) {
-            $positions[$system['id']] = [
-                'x' => $offsetX + (($system['x'] - $minX) * $scale),
-                'y' => $height - ($offsetY + (($system['z'] - $minZ) * $scale)),
+            $id = (int) $system['id'];
+            $point = [
+                'x' => 180.0 + (($system['x'] - $minX) / $rangeX) * 1240.0,
+                'y' => 130.0 + (1.0 - (($system['z'] - $minZ) / $rangeZ)) * 790.0,
             ];
+            $positions[$id] = $point;
+            $anchors[$id] = $point;
+            $names[$id] = (string) $system['name'];
+            $statuses[$id] = (string) $system['status'];
         }
 
-        $ids = array_keys($positions);
-        $links = [];
+        $edges = [];
         if (Schema::hasTable('mapSolarSystemJumps')) {
             $jumps = DB::table('mapSolarSystemJumps')
-                ->whereIn('fromSolarSystemID', $ids)
+                ->whereIn('fromSolarSystemID', $systemIds)
+                ->whereIn('toSolarSystemID', $systemIds)
                 ->get(['fromSolarSystemID', 'toSolarSystemID']);
 
             foreach ($jumps as $jump) {
                 $from = (int) $jump->fromSolarSystemID;
                 $to = (int) $jump->toSolarSystemID;
-                if (!isset($positions[$from], $positions[$to])) {
+                if ($from === $to || !isset($systemSet[$from], $systemSet[$to])) {
                     continue;
                 }
                 $key = min($from, $to) . ':' . max($from, $to);
-                if (isset($links[$key])) {
-                    continue;
-                }
-                $links[$key] = '<line x1="' . $positions[$from]['x'] . '" y1="' . $positions[$from]['y']
-                    . '" x2="' . $positions[$to]['x'] . '" y2="' . $positions[$to]['y'] . '" />';
+                $edges[$key] = [$from, $to];
             }
         }
 
-        $safeRegion = htmlspecialchars($region, ENT_QUOTES | ENT_XML1, 'UTF-8');
-        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="exploration-map" viewBox="0 0 1200 800" role="img" aria-label="Native EVE star map of ' . $safeRegion . '">';
-        $svg .= '<defs><radialGradient id="exploration-space"><stop offset="0" stop-color="#14243a"/><stop offset="1" stop-color="#070d18"/></radialGradient></defs>';
-        $svg .= '<rect x="0" y="0" width="1200" height="800" fill="url(#exploration-space)"/>';
-        $svg .= '<g class="exploration-map-links">' . implode('', $links) . '</g>';
+        // Deterministic force-directed relaxation: gate-connected systems form
+        // recognizable clusters while repulsion prevents marker pile-ups.
+        $ids = array_keys($positions);
+        $count = count($ids);
+        $iterations = 190;
+        for ($iteration = 0; $iteration < $iterations; $iteration++) {
+            $forces = [];
+            foreach ($ids as $id) {
+                $forces[$id] = ['x' => 0.0, 'y' => 0.0];
+            }
 
-        foreach ($systems as $system) {
-            $point = $positions[$system['id']];
-            $name = htmlspecialchars($system['name'], ENT_QUOTES | ENT_XML1, 'UTF-8');
-            $status = $system['status'];
+            for ($i = 0; $i < $count; $i++) {
+                $a = $ids[$i];
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $b = $ids[$j];
+                    $dx = $positions[$a]['x'] - $positions[$b]['x'];
+                    $dy = $positions[$a]['y'] - $positions[$b]['y'];
+                    $distanceSquared = ($dx * $dx) + ($dy * $dy);
+                    if ($distanceSquared < 0.01) {
+                        $dx = (($a % 17) - 8) * 0.2;
+                        $dy = (($b % 19) - 9) * 0.2;
+                        $distanceSquared = max(0.01, ($dx * $dx) + ($dy * $dy));
+                    }
+                    $distance = sqrt($distanceSquared);
+                    $push = min(22.0, 5200.0 / $distanceSquared);
+                    $fx = ($dx / $distance) * $push;
+                    $fy = ($dy / $distance) * $push;
+                    $forces[$a]['x'] += $fx;
+                    $forces[$a]['y'] += $fy;
+                    $forces[$b]['x'] -= $fx;
+                    $forces[$b]['y'] -= $fy;
+                }
+            }
+
+            foreach ($edges as [$a, $b]) {
+                $dx = $positions[$b]['x'] - $positions[$a]['x'];
+                $dy = $positions[$b]['y'] - $positions[$a]['y'];
+                $distance = max(0.01, sqrt(($dx * $dx) + ($dy * $dy)));
+                $pull = ($distance - 88.0) * 0.018;
+                $fx = ($dx / $distance) * $pull;
+                $fy = ($dy / $distance) * $pull;
+                $forces[$a]['x'] += $fx;
+                $forces[$a]['y'] += $fy;
+                $forces[$b]['x'] -= $fx;
+                $forces[$b]['y'] -= $fy;
+            }
+
+            $temperature = max(0.7, 13.0 * (1.0 - ($iteration / $iterations)));
+            foreach ($ids as $id) {
+                // A light anchor keeps the broad regional orientation familiar.
+                $forces[$id]['x'] += ($anchors[$id]['x'] - $positions[$id]['x']) * 0.003;
+                $forces[$id]['y'] += ($anchors[$id]['y'] - $positions[$id]['y']) * 0.003;
+                $magnitude = sqrt(($forces[$id]['x'] ** 2) + ($forces[$id]['y'] ** 2));
+                if ($magnitude > 0.001) {
+                    $step = min($temperature, $magnitude);
+                    $positions[$id]['x'] += ($forces[$id]['x'] / $magnitude) * $step;
+                    $positions[$id]['y'] += ($forces[$id]['y'] / $magnitude) * $step;
+                }
+            }
+        }
+
+        // Fit the relaxed graph into the viewBox without distorting its aspect.
+        $xs = array_column($positions, 'x');
+        $ys = array_column($positions, 'y');
+        $layoutMinX = min($xs);
+        $layoutMaxX = max($xs);
+        $layoutMinY = min($ys);
+        $layoutMaxY = max($ys);
+        $layoutWidth = max(1.0, $layoutMaxX - $layoutMinX);
+        $layoutHeight = max(1.0, $layoutMaxY - $layoutMinY);
+        $scale = min(($width - 2 * $padding) / $layoutWidth, ($height - 2 * $padding) / $layoutHeight);
+        $offsetX = ($width - ($layoutWidth * $scale)) / 2.0;
+        $offsetY = ($height - ($layoutHeight * $scale)) / 2.0;
+        foreach ($positions as $id => $point) {
+            $positions[$id] = [
+                'x' => $offsetX + (($point['x'] - $layoutMinX) * $scale),
+                'y' => $offsetY + (($point['y'] - $layoutMinY) * $scale),
+            ];
+        }
+
+        $safeRegion = htmlspecialchars($region, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="exploration-map" viewBox="0 0 1600 1050" role="img" aria-label="Native EVE star map of ' . $safeRegion . '">';
+        $svg .= '<defs>
+            <radialGradient id="exploration-space"><stop offset="0" stop-color="#101c2b"/><stop offset="1" stop-color="#050a12"/></radialGradient>
+            <pattern id="exploration-grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="#172536" stroke-width="1" opacity=".36"/></pattern>
+            <filter id="exploration-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>';
+        $svg .= '<rect width="1600" height="1050" fill="url(#exploration-space)"/><rect width="1600" height="1050" fill="url(#exploration-grid)"/>';
+        $svg .= '<text x="42" y="58" class="exploration-region-title">' . $safeRegion . '</text>';
+        $svg .= '<text x="44" y="82" class="exploration-region-subtitle">NEW EDEN · STARGATE NETWORK</text>';
+
+        // Gate connections are drawn first so all system labels remain legible.
+        $svg .= '<g class="exploration-map-links">';
+        foreach ($edges as [$from, $to]) {
+            $a = $positions[$from];
+            $b = $positions[$to];
+            $svg .= '<line x1="' . round($a['x'], 2) . '" y1="' . round($a['y'], 2)
+                . '" x2="' . round($b['x'], 2) . '" y2="' . round($b['y'], 2) . '"/>';
+        }
+        $svg .= '</g>';
+
+        foreach ($ids as $id) {
+            $point = $positions[$id];
+            $name = htmlspecialchars($names[$id], ENT_QUOTES | ENT_XML1, 'UTF-8');
+            $status = $statuses[$id];
             $label = $name . ': ' . ($status === 'red' ? 'permanently excluded' : ($status === 'green' ? 'explored' : 'unexplored'));
-            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $system['id']
+            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $id
                 . '" data-system-name="' . $name . '" data-status="' . $status . '" transform="translate('
-                . $point['x'] . ' ' . $point['y'] . ')" tabindex="' . ($status === 'red' ? '-1' : '0')
+                . round($point['x'], 2) . ' ' . round($point['y'], 2) . ')" tabindex="' . ($status === 'red' ? '-1' : '0')
                 . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="'
                 . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="'
                 . ($status === 'green' ? 'true' : 'false') . '">';
-            // A generous transparent hit area keeps system interaction reliable
-            // even when the visible node is small at full-region zoom.
-            $svg .= '<rect class="exploration-hit" x="-12" y="-10" width="24" height="20" fill="transparent" pointer-events="all"/>';
-            $svg .= '<rect class="s" x="-4" y="-4" width="8" height="8" rx="1"/>';
-            $svg .= '<text class="ss" x="9" y="1">' . $name . '</text>';
+            $svg .= '<circle class="exploration-hit" r="17"/>';
+            $svg .= '<circle class="s" r="4.2"/>';
+            $svg .= '<text class="ss" x="9" y="3">' . $name . '</text>';
             $svg .= '</g>';
         }
 
