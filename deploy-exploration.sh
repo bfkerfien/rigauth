@@ -20,8 +20,12 @@ FILES=(
   "src/resources/views/exploration/index.blade.php"
 )
 
+CURRENT_STEP="initialization"
 rollback() {
   rc=$?
+  if [[ "$SUCCESS" -eq 0 ]]; then
+    echo "Deployment stopped during: $CURRENT_STEP (exit code $rc)"
+  fi
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: Exploration deployment did not complete; restoring backed-up SeAT files."
@@ -89,8 +93,10 @@ done
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
+CURRENT_STEP="patching SeAT navigation"
 sudo python3 "$REPO/apply-exploration-navigation.py" "$WEB/src/Http/routes.php" "$WEB/src/resources/views/includes/sidebar.blade.php"
 
+CURRENT_STEP="installing Exploration source files"
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
 done
@@ -98,18 +104,23 @@ for region in Branch Tenal Venal; do
   sudo install -D -m 0644 "$MAP_CACHE/$region.dark.svg" "$WEB/resources/exploration/$region.dark.svg"
 done
 
+CURRENT_STEP="running migrations"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan migrate --force
+CURRENT_STEP="clearing route cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
+CURRENT_STEP="clearing view cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
 
-ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration)"
-printf '%s\n' "$ROUTES"
-printf '%s\n' "$ROUTES" | grep -q 'exploration' || {
+CURRENT_STEP="checking Exploration routes"
+sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration
+sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=exploration --format=json | grep -q '"uri":"exploration' || {
   echo "ERROR: Exploration routes were not registered."
   exit 1
 }
 
+CURRENT_STEP="compiling Blade views"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
+CURRENT_STEP="restarting SeAT front"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
 echo "Exploration deployed successfully."
