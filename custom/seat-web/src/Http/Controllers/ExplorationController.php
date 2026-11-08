@@ -91,7 +91,7 @@ class ExplorationController extends Controller
      * Fetch current sovereignty claims from CCP's post-Equinox ESI endpoint.
      * /sovereignty/map was removed at compatibility date 2026-05-19.
      */
-    private function pandemicLegionSovereigntySystemIds(): array
+    private function synergyOfSteelSovereigntySystemIds(): array
     {
         return Cache::remember('tc_exploration_syn_sov_system_ids_v3', now()->addMinutes(15), function () {
             $response = Http::acceptJson()
@@ -114,7 +114,7 @@ class ExplorationController extends Controller
             $claims = $payload['solar_systems'] ?? $payload;
             if (!is_array($claims)) {
                 logger()->error('Exploration sovereignty ESI returned an unexpected payload.');
-                return Cache::get('tc_exploration_pl_sov_system_ids_v2_stale', []);
+                return Cache::get('tc_exploration_syn_sov_system_ids_v3_stale', []);
             }
 
             $ids = collect($claims)
@@ -306,7 +306,7 @@ class ExplorationController extends Controller
 
         abort_unless($systemName, 404);
 
-        if (in_array($systemId, $this->pandemicLegionSovereigntySystemIds(), true)) {
+        if (in_array($systemId, $this->synergyOfSteelSovereigntySystemIds(), true)) {
             return response()->json(['message' => 'This system is permanently marked red.'], 403);
         }
 
