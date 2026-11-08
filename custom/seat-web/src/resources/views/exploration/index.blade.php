@@ -21,6 +21,11 @@
   <div class="card-body">
     @if($mapError)
       <div class="alert alert-warning">{{ $mapError }}</div>
+      <div class="p-3" id="exploration-system-information-fallback">
+        <h4>System Information</h4>
+        <p id="exploration-system-info-status" class="text-muted">Select System Information to load your main character's current system.</p>
+        <div id="exploration-system-info-content"></div>
+      </div>
     @else
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="small text-muted mb-2 mb-md-0">
@@ -616,7 +621,28 @@
           }).catch(function (error) { status.textContent = error.message; });
     }
     var infoTab = root.querySelector('#exploration-system-information-tab');
-    if (infoTab) infoTab.addEventListener('click', loadSystemInformation);
+    if (infoTab) infoTab.addEventListener('click', function (event) {
+        event.preventDefault();
+        // Switch panes directly as a fallback if the host page's Bootstrap tab
+        // plugin is unavailable or its delegated handler does not initialize.
+        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
+            link.classList.remove('active');
+            link.setAttribute('aria-selected', 'false');
+        });
+        infoTab.classList.add('active');
+        infoTab.setAttribute('aria-selected', 'true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) {
+            pane.classList.remove('show', 'active');
+        });
+        var pane = root.querySelector('#exploration-system-information');
+        if (pane) {
+            pane.classList.add('show', 'active');
+        } else {
+            var fallback = root.querySelector('#exploration-system-information-fallback');
+            if (fallback) fallback.style.display = 'block';
+        }
+        loadSystemInformation();
+    });
 
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
