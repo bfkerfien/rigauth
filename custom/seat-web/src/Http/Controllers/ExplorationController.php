@@ -77,8 +77,14 @@ class ExplorationController extends Controller
         $width = 1200.0;
         $height = 800.0;
         $padding = 58.0;
+        // Keep one scale on both axes so the top-down system geometry is not stretched.
+        $scale = min(($width - ($padding * 2)) / $rangeX, ($height - ($padding * 2)) / $rangeY);
+        $drawWidth = $rangeX * $scale;
+        $drawHeight = $rangeY * $scale;
+        $offsetX = ($width - $drawWidth) / 2;
+        $offsetY = ($height - $drawHeight) / 2;
 
-        $mapped = $systems->map(function ($system) use ($greenIds, $redNames, $minX, $minY, $rangeX, $rangeY, $width, $height, $padding) {
+        $mapped = $systems->map(function ($system) use ($greenIds, $redNames, $minX, $minY, $scale, $height, $offsetX, $offsetY) {
             $name = (string) $system->name;
             $isRed = in_array(mb_strtolower($name), $redNames, true);
             $isGreen = in_array((int) $system->id, $greenIds, true) && !$isRed;
@@ -86,8 +92,8 @@ class ExplorationController extends Controller
             return [
                 'id' => (int) $system->id,
                 'name' => $name,
-                'x' => $padding + (((float) $system->x - $minX) / $rangeX) * ($width - ($padding * 2)),
-                'y' => $height - $padding - (((float) $system->z - $minY) / $rangeY) * ($height - ($padding * 2)),
+                'x' => $offsetX + (((float) $system->x - $minX) * $scale),
+                'y' => $height - ($offsetY + (((float) $system->z - $minY) * $scale)),
                 'status' => $isRed ? 'red' : ($isGreen ? 'green' : 'white'),
             ];
         })->values();
