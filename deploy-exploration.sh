@@ -73,14 +73,7 @@ done
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
-if sudo git -C "$WEB" apply --recount --reverse --check "$PATCH" >/dev/null 2>&1; then
-  echo "Exploration route/sidebar patch already applied."
-elif sudo git -C "$WEB" apply --recount --check "$PATCH"; then
-  sudo git -C "$WEB" apply --recount "$PATCH"
-else
-  echo "STOP: Exploration patch does not apply cleanly to the installed SeAT source."
-  exit 1
-fi
+sudo python3 "$REPO/apply-exploration-navigation.py" "$WEB/src/Http/routes.php" "$WEB/src/resources/views/includes/sidebar.blade.php"
 
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
