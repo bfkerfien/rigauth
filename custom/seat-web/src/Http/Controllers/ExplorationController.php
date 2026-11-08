@@ -40,6 +40,10 @@ class ExplorationController extends Controller
         return view('web::exploration.index', compact('maps', 'mapError'));
     }
 
+    /**
+     * Build a native Exploration map from EVE SDE system coordinates and stargate connections.
+     * Every system is rendered as its own SVG node with its SeAT solar_system_id.
+     */
     private function buildMap(string $region): array
     {
         $systems = DB::table('mapDenormalize as systems')
@@ -55,17 +59,6 @@ class ExplorationController extends Controller
             ->orderBy('systems.itemName')
             ->get();
 
-        // ZXA-V6 is solar system 30003620 and belongs to Tenal (09-4XW).
-        // Keep it as a real clickable Tenal node even if a local SDE region join is stale.
-        if ($region === 'Tenal' && !$systems->contains(fn ($system) => (int) $system->id === 30003620)) {
-            $zxa = DB::table('mapDenormalize')
-                ->where('itemID', 30003620)
-                ->where('groupID', 5)
-                ->select(['itemID as id', 'itemName as name', 'x', 'z'])
-                ->first();
-            if ($zxa) $systems->push($zxa);
-        }
-
         $greenIds = Schema::hasTable('tc_exploration_system_status')
             ? DB::table('tc_exploration_system_status')
                 ->where('region_name', $region)
@@ -76,25 +69,111 @@ class ExplorationController extends Controller
 
         $redIds = $this->synergyOfSteelSovereigntySystemIds();
         $mapped = $systems->map(function ($system) use ($greenIds, $redIds) {
-            $name = (string) $system->name;
-            $isRed = in_array((int) $system->id, $redIds, true);
-            $isGreen = in_array((int) $system->id, $greenIds, true) && !$isRed;
+            $id = (int) $system->id;
+            $isRed = in_array($id, $redIds, true);
+            $isGreen = in_array($id, $greenIds, true) && !$isRed;
 
             return [
-                'id' => (int) $system->id,
-                'name' => $name,
+                'id' => $id,
+                'name' => (string) $system->name,
+                'x' => (float) $system->x,
+                'z' => (float) $system->z,
                 'status' => $isRed ? 'red' : ($isGreen ? 'green' : 'white'),
             ];
         })->values();
 
-        $svgPath = base_path('packages/eveseat/web/resources/exploration/' . $region . '.dark.svg');
-        $svg = $this->prepareDotlanSvg($svgPath, $mapped);
+        $svg = $this->renderNativeExplorationMap($region, $mapped);
 
         return [
-            'systems' => $mapped->all(),
+            'systems' => $mapped->map(fn ($system) => [
+                'id' => $system['id'],
+                'name' => $system['name'],
+                'status' => $system['status'],
+            ])->all(),
             'svg' => $svg,
             'green_count' => $mapped->where('status', 'green')->count(),
         ];
+    }
+
+    /**
+     * Render a self-contained SVG map using EVE SDE coordinates and gate topology.
+     * No third-party map artwork or downloaded SVG files are used.
+     */
+    private function renderNativeExplorationMap(string $region, $systems): string
+    {
+        if ($systems->isEmpty()) {
+            return '';
+        }
+
+        $width = 1200.0;
+        $height = 800.0;
+        $padding = 72.0;
+        $minX = (float) $systems->min('x');
+        $maxX = (float) $systems->max('x');
+        $minZ = (float) $systems->min('z');
+        $maxZ = (float) $systems->max('z');
+        $rangeX = max(1.0, $maxX - $minX);
+        $rangeZ = max(1.0, $maxZ - $minZ);
+        $scale = min(($width - 2 * $padding) / $rangeX, ($height - 2 * $padding) / $rangeZ);
+        $drawWidth = $rangeX * $scale;
+        $drawHeight = $rangeZ * $scale;
+        $offsetX = ($width - $drawWidth) / 2;
+        $offsetY = ($height - $drawHeight) / 2;
+
+        $positions = [];
+        foreach ($systems as $system) {
+            $positions[$system['id']] = [
+                'x' => $offsetX + (($system['x'] - $minX) * $scale),
+                'y' => $height - ($offsetY + (($system['z'] - $minZ) * $scale)),
+            ];
+        }
+
+        $ids = array_keys($positions);
+        $links = [];
+        if (Schema::hasTable('mapSolarSystemJumps')) {
+            $jumps = DB::table('mapSolarSystemJumps')
+                ->whereIn('fromSolarSystemID', $ids)
+                ->get(['fromSolarSystemID', 'toSolarSystemID']);
+
+            foreach ($jumps as $jump) {
+                $from = (int) $jump->fromSolarSystemID;
+                $to = (int) $jump->toSolarSystemID;
+                if (!isset($positions[$from], $positions[$to])) {
+                    continue;
+                }
+                $key = min($from, $to) . ':' . max($from, $to);
+                if (isset($links[$key])) {
+                    continue;
+                }
+                $links[$key] = '<line x1="' . $positions[$from]['x'] . '" y1="' . $positions[$from]['y']
+                    . '" x2="' . $positions[$to]['x'] . '" y2="' . $positions[$to]['y'] . '" />';
+            }
+        }
+
+        $safeRegion = htmlspecialchars($region, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" class="exploration-map" viewBox="0 0 1200 800" role="img" aria-label="Native EVE star map of ' . $safeRegion . '">';
+        $svg .= '<defs><radialGradient id="exploration-space"><stop offset="0" stop-color="#14243a"/><stop offset="1" stop-color="#070d18"/></radialGradient></defs>';
+        $svg .= '<rect x="0" y="0" width="1200" height="800" fill="url(#exploration-space)"/>';
+        $svg .= '<g class="exploration-map-links">' . implode('', $links) . '</g>';
+
+        foreach ($systems as $system) {
+            $point = $positions[$system['id']];
+            $name = htmlspecialchars($system['name'], ENT_QUOTES | ENT_XML1, 'UTF-8');
+            $status = $system['status'];
+            $label = $name . ': ' . ($status === 'red' ? 'permanently excluded' : ($status === 'green' ? 'explored' : 'unexplored'));
+            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $system['id']
+                . '" data-system-name="' . $name . '" data-status="' . $status . '" transform="translate('
+                . $point['x'] . ' ' . $point['y'] . ')" tabindex="' . ($status === 'red' ? '-1' : '0')
+                . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="'
+                . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="'
+                . ($status === 'green' ? 'true' : 'false') . '">';
+            $svg .= '<circle class="s" cx="0" cy="0" r="7"/>';
+            $svg .= '<text class="ss" x="11" y="1">' . $name . '</text>';
+            $svg .= '</g>';
+        }
+
+        $svg .= '</svg>';
+        return $svg;
     }
 
     /**
@@ -146,95 +225,6 @@ class ExplorationController extends Controller
             Cache::put('tc_exploration_syn_sov_system_ids_v4_stale', $ids, now()->addDays(7));
             return $ids;
         });
-    }
-
-    /**
-     * Load DOTLAN's original vector map and attach SeAT system identifiers/statuses
-     * to the existing DOTLAN system groups. The map's original geometry and gates
-     * remain untouched.
-     */
-    private function prepareDotlanSvg(string $path, $systems): string
-    {
-        if (!is_file($path)) {
-            return '';
-        }
-
-        $byName = $systems->keyBy(fn ($system) => mb_strtolower($system['name']));
-        $document = new \DOMDocument('1.0', 'UTF-8');
-        $previous = libxml_use_internal_errors(true);
-        $loaded = $document->load($path, LIBXML_NONET | LIBXML_NOBLANKS);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        if (!$loaded || !$document->documentElement || strtolower($document->documentElement->localName) !== 'svg') {
-            return '';
-        }
-
-        $root = $document->documentElement;
-        $root->setAttribute('class', trim($root->getAttribute('class') . ' exploration-map'));
-        $root->setAttribute('role', 'img');
-        $root->setAttribute('aria-label', 'DOTLAN ' . basename($path, '.dark.svg') . ' solar system map');
-        $xpath = new \DOMXPath($document);
-        // DOTLAN system labels can sit inside links and shared SVG groups.
-        // Never assign system classes to a shared group: doing so recolors an
-        // entire region and makes the whole map respond as one system.
-        foreach ($xpath->query('//*[local-name()="text"]') as $label) {
-            $name = trim($label->textContent);
-            $system = $byName->get(mb_strtolower($name));
-            if (!$system) continue;
-
-            $node = null;
-            $ancestor = $label->parentNode;
-            while ($ancestor instanceof \DOMElement && $ancestor !== $root) {
-                $tag = strtolower($ancestor->localName);
-                if ($tag === 'g' || $tag === 'a') {
-                    // A system container must not contain labels for other
-                    // systems. Prefer the smallest qualifying ancestor.
-                    $labels = $xpath->query('.//*[local-name()="text" and contains(concat(" ", normalize-space(@class), " "), " ss ")]', $ancestor);
-                    if ($labels !== false && $labels->length === 1) {
-                        $node = $ancestor;
-                        break;
-                    }
-                }
-                $ancestor = $ancestor->parentNode;
-            }
-            // Safe fallback: only the label is interactive; never the map root.
-            if (!$node) $node = $label;
-
-            $classes = preg_split('/\\s+/', trim($node->getAttribute('class')));
-            $classes[] = 'exploration-system';
-            $classes[] = 'is-' . $system['status'];
-            if ($system['status'] === 'red') $classes[] = 'is-locked';
-            $node->setAttribute('class', implode(' ', array_unique(array_filter($classes))));
-            $node->setAttribute('data-system-id', (string) $system['id']);
-            $node->setAttribute('data-system-name', $system['name']);
-            $node->setAttribute('data-status', $system['status']);
-            $node->setAttribute('tabindex', $system['status'] === 'red' ? '-1' : '0');
-            $node->setAttribute('role', $system['status'] === 'red' ? 'img' : 'button');
-            $node->setAttribute('aria-label', $system['name'] . ': ' . ($system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored')));
-            $node->setAttribute('aria-pressed', $system['status'] === 'green' ? 'true' : 'false');
-        }
-
-        // The downloaded DOTLAN map contains external links. Remove every
-        // link destination, including namespaced xlink:href, so clicking
-        // anywhere in Exploration never navigates away to DOTLAN.
-        foreach ($xpath->query('//*[local-name()="a"]') as $anchor) {
-            $anchor->removeAttribute('href');
-            $anchor->removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
-            $anchor->removeAttributeNS('http://www.w3.org/2000/svg', 'href');
-        }
-
-        // Remove executable or embedded content before rendering the downloaded SVG inline.
-        foreach ($xpath->query('//*[local-name()="script" or local-name()="foreignObject"]') as $unsafe) {
-            $unsafe->parentNode?->removeChild($unsafe);
-        }
-        foreach ($xpath->query('//@*') as $attribute) {
-            if (str_starts_with(strtolower($attribute->nodeName), 'on')) {
-                $attribute->ownerElement?->removeAttributeNode($attribute);
-            }
-        }
-
-        return $document->saveXML($document->documentElement) ?: '';
     }
 
     /**
