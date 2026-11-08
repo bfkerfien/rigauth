@@ -44,51 +44,11 @@
             </div>
             <div class="exploration-map-toolbar small text-muted mb-2">Mouse wheel: zoom · Drag: pan · Center: your live location</div>
             <div class="exploration-map-wrap">
-              <svg class="exploration-map" viewBox="0 0 1200 800" role="img" aria-label="{{ $region }} solar system map. Click a white or green system to change its exploration status.">
-                <defs>
-                  <pattern id="exploration-grid-{{ strtolower($region) }}" width="48" height="48" patternUnits="userSpaceOnUse">
-                    <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#17263a" stroke-width="1"/>
-                    <circle cx="1" cy="1" r="1" fill="#31435b"/>
-                  </pattern>
-                </defs>
-                <rect x="0" y="0" width="1200" height="800" fill="#070d18"/>
-                <rect x="0" y="0" width="1200" height="800" fill="url(#exploration-grid-{{ strtolower($region) }})"/>
-                <g class="exploration-dotlan-grid" aria-hidden="true">
-                  @for($column = 0; $column <= 8; $column++)
-                    <line x1="{{ 58 + ($column * 135.5) }}" y1="42" x2="{{ 58 + ($column * 135.5) }}" y2="744"/>
-                    @if($column < 8)
-                      <text x="{{ 125.75 + ($column * 135.5) }}" y="766">{{ $column + 1 }}</text>
-                    @endif
-                  @endfor
-                  @foreach(['A','B','C','D','E','F'] as $rowLabel)
-                    <text x="24" y="{{ 105 + ($loop->index * 116) }}">{{ $rowLabel }}</text>
-                  @endforeach
-                  @for($row = 0; $row <= 6; $row++)
-                    <line x1="58" y1="{{ 52 + ($row * 116) }}" x2="1142" y2="{{ 52 + ($row * 116) }}"/>
-                  @endfor
-                </g>
-                <g class="exploration-map-links">
-                  @foreach($map['links'] as $link)
-                    <line x1="{{ $link['x1'] }}" y1="{{ $link['y1'] }}" x2="{{ $link['x2'] }}" y2="{{ $link['y2'] }}"/>
-                  @endforeach
-                </g>
-                <g class="exploration-map-systems">
-                  @foreach($map['systems'] as $system)
-                    <g class="exploration-system is-{{ $system['status'] }} {{ $system['status'] === 'red' ? 'is-locked' : '' }}"
-                       data-system-id="{{ $system['id'] }}" data-system-name="{{ $system['name'] }}"
-                       data-status="{{ $system['status'] }}" tabindex="{{ $system['status'] === 'red' ? '-1' : '0' }}"
-                       role="{{ $system['status'] === 'red' ? 'img' : 'button' }}"
-                       aria-label="{{ $system['name'] }}: {{ $system['status'] === 'red' ? 'permanently excluded' : ($system['status'] === 'green' ? 'explored' : 'unexplored') }}"
-                       aria-pressed="{{ $system['status'] === 'green' ? 'true' : 'false' }}"
-                       transform="translate({{ $system['x'] }}, {{ $system['y'] }})">
-                      @php($nodeWidth = max(54, (strlen($system['name']) * 7) + 18))
-                      <rect class="exploration-system-marker" x="{{ -($nodeWidth / 2) }}" y="-12" width="{{ $nodeWidth }}" height="24" rx="9"/>
-                      <text x="0" y="4" text-anchor="middle">{{ $system['name'] }}</text>
-                    </g>
-                  @endforeach
-                </g>
-                <text x="24" y="770" class="exploration-map-caption">{{ $region }} · {{ count($map['systems']) }} solar systems · {{ count($map['links']) }} stargate connections</text>
-              </svg>
+              @if(!empty($map['svg']))
+                {!! $map['svg'] !!}
+              @else
+                <div class="alert alert-warning m-3">The original DOTLAN vector map for {{ $region }} is missing or could not be read. Run the Exploration deployment again to download it.</div>
+              @endif
             </div>
           </div>
         @endforeach
@@ -116,21 +76,23 @@
 .exploration-map-wrap { width: 100%; height: min(72vh, 820px); min-height: 520px; overflow: hidden; border: 1px solid #263b55; border-radius: 5px; background: #070d18; box-shadow: inset 0 0 40px rgba(0,0,0,.45); cursor: grab; touch-action: none; }
 .exploration-map-wrap.is-dragging { cursor: grabbing; }
 .exploration-map { display: block; width: 100%; height: 100%; min-width: 0; user-select: none; }
+.exploration-map svg { display: block; width: 100%; height: 100%; }
 .exploration-map-links line { stroke: #344b67; stroke-width: 1.35; opacity: .82; }
 .exploration-dotlan-grid line { stroke: #26364a; stroke-width: 1; opacity: .7; }
 .exploration-dotlan-grid text { fill: #71839a; font: 12px Arial, sans-serif; text-anchor: middle; }
 .exploration-system { cursor: pointer; outline: none; }
-.exploration-system-marker { fill: #e8eef7; stroke: #8194ad; stroke-width: 1.3; transition: fill .12s ease, stroke .12s ease; }
-.exploration-system text { fill: #101a29; font: 11px Arial, sans-serif; font-weight: 700; pointer-events: none; user-select: none; }
-.exploration-system:hover .exploration-system-marker, .exploration-system:focus .exploration-system-marker { stroke: #55b9ff; stroke-width: 2.5; }
-.exploration-system.is-green .exploration-system-marker { fill: #31c66b; stroke: #15964a; }
-.exploration-system.is-green text { fill: #092516; font-weight: 700; }
+.exploration-system { cursor: pointer; }
+.exploration-system .s { fill: #f7f8fa !important; stroke: #293746 !important; stroke-width: 1.5px !important; }
+.exploration-system .ss { fill: #17212c !important; }
+.exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
+.exploration-system.is-green .s { fill: #31c66b !important; stroke: #15964a !important; }
+.exploration-system.is-green .ss { fill: #092516 !important; }
 .exploration-system.is-red { cursor: not-allowed; }
-.exploration-system.is-red .exploration-system-marker { fill: #e05252; stroke: #a92f38; }
-.exploration-system.is-red text { fill: #fff; font-weight: 700; }
-.exploration-system.is-locked:hover .exploration-system-marker, .exploration-system.is-locked:focus .exploration-system-marker { stroke: #e05252; }
-.exploration-system.is-player-location .exploration-system-marker { stroke: #f2b632; stroke-width: 3.5; }
-.exploration-player-dot { fill: #f2b632; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+.exploration-system.is-red .s { fill: #e05252 !important; stroke: #a92f38 !important; }
+.exploration-system.is-red .ss { fill: #fff !important; }
+.exploration-system.is-locked:hover .s, .exploration-system.is-locked:focus .s { stroke: #e05252 !important; }
+.exploration-system.is-player-location .s { stroke: #f2b632 !important; stroke-width: 4px !important; }
+.exploration-player-dot { fill: none; stroke: #f2b632; stroke-width: 3; pointer-events: none; }
 .exploration-map-caption { fill: #6f829d; font: 12px Arial, sans-serif; }
 .exploration-card .btn-outline-secondary { color: #bdcadd; border-color: #52657e; }
 .exploration-card .btn-outline-secondary:hover { color: #fff; background: #25364d; }
@@ -171,8 +133,10 @@
 
     function mapApi(svg) {
         var wrap = svg.closest('.exploration-map-wrap');
-        var view = { x: 0, y: 0, w: 1200, h: 800 };
-        var minW = 150, maxW = 1200;
+        var initial = (svg.getAttribute('viewBox') || '0 0 1200 800').trim().split(/[ ,]+/).map(Number);
+        if (initial.length !== 4 || !initial.every(Number.isFinite)) initial = [0, 0, 1200, 800];
+        var view = { x: initial[0], y: initial[1], w: initial[2], h: initial[3] };
+        var minW = Math.max(80, view.w * 0.12), maxW = view.w;
         function apply() { svg.setAttribute('viewBox', [view.x, view.y, view.w, view.h].join(' ')); }
         function point(event) {
             var rect = svg.getBoundingClientRect();
@@ -208,10 +172,10 @@
         wrap.addEventListener('pointercancel', endDrag);
         return {
             center: function (node) {
-                var match = (node.getAttribute('transform') || '').match(/translate\\(([-0-9.]+)[ ,]+([-0-9.]+)\\)/);
-                if (!match) return;
-                var cx = parseFloat(match[1]), cy = parseFloat(match[2]);
-                view.w = 600; view.h = 400; view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply();
+                var bounds = node.getBBox();
+                var cx = bounds.x + bounds.width / 2, cy = bounds.y + bounds.height / 2;
+                view.w = initial[2] * 0.42; view.h = initial[3] * 0.42;
+                view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply();
             }
         };
     }
@@ -248,11 +212,12 @@
                     var region = pane.id.replace('exploration-', '');
                     activateRegion(region);
                     target.classList.add('is-player-location');
-                                        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    var bounds = target.getBBox();
+                    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     dot.setAttribute('class', 'exploration-player-dot');
-                    dot.setAttribute('cx', '0');
-                    dot.setAttribute('cy', '-12');
-                    dot.setAttribute('r', '5');
+                    dot.setAttribute('cx', String(bounds.x + bounds.width / 2));
+                    dot.setAttribute('cy', String(bounds.y + bounds.height / 2));
+                    dot.setAttribute('r', String(Math.max(bounds.width, bounds.height) * 0.72));
                     target.appendChild(dot);
                     target.setAttribute('aria-label', (target.getAttribute('aria-label') || '') + ', current location');
                     if (status) status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' in ' + (target.dataset.systemName || 'unknown system');
