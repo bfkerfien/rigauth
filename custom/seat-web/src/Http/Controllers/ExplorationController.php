@@ -119,10 +119,11 @@ class ExplorationController extends Controller
 
             $ids = collect($claims)
                 ->filter(function ($entry) {
-                    $claim = $entry['claim'] ?? null;
-                    return is_array($claim)
-                        && ($claim['type'] ?? null) === 'alliance'
-                        && (int) ($claim['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID;
+                    // ESI models the claim as a one-of object:
+                    // claim.alliance, claim.faction, or claim.unclaimed.
+                    $allianceClaim = $entry['claim']['alliance'] ?? null;
+                    return is_array($allianceClaim)
+                        && (int) ($allianceClaim['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID;
                 })
                 ->pluck('solar_system_id')
                 ->map(fn ($id) => (int) $id)
