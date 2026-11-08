@@ -157,7 +157,7 @@ class ExplorationController extends Controller
             ])->header('Cache-Control', 'no-store');
         }
 
-        $token = RefreshToken::find($characterId);
+        $token = RefreshToken::query()->where('character_id', $characterId)->first();
         if (!$token) {
             return response()->json([
                 'status' => 'not_configured',
