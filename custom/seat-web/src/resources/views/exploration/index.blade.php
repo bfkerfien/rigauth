@@ -102,8 +102,11 @@
 .exploration-map svg { display: block; width: 100%; height: 100%; }
 .exploration-map-links line { stroke: #344b67; stroke-width: 1.6; opacity: .78; }
 .exploration-map .ss { fill: #c4d2e4 !important; font: 11px Arial, sans-serif; text-anchor: start; dominant-baseline: middle; pointer-events: none; }
+.exploration-system .ss { paint-order: stroke; stroke: #070d18; stroke-width: 2px; stroke-linejoin: round; }
 .exploration-system { cursor: pointer; outline: none; }
-.exploration-system .s { fill: #f7f8fa !important; stroke: #293746 !important; stroke-width: 1.5px !important; }
+.exploration-system { pointer-events: all; }
+.exploration-system .exploration-hit { fill: transparent; pointer-events: all; }
+.exploration-system .s { fill: #e8edf4 !important; stroke: #26384d !important; stroke-width: 1px !important; }
 .exploration-system .ss { fill: #c4d2e4 !important; }
 .exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
 .exploration-system.is-green .s { fill: #31c66b !important; stroke: #15964a !important; }
@@ -112,7 +115,8 @@
 .exploration-system.is-red .s { fill: #e05252 !important; stroke: #a92f38 !important; }
 .exploration-system.is-red .ss { fill: #fff !important; }
 .exploration-system.is-locked:hover .s, .exploration-system.is-locked:focus .s { stroke: #e05252 !important; }
-.exploration-system.is-player-location .s { stroke: #f2b632 !important; stroke-width: 4px !important; }
+.exploration-system.is-player-location .s { fill: #f2b632 !important; stroke: #ffe09a !important; stroke-width: 2px !important; }
+.exploration-system.is-player-location .ss { fill: #ffe09a !important; font-weight: bold; }
 .exploration-player-dot { fill: none; stroke: #f2b632; stroke-width: 3; pointer-events: none; }
 .exploration-map-caption { fill: #6f829d; font: 12px Arial, sans-serif; }
 .exploration-card .btn-outline-secondary { color: #bdcadd; border-color: #52657e; }
