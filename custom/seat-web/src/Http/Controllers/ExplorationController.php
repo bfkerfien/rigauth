@@ -185,7 +185,7 @@ class ExplorationController extends Controller
         if ($region === 'Tenal') {
             $constellationIds = DB::table('mapDenormalize as systems')
                 ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
-                ->join('invNames as constellations', 'constellations.itemID', '=', 'systems.constellationID')
+                ->join('mapDenormalize as constellations', 'constellations.itemID', '=', 'systems.constellationID')
                 ->where('systems.groupID', 5)
                 ->where('regions.itemName', 'Tenal')
                 ->whereIn('constellations.itemName', self::TENAL_RED_CONSTELLATIONS)
