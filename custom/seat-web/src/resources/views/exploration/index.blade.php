@@ -101,7 +101,7 @@
 .exploration-map-wrap.is-dragging { cursor: grabbing; }
 .exploration-map { display: block; width: 100%; height: 100%; min-width: 0; user-select: none; }
 .exploration-map svg { display: block; width: 100%; height: 100%; }
-.exploration-map-links line { stroke: #344b67; stroke-width: 1.6; opacity: .78; }
+.exploration-map-links line { stroke: #40536b; stroke-width: 1.35; opacity: .68; }\n.exploration-region-title { fill: #dce6f3; font: 700 30px Arial, sans-serif; letter-spacing: 3px; }\n.exploration-region-subtitle { fill: #63778f; font: 11px Arial, sans-serif; letter-spacing: 2px; }\n.exploration-system .s { stroke-width: 1.1px !important; }\n.exploration-system .ss { font: 12px Arial, sans-serif; fill: #c4d2e4 !important; }\n.exploration-system.is-green .s { filter: url(#exploration-glow); }
 .exploration-map .ss { fill: #c4d2e4 !important; font: 11px Arial, sans-serif; text-anchor: start; dominant-baseline: middle; pointer-events: none; }
 .exploration-system .ss { paint-order: stroke; stroke: #070d18; stroke-width: 2px; stroke-linejoin: round; }
 .exploration-system { cursor: pointer; outline: none; }
