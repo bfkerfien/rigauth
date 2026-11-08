@@ -147,9 +147,9 @@ class ExplorationController extends Controller
                 // as context, but are not clickable or status-bearing.
                 $svg .= '<g class="exploration-external-system" transform="translate(' . $x . ' ' . $y . ')">';
                 $svg .= '<rect x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11" fill="#252525" stroke="#777" stroke-width=".8"/>';
-                $svg .= '<text class="exploration-external-label" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
+                $svg .= '<text class="exploration-external-label" style="font:9px Arial,sans-serif;fill:#ddd" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
                 if ($extra !== '') {
-                    $svg .= '<text class="exploration-external-region" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
+                    $svg .= '<text class="exploration-external-region" style="font:7px Arial,sans-serif;fill:#aaa" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
                 }
                 $svg .= '</g>';
                 continue;
@@ -160,9 +160,9 @@ class ExplorationController extends Controller
             $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $id . '" data-system-name="' . $safeName . '" data-status="' . $status . '" transform="translate(' . $x . ' ' . $y . ')" tabindex="' . ($status === 'red' ? '-1' : '0') . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="' . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="' . ($status === 'green' ? 'true' : 'false') . '">';
             $svg .= '<rect class="exploration-hit" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11"/>';
             $svg .= '<rect class="s" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11" style="fill:' . htmlspecialchars((string) $fill, ENT_QUOTES | ENT_XML1, 'UTF-8') . '"/>';
-            $svg .= '<text class="ss" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
+            $svg .= '<text class="ss" style="text-anchor:middle;dominant-baseline:auto;font:9px Arial,sans-serif" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
             if ($extra !== '') {
-                $svg .= '<text class="st" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
+                $svg .= '<text class="st" style="text-anchor:middle;font:7px Verdana,Arial,sans-serif;fill:#ddd" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 18.5) . '" text-anchor="middle">' . htmlspecialchars((string) $extra, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</text>';
             }
             $svg .= '</g>';
         }
