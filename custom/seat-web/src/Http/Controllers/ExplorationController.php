@@ -161,12 +161,22 @@ class ExplorationController extends Controller
     public function playerLocation(): JsonResponse
     {
         $user = request()->user();
-        $characterId = (int) ($user->main_character_id ?? 0);
+
+        // SeAT exposes the selected character through the main_character relationship.
+        // Do not rely only on main_character_id: that accessor is not consistently
+        // populated on every SeAT user model/version.
+        $mainCharacter = $user->main_character ?? null;
+        $characterId = (int) (
+            $mainCharacter->character_id
+            ?? $mainCharacter->id
+            ?? $user->main_character_id
+            ?? 0
+        );
 
         if ($characterId < 1) {
             return response()->json([
                 'status' => 'not_configured',
-                'message' => 'No main character is selected in SeAT.',
+                'message' => 'Select a main character in your SeAT profile to show its live location.',
             ])->header('Cache-Control', 'no-store');
         }
 
@@ -174,7 +184,7 @@ class ExplorationController extends Controller
         if (!$token) {
             return response()->json([
                 'status' => 'not_configured',
-                'message' => 'No SeAT ESI token is available for your main character.',
+                'message' => 'The selected main character has no ESI refresh token in SeAT. Re-authorize that character.',
             ])->header('Cache-Control', 'no-store');
         }
 
@@ -188,7 +198,7 @@ class ExplorationController extends Controller
         if (!in_array('esi-location.read_location.v1', $scopes, true)) {
             return response()->json([
                 'status' => 'needs_authorization',
-                'message' => 'Authorize esi-location.read_location.v1 for your main character in SeAT.',
+                'message' => 'The selected character is authenticated, but its SeAT token does not include esi-location.read_location.v1. Re-authorize it with that ESI scope.',
             ])->header('Cache-Control', 'no-store');
         }
 
@@ -197,8 +207,6 @@ class ExplorationController extends Controller
                 'client_id' => config('eve.client_id'),
                 'secret' => config('eve.client_secret'),
                 'refresh_token' => $token->refresh_token,
-                'token' => $token->token,
-                'scopes' => $scopes,
             ]));
 
             $response = $esi->invoke('get', '/characters/{character_id}/location/', [
@@ -210,22 +218,28 @@ class ExplorationController extends Controller
             if ($systemId < 1) {
                 return response()->json([
                     'status' => 'unavailable',
-                    'message' => 'EVE Online has not returned a current solar-system location.',
+                    'message' => 'ESI responded, but did not include a solar_system_id for this character.',
                 ])->header('Cache-Control', 'no-store');
             }
 
             return response()->json([
                 'status' => 'located',
                 'character_id' => $characterId,
-                'character_name' => $user->name ?? 'Main character',
+                'character_name' => $mainCharacter->name ?? $user->name ?? 'Main character',
                 'solar_system_id' => $systemId,
             ])->header('Cache-Control', 'no-store');
         } catch (Throwable $exception) {
             report($exception);
+            logger()->warning('Exploration live character location failed.', [
+                'user_id' => $user->id ?? null,
+                'character_id' => $characterId,
+                'exception' => get_class($exception),
+                'message' => $exception->getMessage(),
+            ]);
 
             return response()->json([
                 'status' => 'unavailable',
-                'message' => 'Live location is temporarily unavailable. Check the character ESI authorization and try again.',
+                'message' => 'SeAT found the character token, but ESI location lookup failed. Check the Laravel log for the Exploration live-location error.',
             ])->header('Cache-Control', 'no-store');
         }
     }
