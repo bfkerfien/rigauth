@@ -27,7 +27,7 @@
           <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Your live location</span>
           <span id="exploration-live-status" class="ml-2">Live location: connecting…</span>
         </div>
-        <div class="small text-muted">Click a system to toggle explored (green). Double-click a system to open its signatures.</div>
+        <div class="small text-muted">Left-click a system to toggle explored (green). Right-click a system to open its signatures.</div>
       </div>
       <div class="tab-content">
         @foreach(['Branch', 'Tenal', 'Venal'] as $region)
@@ -377,36 +377,30 @@
           }).catch(function (error) { message.textContent = error.message; })
           .finally(function () { submit.disabled = false; });
     });
-    // A single click toggles exploration. A double-click opens signatures.
-    // Delay the single-click action briefly so a double-click remains distinct.
-    var systemClickTimer = null;
+    // Left-click toggles explored state; right-click opens signatures.
     root.addEventListener('click', function (event) {
         var anchor = event.target.closest('a');
         if (anchor) event.preventDefault();
         var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node) || node.dataset.status === 'red') return;
+        if (!node || !root.contains(node)) return;
         event.preventDefault();
         event.stopPropagation();
-        if (systemClickTimer) window.clearTimeout(systemClickTimer);
-        systemClickTimer = window.setTimeout(function () {
-            systemClickTimer = null;
-            toggleSystem(node).catch(function () {});
-        }, 240);
+        if (node.dataset.status === 'red') return;
+        toggleSystem(node).catch(function () {});
     }, true);
-    root.addEventListener('dblclick', function (event) {
+    root.addEventListener('contextmenu', function (event) {
         var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node) || node.dataset.status === 'red') return;
+        if (!node || !root.contains(node)) return;
         event.preventDefault();
         event.stopPropagation();
-        if (systemClickTimer) window.clearTimeout(systemClickTimer);
-        systemClickTimer = null;
+        if (node.dataset.status === 'red') return;
         loadSignatures(node);
     }, true);
     root.querySelectorAll('.exploration-system').forEach(function (node) {
         node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
         node.setAttribute('title', node.dataset.status === 'red'
             ? node.dataset.systemName + ' — permanently excluded'
-            : node.dataset.systemName + ' — click to toggle explored; double-click for signatures');
+            : node.dataset.systemName + ' — left-click to toggle explored; right-click for signatures');
         node.addEventListener('keydown', function (event) {
             if (node.dataset.status === 'red') return;
             if (event.key === 'Enter' || event.key === ' ') {
