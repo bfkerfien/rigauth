@@ -88,31 +88,51 @@ class ExplorationController extends Controller
     }
 
     /**
-     * Fetch current sov ownership from CCP ESI and cache it for one hour.
-     * A failed refresh falls back to the last successful cached snapshot.
+     * Fetch current sovereignty claims from CCP's post-Equinox ESI endpoint.
+     * /sovereignty/map was removed at compatibility date 2026-05-19.
      */
     private function pandemicLegionSovereigntySystemIds(): array
     {
-        return Cache::remember('tc_exploration_pl_sov_system_ids', now()->addHour(), function () {
+        return Cache::remember('tc_exploration_pl_sov_system_ids_v2', now()->addMinutes(15), function () {
             $response = Http::acceptJson()
-                ->timeout(20)
+                ->withHeaders(['X-Compatibility-Date' => '2026-08-18'])
+                ->timeout(25)
                 ->retry(2, 500)
-                ->get('https://esi.evetech.net/v1/sovereignty/map/', [
+                ->get('https://esi.evetech.net/sovereignty/systems', [
                     'datasource' => 'tranquility',
                 ]);
 
             if (!$response->successful() || !is_array($response->json())) {
-                throw new RuntimeException('Unable to retrieve current sovereignty map from ESI.');
+                logger()->error('Exploration sovereignty ESI request failed.', [
+                    'status' => $response->status(),
+                    'body' => mb_substr($response->body(), 0, 1000),
+                ]);
+                return Cache::get('tc_exploration_pl_sov_system_ids_v2_stale', []);
             }
 
-            return collect($response->json())
-                ->filter(fn ($entry) => (int) ($entry['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID)
-                ->pluck('system_id')
+            $payload = $response->json();
+            $claims = $payload['solar_systems'] ?? $payload;
+            if (!is_array($claims)) {
+                logger()->error('Exploration sovereignty ESI returned an unexpected payload.');
+                return Cache::get('tc_exploration_pl_sov_system_ids_v2_stale', []);
+            }
+
+            $ids = collect($claims)
+                ->filter(function ($entry) {
+                    $claim = $entry['claim'] ?? null;
+                    return is_array($claim)
+                        && ($claim['type'] ?? null) === 'alliance'
+                        && (int) ($claim['alliance_id'] ?? 0) === self::PANDEMIC_LEGION_ALLIANCE_ID;
+                })
+                ->pluck('solar_system_id')
                 ->map(fn ($id) => (int) $id)
                 ->filter(fn ($id) => $id > 0)
                 ->unique()
                 ->values()
                 ->all();
+
+            Cache::put('tc_exploration_pl_sov_system_ids_v2_stale', $ids, now()->addDays(7));
+            return $ids;
         });
     }
 
