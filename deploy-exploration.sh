@@ -4,7 +4,6 @@ set -Eeuo pipefail
 REPO="/opt/rigauth"
 SEAT_DIR="/opt/seat-docker"
 WEB="$SEAT_DIR/packages/eveseat/web"
-PATCH="$REPO/patches/0006-exploration-section.patch"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP="/root/rigauth-exploration-backup-$STAMP"
 SUCCESS=0
@@ -39,7 +38,7 @@ trap rollback EXIT
 
 cd "$REPO"
 [[ -d .git ]] || { echo "STOP: $REPO is not a Git checkout."; exit 1; }
-[[ -f "$PATCH" && -d "$WEB" && -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || {
+[[ -d "$WEB" && -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" ]] || {
   echo "STOP: Exploration patch or expected SeAT source files are missing."
   exit 1
 }
