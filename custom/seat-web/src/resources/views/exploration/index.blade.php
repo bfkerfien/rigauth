@@ -150,7 +150,7 @@
 .exploration-card .btn-outline-secondary:hover { color: #fff; background: #25364d; }
 .exploration-modal-backdrop { display:none; position:fixed; inset:0; z-index:1055; background:rgba(0,0,0,.78); padding:4vh 2vw; overflow:auto; }
 .exploration-modal-backdrop.is-open { display:flex; align-items:flex-start; justify-content:center; }
-.exploration-modal { width:min(1100px, 96vw); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
+.exploration-modal { position:relative; width:min(1100px, 96vw); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
 .exploration-wormhole-backdrop { display:none; position:absolute; inset:0; z-index:2; background:rgba(4,9,17,.96); padding:1rem; }
 .exploration-wormhole-backdrop.is-open { display:flex; align-items:center; justify-content:center; }
 .exploration-wormhole-panel { width:min(620px, 96%); background:#111a29; color:#dbe5f1; border:1px solid #52657e; border-radius:7px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
