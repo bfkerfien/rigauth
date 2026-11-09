@@ -20,6 +20,7 @@ FILES=(
   "src/database/migrations/2026_11_08_000002_create_tc_exploration_signatures_table.php"
   "src/database/migrations/2026_11_08_000003_add_wormhole_notes_to_tc_exploration_signatures.php"
   "src/database/migrations/2026_11_08_000004_ensure_wormhole_note_columns.php"
+  "src/database/migrations/2026_11_09_000001_create_tc_exploration_system_scans_table.php"
   "src/resources/views/exploration/index.blade.php"
   "src/resources/exploration/layouts.php"
 )
@@ -119,6 +120,10 @@ if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_08_000004_ensure_wor
   echo "ERROR: Wormhole notes schema repair migration is not recorded as applied."
   exit 1
 fi
+if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000001_create_tc_exploration_system_scans_table'; then
+  echo "ERROR: Exploration system scan history migration is not recorded as applied."
+  exit 1
+fi
 
 CURRENT_STEP="clearing route cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
@@ -153,6 +158,10 @@ printf '%s\\n' "$ROUTES" | grep -qi 'wormhole-notes' || {
 }
 printf '%s\\n' "$ROUTES" | grep -qi 'player-location' || {
   echo "ERROR: Player location route is missing. System Information cannot load."
+  exit 1
+}
+printf '%s\\n' "$ROUTES" | grep -qi 'system-scans' || {
+  echo "ERROR: System scan tracking routes are missing."
   exit 1
 }
 
