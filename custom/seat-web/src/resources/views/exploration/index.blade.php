@@ -96,9 +96,9 @@
               <table class="table table-sm exploration-signature-table mb-0" id="exploration-wormholes-table">
                 <thead><tr>
                   <th>Region</th><th>System</th><th>Signature</th><th>Group</th><th>Type</th><th>Name</th>
-                  <th>Strength</th><th>Last Scanned</th><th>Wormhole Type</th><th>Connection System</th><th>Added Exits</th><th>Remove</th>
+                  <th>Strength</th><th>Last Scanned</th><th>First Recorded</th><th>Wormhole Type</th><th>Connection System</th><th>Added Exits</th><th>Probe Scanner Data</th><th>Remove</th>
                 </tr></thead>
-                <tbody id="exploration-wormholes-body"><tr><td colspan="12" class="text-muted">Loading…</td></tr></tbody>
+                <tbody id="exploration-wormholes-body"><tr><td colspan="14" class="text-muted">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -864,7 +864,7 @@
         body.replaceChildren();
         if (!wormholeRows.length) {
             var empty = document.createElement('tr'), cell = document.createElement('td');
-            cell.colSpan = 12; cell.className = 'text-muted'; cell.textContent = 'No wormhole signatures are currently recorded.';
+            cell.colSpan = 14; cell.className = 'text-muted'; cell.textContent = 'No wormhole signatures are currently recorded.';
             empty.appendChild(cell); body.appendChild(empty); return;
         }
         wormholeRows.forEach(function (item) {
@@ -882,9 +882,11 @@
             addCell(item.signature_name);
             addCell(item.signal_strength == null ? '—' : Number(item.signal_strength).toFixed(1) + '%');
             addCell(wormholeDate(item.scanned_at));
+            addCell(wormholeDate(item.created_at));
             addCell(item.wormhole_type);
             addCell(item.connection_system);
             addCell(item.wormhole_exits);
+            addCell(item.raw_data);
             var action = document.createElement('td');
             var button = document.createElement('button');
             button.type = 'button';
