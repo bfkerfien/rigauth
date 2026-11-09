@@ -453,9 +453,20 @@ class ExplorationController extends Controller
      */
     public function systemScans(): JsonResponse
     {
+        // Backfill the displayed last-scan value from existing signature rows
+        // until a system receives its first explicit scan-history entry.
+        $signatureScans = DB::table('tc_exploration_signatures')
+            ->select('solar_system_id')
+            ->selectRaw('MAX(scanned_at) as signature_scanned_at')
+            ->selectRaw('COUNT(*) as existing_signature_count')
+            ->groupBy('solar_system_id');
+
         $systems = DB::table('mapDenormalize as systems')
             ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
             ->leftJoin('tc_exploration_system_scans as scans', 'scans.solar_system_id', '=', 'systems.itemID')
+            ->leftJoinSub($signatureScans, 'signature_scans', function ($join) {
+                $join->on('signature_scans.solar_system_id', '=', 'systems.itemID');
+            })
             ->where('systems.groupID', 5)
             ->whereIn('regions.itemName', self::REGIONS)
             ->orderBy('regions.itemName')
@@ -464,8 +475,8 @@ class ExplorationController extends Controller
                 'regions.itemName as region_name',
                 'systems.itemID as solar_system_id',
                 'systems.itemName as system_name',
-                'scans.scanned_at',
-                'scans.signature_count',
+                DB::raw('COALESCE(scans.scanned_at, signature_scans.signature_scanned_at) as scanned_at'),
+                DB::raw('COALESCE(scans.signature_count, signature_scans.existing_signature_count) as signature_count'),
             ]);
 
         return response()->json(['systems' => $systems]);
