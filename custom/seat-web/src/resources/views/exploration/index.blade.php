@@ -19,6 +19,9 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-all-wormholes-tab" data-toggle="tab" href="#exploration-all-wormholes" role="tab" aria-controls="exploration-all-wormholes" aria-selected="false">All Wormholes</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-system-scans-tab" data-toggle="tab" href="#exploration-system-scans" role="tab" aria-controls="exploration-system-scans" aria-selected="false">System Scan History</a>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -87,6 +90,25 @@
               </table>
             </div>
           </div>
+
+        <div class="tab-pane fade" id="exploration-system-scans" role="tabpanel" aria-labelledby="exploration-system-scans-tab">
+          <div class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+              <div>
+                <h4 class="mb-1">System Scan History</h4>
+                <p class="small text-muted mb-0">Last recorded scan for every system in Branch, Tenal, and Venal.</p>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-system-scans-refresh">Refresh list</button>
+            </div>
+            <p id="exploration-system-scans-status" class="small text-muted">Loading system scan history…</p>
+            <div class="table-responsive">
+              <table class="table table-sm exploration-signature-table mb-0">
+                <thead><tr><th>Region</th><th>System</th><th>Last scanned</th><th>Scan result</th></tr></thead>
+                <tbody id="exploration-system-scans-body"><tr><td colspan="4" class="text-muted">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
     @endif
@@ -109,7 +131,10 @@
           <textarea id="exploration-scan-input" class="form-control" rows="12" placeholder="Paste Probe Scanner results here…"></textarea>
           <div class="d-flex justify-content-between align-items-center mt-2">
             <span id="exploration-scan-message" class="small text-muted"></span>
-            <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace scan</button>
+            <div>
+              <button type="button" class="btn btn-outline-warning mr-2" id="exploration-scan-empty">Scanned but no sigs found</button>
+              <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace scan</button>
+            </div>
           </div>
         </section>
       </div>
@@ -533,6 +558,32 @@
     });
     signatureModal.addEventListener('click', function (event) { if (event.target === signatureModal) closeSignatureModal(); });
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && signatureModal.classList.contains('is-open')) closeSignatureModal(); });
+    signatureModal.querySelector('#exploration-scan-empty').addEventListener('click', function () {
+        if (!selectedSystem) return;
+        var button = this;
+        var message = signatureModal.querySelector('#exploration-scan-message');
+        button.disabled = true;
+        message.textContent = 'Recording completed scan with no signatures…';
+        fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/scanned-empty', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok) throw new Error(data.message || 'Could not record empty scan.');
+                return data;
+            });
+        }).then(function (data) {
+            renderSignatures([]);
+            signatureModal.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · Scanned ' + data.scanned_at + ' · No signatures found';
+            message.textContent = 'Scan recorded. Previous signatures for this system were cleared.';
+            var historyPane = root.querySelector('#exploration-system-scans');
+            if (historyPane && historyPane.classList.contains('active')) loadSystemScans();
+        }).catch(function (error) {
+            message.textContent = error.message;
+        }).finally(function () {
+            button.disabled = false;
+        });
+    });
     signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
         if (!selectedSystem) return;
         var input = signatureModal.querySelector('#exploration-scan-input');
@@ -715,6 +766,65 @@
             body.appendChild(row);
         });
     }
+
+    function loadSystemScans() {
+        var status = root.querySelector('#exploration-system-scans-status');
+        var body = root.querySelector('#exploration-system-scans-body');
+        if (!status || !body) return;
+        status.textContent = 'Loading system scan history…';
+        body.replaceChildren();
+        fetch(@json(url('/exploration/system-scans')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Could not load system scan history.');
+            return response.json();
+        }).then(function (data) {
+            var systems = data.systems || [];
+            systems.forEach(function (item) {
+                var row = document.createElement('tr');
+                function cell(value) {
+                    var td = document.createElement('td');
+                    td.textContent = value == null ? '' : String(value);
+                    row.appendChild(td);
+                }
+                cell(item.region_name);
+                cell(item.system_name);
+                var scanned = item.scanned_at ? new Date(String(item.scanned_at).replace(' ', 'T')) : null;
+                cell(scanned && !isNaN(scanned.getTime()) ? scanned.toLocaleString() : 'Never');
+                cell(item.scanned_at ? (Number(item.signature_count) === 0 ? 'Scanned — no signatures' : Number(item.signature_count) + ' signatures found') : 'Not scanned');
+                body.appendChild(row);
+            });
+            status.textContent = systems.length + ' systems tracked. The list includes systems that have never been scanned.';
+        }).catch(function (error) {
+            status.textContent = error.message;
+            var row = document.createElement('tr');
+            var td = document.createElement('td');
+            td.colSpan = 4;
+            td.textContent = error.message;
+            row.appendChild(td);
+            body.appendChild(row);
+        });
+    }
+    var systemScansTab = root.querySelector('#exploration-system-scans-tab');
+    if (systemScansTab) systemScansTab.addEventListener('click', function (event) {
+        event.preventDefault();
+        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
+            link.classList.remove('active');
+            link.setAttribute('aria-selected', 'false');
+        });
+        systemScansTab.classList.add('active');
+        systemScansTab.setAttribute('aria-selected', 'true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) {
+            pane.classList.remove('show', 'active');
+        });
+        var pane = root.querySelector('#exploration-system-scans');
+        if (pane) pane.classList.add('show', 'active');
+        loadSystemScans();
+    });
+    var systemScansRefresh = root.querySelector('#exploration-system-scans-refresh');
+    if (systemScansRefresh) systemScansRefresh.addEventListener('click', loadSystemScans);
+
     var allWormholesTab = root.querySelector('#exploration-all-wormholes-tab');
     if (allWormholesTab) allWormholesTab.addEventListener('click', function (event) {
         event.preventDefault();
