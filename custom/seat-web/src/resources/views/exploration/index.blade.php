@@ -19,6 +19,9 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-last-scanned-tab" data-toggle="tab" href="#exploration-last-scanned" role="tab" aria-controls="exploration-last-scanned" aria-selected="false">Last Scanned</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-wormholes-tab" data-toggle="tab" href="#exploration-wormholes" role="tab" aria-controls="exploration-wormholes" aria-selected="false">Wormholes</a>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -79,6 +82,24 @@
             <p id="exploration-last-scanned-status" class="small text-muted">Open this tab to load scan history.</p>
             <div id="exploration-last-scanned-groups">
               <p class="text-muted mb-0">Loading…</p>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="exploration-wormholes" role="tabpanel" aria-labelledby="exploration-wormholes-tab">
+          <div class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+              <div><h4 class="mb-1">Recorded Wormholes</h4><p class="small text-muted mb-0">Wormhole signatures saved across Branch, Tenal, and Venal. Delete an individual signature when its connection has expired.</p></div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-wormholes-refresh">Refresh list</button>
+            </div>
+            <p id="exploration-wormholes-status" class="small text-muted">Open this tab to load recorded wormholes.</p>
+            <div class="table-responsive">
+              <table class="table table-sm exploration-signature-table mb-0" id="exploration-wormholes-table">
+                <thead><tr>
+                  <th>Region</th><th>System</th><th>Signature</th><th>Group</th><th>Type</th><th>Name</th>
+                  <th>Strength</th><th>Last Scanned</th><th>Wormhole Type</th><th>Connection System</th><th>Added Exits</th><th>Remove</th>
+                </tr></thead>
+                <tbody id="exploration-wormholes-body"><tr><td colspan="12" class="text-muted">Loading…</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -207,6 +228,11 @@
 .exploration-sort { border:0; padding:0; background:transparent; color:inherit; font:inherit; font-weight:600; cursor:pointer; }
 .exploration-sort:hover, .exploration-sort:focus { color:#fff; text-decoration:underline; outline:none; }
 .exploration-sort span { display:inline-block; min-width:.8em; margin-left:.2rem; color:#55b9ff; }
+.exploration-wormhole-delete { color:#f07878; border:0; background:transparent; padding:.2rem .45rem; cursor:pointer; }
+.exploration-wormhole-delete:hover { color:#ffb0b0; }
+.exploration-wormhole-delete:disabled { opacity:.45; cursor:wait; }
+#exploration-wormholes-table td { min-width:90px; }
+#exploration-wormholes-table td:last-child { min-width:54px; text-align:center; }
 .exploration-signature-table th { color:#9eafc5; position:sticky; top:0; background:#111a29; }
 #exploration-scan-input { min-height:280px; background:#08111e; color:#e5edf7; border-color:#52657e; font-family:monospace; }
 @media(max-width:760px) { .exploration-modal-body { grid-template-columns:1fr; } .exploration-signature-list { max-height:35vh; } }
@@ -825,6 +851,117 @@
     });
     var lastScannedRefresh=root.querySelector('#exploration-last-scanned-refresh');
     if(lastScannedRefresh) lastScannedRefresh.addEventListener('click',loadLastScanned);
+
+    var wormholeRows = [];
+    function wormholeDate(value) {
+        if (!value) return '—';
+        var date = new Date(String(value).replace(' ', 'T'));
+        return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    }
+    function renderWormholes() {
+        var body = root.querySelector('#exploration-wormholes-body');
+        if (!body) return;
+        body.replaceChildren();
+        if (!wormholeRows.length) {
+            var empty = document.createElement('tr'), cell = document.createElement('td');
+            cell.colSpan = 12; cell.className = 'text-muted'; cell.textContent = 'No wormhole signatures are currently recorded.';
+            empty.appendChild(cell); body.appendChild(empty); return;
+        }
+        wormholeRows.forEach(function (item) {
+            var row = document.createElement('tr');
+            function addCell(value) {
+                var td = document.createElement('td');
+                td.textContent = value == null || value === '' ? '—' : String(value);
+                row.appendChild(td);
+            }
+            addCell(item.region_name);
+            addCell(item.system_name);
+            addCell(item.signature_id);
+            addCell(item.group_name);
+            addCell(item.type_name);
+            addCell(item.signature_name);
+            addCell(item.signal_strength == null ? '—' : Number(item.signal_strength).toFixed(1) + '%');
+            addCell(wormholeDate(item.scanned_at));
+            addCell(item.wormhole_type);
+            addCell(item.connection_system);
+            addCell(item.wormhole_exits);
+            var action = document.createElement('td');
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'exploration-wormhole-delete';
+            button.dataset.region = item.region_name;
+            button.dataset.systemId = item.solar_system_id;
+            button.dataset.signatureId = item.signature_id;
+            button.title = 'Delete expired wormhole ' + item.signature_id;
+            button.setAttribute('aria-label', 'Delete expired wormhole ' + item.signature_id);
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-trash-alt';
+            button.appendChild(icon);
+            action.appendChild(button);
+            row.appendChild(action);
+            body.appendChild(row);
+        });
+    }
+    function loadWormholes() {
+        var status = root.querySelector('#exploration-wormholes-status');
+        var body = root.querySelector('#exploration-wormholes-body');
+        if (!status || !body) return;
+        status.textContent = 'Loading recorded wormholes…';
+        fetch(@json(url('/exploration/all-wormholes')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Could not load recorded wormholes.');
+            return response.json();
+        }).then(function (data) {
+            wormholeRows = data.wormholes || [];
+            renderWormholes();
+            status.textContent = wormholeRows.length + ' wormhole signature' + (wormholeRows.length === 1 ? '' : 's') + ' recorded.';
+        }).catch(function (error) {
+            status.textContent = error.message;
+            body.textContent = error.message;
+        });
+    }
+    root.addEventListener('click', function (event) {
+        var button = event.target.closest('.exploration-wormhole-delete');
+        if (!button || !root.contains(button)) return;
+        var region = button.dataset.region;
+        var systemId = button.dataset.systemId;
+        var signatureId = button.dataset.signatureId;
+        if (!window.confirm('Delete wormhole ' + signatureId + ' in ' + region + '? This removes only this signature record.')) return;
+        button.disabled = true;
+        fetch(@json(url('/exploration')) + '/' + encodeURIComponent(region) + '/systems/' + encodeURIComponent(systemId) + '/signatures/' + encodeURIComponent(signatureId), {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            if (!response.ok) return response.json().then(function (data) { throw new Error(data.message || 'Could not delete this wormhole.'); });
+            return response.json();
+        }).then(function () {
+            wormholeRows = wormholeRows.filter(function (item) {
+                return !(String(item.region_name) === region && String(item.solar_system_id) === String(systemId) && String(item.signature_id) === signatureId);
+            });
+            renderWormholes();
+            var status = root.querySelector('#exploration-wormholes-status');
+            if (status) status.textContent = wormholeRows.length + ' wormhole signature' + (wormholeRows.length === 1 ? '' : 's') + ' recorded.';
+        }).catch(function (error) {
+            window.alert(error.message || 'Could not delete this wormhole.');
+            button.disabled = false;
+        });
+    });
+    var wormholesTab = root.querySelector('#exploration-wormholes-tab');
+    if (wormholesTab) wormholesTab.addEventListener('click', function (event) {
+        event.preventDefault();
+        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
+            link.classList.remove('active'); link.setAttribute('aria-selected', 'false');
+        });
+        wormholesTab.classList.add('active'); wormholesTab.setAttribute('aria-selected', 'true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) { pane.classList.remove('show', 'active'); });
+        var pane = root.querySelector('#exploration-wormholes');
+        if (pane) pane.classList.add('show', 'active');
+        loadWormholes();
+    });
+    var wormholesRefresh = root.querySelector('#exploration-wormholes-refresh');
+    if (wormholesRefresh) wormholesRefresh.addEventListener('click', loadWormholes);
 
     var infoTab = root.querySelector('#exploration-system-information-tab');
     if (infoTab) infoTab.addEventListener('click', function (event) {
