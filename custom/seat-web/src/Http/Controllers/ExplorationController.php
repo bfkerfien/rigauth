@@ -448,6 +448,68 @@ class ExplorationController extends Controller
      * The entered timestamp is the signature record creation time, not its
      * most recent scan/update time.
      */
+    /**
+     * List every system in the tracked regions with its most recent scan result.
+     */
+    public function systemScans(): JsonResponse
+    {
+        $systems = DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->leftJoin('tc_exploration_system_scans as scans', 'scans.solar_system_id', '=', 'systems.itemID')
+            ->where('systems.groupID', 5)
+            ->whereIn('regions.itemName', self::REGIONS)
+            ->orderBy('regions.itemName')
+            ->orderBy('systems.itemName')
+            ->get([
+                'regions.itemName as region_name',
+                'systems.itemID as solar_system_id',
+                'systems.itemName as system_name',
+                'scans.scanned_at',
+                'scans.signature_count',
+            ]);
+
+        return response()->json(['systems' => $systems]);
+    }
+
+    /**
+     * Record that a system was checked and no signatures were found.
+     * This is a completed scan, so any previous signatures for that system
+     * are removed to keep the saved scan state accurate.
+     */
+    public function markNoSignatures(Request $request, string $region, int $systemId): JsonResponse
+    {
+        abort_unless(in_array($region, self::REGIONS, true), 404);
+        $systemName = $this->explorationSystem($region, $systemId);
+        abort_unless($systemName, 404);
+
+        DB::transaction(function () use ($request, $region, $systemId, $systemName) {
+            DB::table('tc_exploration_signatures')
+                ->where('region_name', $region)
+                ->where('solar_system_id', $systemId)
+                ->delete();
+
+            DB::table('tc_exploration_system_scans')->updateOrInsert(
+                ['solar_system_id' => $systemId],
+                [
+                    'region_name' => $region,
+                    'system_name' => $systemName,
+                    'signature_count' => 0,
+                    'scanned_by' => $request->user()->id,
+                    'scanned_at' => now(),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        });
+
+        return response()->json([
+            'status' => 'scanned_empty',
+            'system' => $systemName,
+            'scanned_at' => now()->toDateTimeString(),
+            'signature_count' => 0,
+        ]);
+    }
+
     public function allWormholes(): JsonResponse
     {
         $rows = DB::table('tc_exploration_signatures')
@@ -561,10 +623,22 @@ class ExplorationController extends Controller
             return response()->json(['message' => 'No valid cosmic signatures found. The previous scan was left unchanged. Check that rows include signature IDs and signal strengths.'], 422);
         }
 
-        DB::transaction(function () use ($systemId, $parsed) {
+        DB::transaction(function () use ($systemId, $region, $systemName, $request, $parsed) {
             // New scan submissions replace the complete previous list for this system.
             DB::table('tc_exploration_signatures')->where('solar_system_id', $systemId)->delete();
             DB::table('tc_exploration_signatures')->insert(array_values($parsed));
+            DB::table('tc_exploration_system_scans')->updateOrInsert(
+                ['solar_system_id' => $systemId],
+                [
+                    'region_name' => $region,
+                    'system_name' => $systemName,
+                    'signature_count' => count($parsed),
+                    'scanned_by' => $request->user()->id,
+                    'scanned_at' => now(),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
         });
         return response()->json(['status' => 'saved', 'system' => $systemName, 'count' => count($parsed)]);
     }
