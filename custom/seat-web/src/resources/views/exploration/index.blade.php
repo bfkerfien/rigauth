@@ -19,6 +19,11 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-last-scanned-tab" data-toggle="tab" href="#exploration-last-scanned" role="tab" aria-controls="exploration-last-scanned" aria-selected="false">Last Scanned</a>
       </li>
+      @if($canManageCynoInfrastructure)
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-cyno-infrastructure-tab" data-toggle="tab" href="#exploration-cyno-infrastructure" role="tab" aria-controls="exploration-cyno-infrastructure" aria-selected="false">Cyno Infrastructure</a>
+      </li>
+      @endif
       <li class="nav-item">
         <a class="nav-link" id="exploration-wormholes-tab" data-toggle="tab" href="#exploration-wormholes" role="tab" aria-controls="exploration-wormholes" aria-selected="false">Wormholes</a>
       </li>
@@ -87,6 +92,18 @@
             </div>
           </div>
         </div>
+        @if($canManageCynoInfrastructure)
+        <div class="tab-pane fade" id="exploration-cyno-infrastructure" role="tabpanel" aria-labelledby="exploration-cyno-infrastructure-tab">
+          <div class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+              <div><h4 class="mb-1">Cyno Infrastructure</h4><p class="small text-muted mb-0">Manually mark Pharolux Cyno Generators and Tenebrex Cyno Jammers across Branch, Tenal, and Venal. Changes save immediately.</p></div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-cyno-refresh">Refresh systems</button>
+            </div>
+            <p id="exploration-cyno-status" class="small text-muted">Open this tab to load systems.</p>
+            <div id="exploration-cyno-systems"></div>
+          </div>
+        </div>
+        @endif
         <div class="tab-pane fade" id="exploration-wormholes" role="tabpanel" aria-labelledby="exploration-wormholes-tab">
           <div class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
@@ -1000,6 +1017,64 @@
         }
         loadSystemInformation();
     });
+
+    var manualCynoRows = [];
+    function renderManualCynoSystems() {
+        var container = root.querySelector('#exploration-cyno-systems');
+        if (!container) return;
+        container.replaceChildren();
+        ['Branch', 'Tenal', 'Venal'].forEach(function (region) {
+            var items = manualCynoRows.filter(function (item) { return item.region_name === region; });
+            var details = document.createElement('details'); details.className = 'exploration-scan-group'; details.open = region === 'Branch';
+            var summary = document.createElement('summary'); summary.textContent = region + ' — ' + items.length + ' systems'; details.appendChild(summary);
+            var wrap = document.createElement('div'); wrap.className = 'table-responsive';
+            var table = document.createElement('table'); table.className = 'table table-sm exploration-signature-table mb-0';
+            var head = document.createElement('thead'), header = document.createElement('tr');
+            ['System', 'Cyno Generator', 'Cyno Jammer'].forEach(function (label) { var th=document.createElement('th'); th.textContent=label; header.appendChild(th); });
+            head.appendChild(header); table.appendChild(head);
+            var body = document.createElement('tbody');
+            items.forEach(function (item) {
+                var row=document.createElement('tr'), name=document.createElement('td'); name.textContent=item.system_name; row.appendChild(name);
+                [['cyno_generator','Generator'],['cyno_jammer','Jammer']].forEach(function (field) {
+                    var td=document.createElement('td'), label=document.createElement('label'); label.className='mb-0';
+                    var checkbox=document.createElement('input'); checkbox.type='checkbox';
+                    checkbox.checked=Number(item[field[0]])===1 || item[field[0]]===true;
+                    checkbox.setAttribute('aria-label',item.system_name+' '+field[1]);
+                    checkbox.addEventListener('change',function(){
+                        checkbox.disabled=true;
+                        var payload={cyno_generator:field[0]==='cyno_generator'?checkbox.checked:(Number(item.cyno_generator)===1||item.cyno_generator===true),
+                            cyno_jammer:field[0]==='cyno_jammer'?checkbox.checked:(Number(item.cyno_jammer)===1||item.cyno_jammer===true)};
+                        fetch(@json(url('/exploration/cyno-infrastructure/manual'))+'/'+encodeURIComponent(item.solar_system_id),{
+                            method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json','Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+                            body:JSON.stringify(payload)
+                        }).then(function(response){if(!response.ok)throw new Error('Could not save '+item.system_name+'.');return response.json();})
+                        .then(function(saved){item.cyno_generator=saved.cyno_generator?1:0;item.cyno_jammer=saved.cyno_jammer?1:0;loadCynoInfrastructure();status.textContent='Saved '+item.system_name+'.';})
+                        .catch(function(error){checkbox.checked=!checkbox.checked;window.alert(error.message);})
+                        .finally(function(){checkbox.disabled=false;});
+                    });
+                    label.appendChild(checkbox);label.appendChild(document.createTextNode(' '+field[1]));td.appendChild(label);row.appendChild(td);
+                });
+                body.appendChild(row);
+            });
+            table.appendChild(body);wrap.appendChild(table);details.appendChild(wrap);container.appendChild(details);
+        });
+    }
+    function loadManualCynoSystems() {
+        var status=root.querySelector('#exploration-cyno-status');if(!status)return;
+        status.textContent='Loading Branch, Tenal, and Venal systems…';
+        fetch(@json(url('/exploration/cyno-infrastructure/manual')),{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},cache:'no-store'})
+        .then(function(response){if(!response.ok)throw new Error('Could not load manual cyno infrastructure.');return response.json();})
+        .then(function(data){manualCynoRows=data.systems||[];renderManualCynoSystems();status.textContent=manualCynoRows.length+' systems available. Checkbox changes save immediately.';})
+        .catch(function(error){status.textContent=error.message;});
+    }
+    var cynoTab=root.querySelector('#exploration-cyno-infrastructure-tab');
+    if(cynoTab)cynoTab.addEventListener('click',function(event){
+        event.preventDefault();root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function(link){link.classList.remove('active');link.setAttribute('aria-selected','false');});
+        cynoTab.classList.add('active');cynoTab.setAttribute('aria-selected','true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function(pane){pane.classList.remove('show','active');});
+        var pane=root.querySelector('#exploration-cyno-infrastructure');if(pane)pane.classList.add('show','active');loadManualCynoSystems();
+    });
+    var cynoRefresh=root.querySelector('#exploration-cyno-refresh');if(cynoRefresh)cynoRefresh.addEventListener('click',loadManualCynoSystems);
 
     // Optional ESI markers: symbols only, with no cyno-specific rings or highlights.
     function loadCynoInfrastructure() {
