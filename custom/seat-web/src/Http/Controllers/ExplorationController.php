@@ -345,6 +345,56 @@ class ExplorationController extends Controller
     }
 
     /**
+     * Experimental read-only check for FLEX cyno structures.
+     *
+     * ESI sovereignty/structures is not a complete directory of all FLEX
+     * structures, so only explicit Pharolux/Tenebrex matches are returned.
+     * An empty result must never be interpreted as proof that a system is clear.
+     */
+    public function cynoInfrastructure(): JsonResponse
+    {
+        $data = Cache::remember('tc_exploration_cyno_infrastructure_v1', now()->addMinutes(10), function () {
+            $response = Http::acceptJson()
+                ->withHeaders(['X-Compatibility-Date' => '2026-08-18'])
+                ->timeout(20)
+                ->retry(1, 500)
+                ->get('https://esi.evetech.net/sovereignty/structures', [
+                    'datasource' => 'tranquility',
+                ]);
+
+            if (!$response->successful() || !is_array($response->json())) {
+                logger()->warning('Exploration cyno infrastructure ESI check failed.', [
+                    'status' => $response->status(),
+                    'body' => mb_substr($response->body(), 0, 500),
+                ]);
+                return [
+                    'available' => false,
+                    'beacon_system_ids' => [],
+                    'jammer_system_ids' => [],
+                    'reported_structure_count' => 0,
+                ];
+            }
+
+            $structures = collect($response->json());
+            return [
+                'available' => true,
+                'beacon_system_ids' => $structures
+                    ->filter(fn ($row) => (int) ($row['structure_type_id'] ?? 0) === 35840)
+                    ->pluck('solar_system_id')->map(fn ($id) => (int) $id)->filter()->unique()->values()->all(),
+                'jammer_system_ids' => $structures
+                    ->filter(fn ($row) => (int) ($row['structure_type_id'] ?? 0) === 37534)
+                    ->pluck('solar_system_id')->map(fn ($id) => (int) $id)->filter()->unique()->values()->all(),
+                'reported_structure_count' => $structures->count(),
+            ];
+        });
+
+        return response()->json($data + [
+            'coverage' => 'sovereignty_endpoint_only',
+            'note' => 'Only structures explicitly reported by ESI are marked. An empty result does not confirm that no cyno structure exists.',
+        ])->header('Cache-Control', 'no-store');
+    }
+
+    /**
      * Return the authenticated user's main character location for the live map overlay.
      * Location is fetched on demand and is never persisted by this feature.
      */
