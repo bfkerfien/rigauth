@@ -23,6 +23,7 @@ FILES=(
   "src/database/migrations/2026_11_09_000001_create_tc_exploration_system_scans_table.php"
   "src/database/migrations/2026_11_09_000002_add_scan_status_to_tc_exploration_system_scans.php"
   "src/database/migrations/2026_11_09_000003_create_tc_exploration_cyno_infrastructure_table.php"
+  "src/database/migrations/2026_11_09_000004_create_tc_exploration_asteroid_sites_table.php"
   "src/resources/views/exploration/index.blade.php"
   "src/resources/exploration/layouts.php"
 )
@@ -132,6 +133,10 @@ if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000002_add_scan_s
 fi
 if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000003_create_tc_exploration_cyno_infrastructure_table'; then
   echo "ERROR: Manual cyno infrastructure migration is not recorded as applied."
+  exit 1
+fi
+if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000004_create_tc_exploration_asteroid_sites_table'; then
+  echo "ERROR: Exploration asteroid sites migration is not recorded as applied."
   exit 1
 fi
 
