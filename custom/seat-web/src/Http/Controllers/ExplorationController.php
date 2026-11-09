@@ -498,7 +498,8 @@ class ExplorationController extends Controller
             [
                 'region_name' => $region,
                 'system_name' => $systemName,
-                'signature_count' => null,
+                // The column is NOT NULL; zero means this action did not submit a signature list.
+                'signature_count' => 0,
                 'scan_status' => 'timestamp_only',
                 'scanned_by' => $request->user()->id,
                 'scanned_at' => now(),
