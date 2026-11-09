@@ -61,15 +61,15 @@ fi
 
 echo "Checking SeAT manufacturing SDE data..."
 sudo docker compose -f "$COMPOSE" exec -T front php artisan tinker --execute='
-use Illuminate\\Support\\Facades\\Schema;
-use Illuminate\\Support\\Facades\\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 foreach (["invTypes", "industryActivityProducts", "industryActivityMaterials"] as $table) {
-    if (!Schema::hasTable($table)) { fwrite(STDERR, "Missing table: ".$table."\\n"); exit(2); }
+    if (!Schema::hasTable($table)) { fwrite(STDERR, "Missing table: ".$table."\n"); exit(2); }
 }
 $materials = DB::table("industryActivityMaterials")->where("activityID", 1)->count();
 $products = DB::table("industryActivityProducts")->where("activityID", 1)->count();
-if ($materials < 1 || $products < 1) { fwrite(STDERR, "Manufacturing SDE rows are missing.\\n"); exit(2); }
-echo "SDE ready: ".$materials." material rows; ".$products." product rows.\\n";
+if ($materials < 1 || $products < 1) { fwrite(STDERR, "Manufacturing SDE rows are missing.\n"); exit(2); }
+echo "SDE ready: ".$materials." material rows; ".$products." product rows.\n";
 ' || { echo "STOP: Capital Builder SDE preflight failed; no SeAT files changed."; exit 1; }
 
 sudo mkdir -p "$BACKUP"
@@ -100,7 +100,7 @@ anchor = "include __DIR__ . '/Routes/Home.php';"
 if include not in routes:
     if routes.count(anchor) != 1:
         raise SystemExit("STOP: could not find one unique Home route include anchor.")
-    routes = routes.replace(anchor, anchor + "\\n        " + include, 1)
+    routes = routes.replace(anchor, anchor + "\n        " + include, 1)
 
 link = """        <li class="nav-item">
           <a href="{{ route('seatcore::capital-builder.index') }}" class="nav-link {{ Request::segment(1) === 'capital-builder' ? 'active' : null }}">
