@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -171,4 +171,12 @@ Route::group([
+@@ -171,4 +171,13 @@ Route::group([
          });
 
 +        // Triglavian administration: superusers and the explicitly authorized
