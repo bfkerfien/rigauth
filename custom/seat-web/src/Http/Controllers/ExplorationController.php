@@ -569,7 +569,18 @@ class ExplorationController extends Controller
         $signatures = DB::table('tc_exploration_signatures')
             ->where('solar_system_id', $systemId)->orderBy('signature_id')
             ->get(['signature_id', 'group_name', 'type_name', 'signature_name', 'signal_strength', 'scanned_at', 'wormhole_type', 'connection_system', 'wormhole_exits']);
-        return response()->json(['system' => $systemName, 'signatures' => $signatures, 'scanned_at' => $signatures->max('scanned_at')]);
+        $asteroidSites = Schema::hasTable('tc_exploration_asteroid_sites')
+            ? DB::table('tc_exploration_asteroid_sites')
+                ->where('solar_system_id', $systemId)
+                ->orderBy('site_name')
+                ->get(['site_name', 'site_category', 'notes'])
+            : collect();
+        return response()->json([
+            'system' => $systemName,
+            'signatures' => $signatures,
+            'asteroid_sites' => $asteroidSites,
+            'scanned_at' => $signatures->max('scanned_at'),
+        ]);
     }
 
     /**
