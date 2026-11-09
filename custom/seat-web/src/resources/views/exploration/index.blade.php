@@ -755,7 +755,7 @@
             var items = sortedScanRows(scanRows.filter(function (item) { return item.region_name === region; }));
             var details = document.createElement('details');
             details.className = 'exploration-scan-group';
-            details.open = true;
+            details.open = false;
             var summary = document.createElement('summary');
             var scannedCount = items.filter(function (item) { return !!item.scanned_at; }).length;
             summary.textContent = region + ' — ' + scannedCount + ' of ' + items.length + ' systems scanned';
