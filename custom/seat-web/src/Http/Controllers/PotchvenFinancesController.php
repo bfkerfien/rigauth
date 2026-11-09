@@ -24,6 +24,7 @@ class PotchvenFinancesController extends Controller
 
     /**
      * Current corporation telemetry inventory in CorpSAG3 across all stations.
+     * Read the latest successful ESI snapshot written by the finance sync worker.
      * Type 89219; every 60 units represents one site.
      */
     private function telemetryQuantity(): ?int
@@ -31,30 +32,42 @@ class PotchvenFinancesController extends Controller
         $db = DB::connection();
         $schema = $db->getSchemaBuilder();
 
-        if (!$schema->hasTable('fin_owners') || !$schema->hasTable('assetmgr_assets')) {
+        if (
+            !$schema->hasTable('fin_owners')
+            || !$schema->hasTable('fin_asset_snapshots')
+            || !$schema->hasTable('fin_asset_items')
+        ) {
             return null;
         }
 
-        $corporationId = $db->table('fin_owners')
+        $corporationOwnerId = $db->table('fin_owners')
             ->where('owner_type', 'corporation')
             ->where('is_active', 1)
-            ->value('eve_id');
+            ->value('id');
 
-        if (!$corporationId) {
+        if (!$corporationOwnerId) {
             return null;
         }
 
-        // Count the corporation's full Hangar Division 3 inventory across
-        // every office/station, including player-owned structure offices.
-        // Do not restrict location_id to NPC stations or Pochven systems.
-        return (int) $db->table('assetmgr_assets')
-            ->where('owner_kind', 'corporation')
-            ->where('owner_id', $corporationId)
-            ->where('type_id', 89219)
-            ->where('location_flag', 'CorpSAG3')
+        // The finance worker creates a complete snapshot after each successful
+        // corporation ESI asset fetch and stores only CorpSAG3 assets from every
+        // accessible office/structure. Use that snapshot, not assetmgr_assets,
+        // which is maintained by a separate synchronization pipeline.
+        $snapshotId = $db->table('fin_asset_snapshots')
+            ->where('owner_id', $corporationOwnerId)
+            ->orderByDesc('captured_at')
+            ->orderByDesc('id')
+            ->value('id');
+
+        if (!$snapshotId) {
+            return null;
+        }
+
+        return (int) $db->table('fin_asset_items')
+            ->where('snapshot_id', $snapshotId)
+            ->where('item_type_id', 89219)
             ->sum('quantity');
     }
-
 
     /**
      * Calculate one session from Division 1 corporation reward transactions.
