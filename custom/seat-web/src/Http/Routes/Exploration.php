@@ -6,6 +6,10 @@ Route::group(['prefix' => 'exploration'], function () {
     Route::get('/player-location', 'ExplorationController@playerLocation')
         ->name('seatcore::exploration.player-location');
 
+    // Experimental, read-only ESI check. Only positive structure matches are shown.
+    Route::get('/cyno-infrastructure', 'ExplorationController@cynoInfrastructure')
+        ->name('seatcore::exploration.cyno-infrastructure');
+
     Route::get('/', 'ExplorationController@index')
         ->name('seatcore::exploration.index');
 
