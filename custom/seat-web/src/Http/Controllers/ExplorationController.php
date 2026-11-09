@@ -443,6 +443,42 @@ class ExplorationController extends Controller
         return response()->json(['system' => $systemName, 'signatures' => $signatures, 'scanned_at' => $signatures->max('scanned_at')]);
     }
 
+    /**
+     * Return every recorded wormhole across the Exploration regions.
+     * The entered timestamp is the signature record creation time, not its
+     * most recent scan/update time.
+     */
+    public function allWormholes(): JsonResponse
+    {
+        $rows = DB::table('tc_exploration_signatures')
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(COALESCE(group_name, "")) LIKE ?', ['%wormhole%'])
+                    ->orWhereRaw('LOWER(COALESCE(type_name, "")) LIKE ?', ['%wormhole%'])
+                    ->orWhereRaw('LOWER(COALESCE(signature_name, "")) LIKE ?', ['%wormhole%'])
+                    ->orWhereNotNull('wormhole_type')
+                    ->orWhereNotNull('connection_system')
+                    ->orWhereNotNull('wormhole_exits');
+            })
+            ->orderByDesc('created_at')
+            ->orderBy('region_name')
+            ->orderBy('system_name')
+            ->orderBy('signature_id')
+            ->get([
+                'region_name',
+                'solar_system_id',
+                'system_name',
+                'signature_id',
+                'type_name',
+                'signature_name',
+                'created_at',
+                'wormhole_type',
+                'connection_system',
+                'wormhole_exits',
+            ]);
+
+        return response()->json(['wormholes' => $rows]);
+    }
+
     public function saveWormholeNotes(Request $request, string $region, int $systemId, string $signatureId): JsonResponse
     {
         $systemName = $this->explorationSystem($region, $systemId);
