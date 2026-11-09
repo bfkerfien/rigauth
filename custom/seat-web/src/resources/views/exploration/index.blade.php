@@ -16,12 +16,6 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-system-information-tab" data-toggle="tab" href="#exploration-system-information" role="tab" aria-controls="exploration-system-information" aria-selected="false">System Information</a>
       </li>
-      <li class="nav-item">
-        <a class="nav-link" id="exploration-all-wormholes-tab" data-toggle="tab" href="#exploration-all-wormholes" role="tab" aria-controls="exploration-all-wormholes" aria-selected="false">All Wormholes</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="exploration-system-scans-tab" data-toggle="tab" href="#exploration-system-scans" role="tab" aria-controls="exploration-system-scans" aria-selected="false">System Scan History</a>
-      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -73,43 +67,6 @@
             <div id="exploration-system-info-content"></div>
           </div>
         </div>
-        <div class="tab-pane fade" id="exploration-all-wormholes" role="tabpanel" aria-labelledby="exploration-all-wormholes-tab">
-          <div class="p-3">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="mb-1">All Wormholes</h4>
-                <p class="small text-muted mb-0">Recorded wormhole signatures across Branch, Tenal, and Venal.</p>
-              </div>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-all-wormholes-refresh">Refresh list</button>
-            </div>
-            <p id="exploration-all-wormholes-status" class="small text-muted">Loading recorded wormholes…</p>
-            <div class="table-responsive">
-              <table class="table table-sm exploration-signature-table mb-0" id="exploration-all-wormholes-table">
-                <thead><tr><th>Signature</th><th>Wormhole type</th><th>Entered</th><th>From</th><th>To</th><th>Other locations</th></tr></thead>
-                <tbody id="exploration-all-wormholes-body"><tr><td colspan="6" class="text-muted">Loading…</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="exploration-system-scans" role="tabpanel" aria-labelledby="exploration-system-scans-tab">
-          <div class="p-3">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <div>
-                <h4 class="mb-1">System Scan History</h4>
-                <p class="small text-muted mb-0">Last recorded scan for every system in Branch, Tenal, and Venal.</p>
-              </div>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-system-scans-refresh">Refresh list</button>
-            </div>
-            <p id="exploration-system-scans-status" class="small text-muted">Loading system scan history…</p>
-            <div class="table-responsive">
-              <table class="table table-sm exploration-signature-table mb-0">
-                <thead><tr><th>Region</th><th>System</th><th>Last scanned</th><th>Scan result</th></tr></thead>
-                <tbody id="exploration-system-scans-body"><tr><td colspan="4" class="text-muted">Loading…</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        </div>
       </div>
     @endif
   </div>
@@ -127,15 +84,11 @@
         </section>
         <section>
           <h5>Paste new scan</h5>
-          <p class="small text-muted">Copy the Probe Scanner results from EVE and paste them here. Choose whether to replace the saved list, add these results, or record only the scan time.</p>
+          <p class="small text-muted">Copy the Probe Scanner results from EVE and paste them here. Submitting replaces the previous scan for this system.</p>
           <textarea id="exploration-scan-input" class="form-control" rows="12" placeholder="Paste Probe Scanner results here…"></textarea>
           <div class="d-flex justify-content-between align-items-center mt-2">
             <span id="exploration-scan-message" class="small text-muted"></span>
-            <div>
-              <button type="button" class="btn btn-outline-secondary mr-2" id="exploration-scan-timestamp-only">Record scan time only</button>
-              <button type="button" class="btn btn-outline-primary mr-2" id="exploration-scan-add">Add to existing sigs</button>
-              <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace all sigs</button>
-            </div>
+            <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace scan</button>
           </div>
         </section>
       </div>
@@ -559,103 +512,50 @@
     });
     signatureModal.addEventListener('click', function (event) { if (event.target === signatureModal) closeSignatureModal(); });
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && signatureModal.classList.contains('is-open')) closeSignatureModal(); });
-    function refreshScanDisplay(messageText) {
-        return fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        }).then(function (response) {
-            if (!response.ok) throw new Error('Saved, but could not refresh the displayed signatures.');
-            return response.json();
-        }).then(function (data) {
-            renderSignatures(data.signatures);
-            signatureModal.querySelector('#exploration-modal-meta').textContent =
-                signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
-            if (messageText) signatureModal.querySelector('#exploration-scan-message').textContent = messageText;
-            var historyPane = root.querySelector('#exploration-system-scans');
-            if (historyPane && historyPane.classList.contains('active')) loadSystemScans();
-            return data;
-        });
-    }
-
-    function submitSignatureScan(mode, button) {
+    signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
         if (!selectedSystem) return;
         var input = signatureModal.querySelector('#exploration-scan-input');
         var message = signatureModal.querySelector('#exploration-scan-message');
-        if (!input.value.trim()) {
-            message.textContent = 'Paste the Probe Scanner results before submitting.';
-            return;
-        }
-        button.disabled = true;
-        var adding = mode === 'add';
-        message.textContent = adding ? 'Adding signatures to the saved list…' : 'Replacing the saved signature list…';
+        var submit = signatureModal.querySelector('#exploration-scan-submit');
+        if (!input.value.trim()) { message.textContent = 'Paste the new scan before submitting.'; return; }
+        submit.disabled = true; message.textContent = 'Replacing previous scan…';
         fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ scan_data: input.value, mode: mode })
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                if (!response.ok) throw new Error(data.message || 'Could not save scan.');
-                return data;
-            });
-        }).then(function (data) {
-            input.value = '';
-            var summary = adding
-                ? 'Added/updated ' + data.count + ' signatures. ' + data.total_count + ' signatures are now saved.'
-                : 'Replaced the saved list with ' + data.total_count + ' signatures.';
-            return refreshScanDisplay(summary);
-        }).catch(function (error) {
-            message.textContent = error.message;
-        }).finally(function () {
-            button.disabled = false;
-        });
-    }
-
-    signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
-        submitSignatureScan('replace', this);
+            body: JSON.stringify({ scan_data: input.value })
+        }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.message || 'Could not save scan.'); return data; }); })
+          .then(function (data) {
+              message.textContent = 'Saved ' + data.count + ' signatures. Previous scan replaced.';
+              return fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
+                  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+              });
+          }).then(function (response) { if (!response.ok) throw new Error('Saved, but could not refresh the displayed scan.'); return response.json(); })
+          .then(function (data) {
+              renderSignatures(data.signatures);
+              signatureModal.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
+              input.value = '';
+          }).catch(function (error) { message.textContent = error.message; })
+          .finally(function () { submit.disabled = false; });
     });
-    signatureModal.querySelector('#exploration-scan-add').addEventListener('click', function () {
-        submitSignatureScan('add', this);
-    });
-    signatureModal.querySelector('#exploration-scan-timestamp-only').addEventListener('click', function () {
-        if (!selectedSystem) return;
-        var button = this;
-        var message = signatureModal.querySelector('#exploration-scan-message');
-        button.disabled = true;
-        message.textContent = 'Recording scan time without changing saved signatures…';
-        fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/scanned-empty', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        }).then(function (response) {
-            return response.json().then(function (data) {
-                if (!response.ok) throw new Error(data.message || 'Could not record scan time.');
-                return data;
-            });
-        }).then(function (data) {
-            return refreshScanDisplay('Scan time recorded: ' + data.scanned_at + '. Existing signature entries were left unchanged.').then(function () {
-                signatureModal.querySelector('#exploration-modal-meta').textContent =
-                    signatureModal.dataset.region + ' · Last scanned ' + data.scanned_at + ' · Signature entries unchanged';
-            });
-        }).catch(function (error) {
-            message.textContent = error.message;
-        }).finally(function () {
-            button.disabled = false;
-        });
-    });
-    // Preserve the original working delegated map click handler.
-    // Bubble-phase delegation matches the original Exploration map implementation.
+    // Left-click toggles explored state; right-click opens signatures.
     root.addEventListener('click', function (event) {
+        var anchor = event.target.closest('a');
+        if (anchor) event.preventDefault();
         var node = event.target.closest('.exploration-system');
         if (!node || !root.contains(node)) return;
+        event.preventDefault();
+        event.stopPropagation();
         if (node.dataset.status === 'red') return;
         toggleSystem(node).catch(function () {});
-    });
-    // Right-click opens the signatures modal without interfering with left-click.
+    }, true);
     root.addEventListener('contextmenu', function (event) {
         var node = event.target.closest('.exploration-system');
         if (!node || !root.contains(node)) return;
         event.preventDefault();
+        event.stopPropagation();
         if (node.dataset.status === 'red') return;
         loadSignatures(node);
-    });
+    }, true);
     root.querySelectorAll('.exploration-system').forEach(function (node) {
         node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
         node.setAttribute('title', node.dataset.status === 'red'
@@ -743,141 +643,6 @@
               status.textContent = 'System information refreshed from live location and saved scan data.';
           }).catch(function (error) { status.textContent = error.message; });
     }
-    function loadAllWormholes() {
-        var status = root.querySelector('#exploration-all-wormholes-status');
-        var body = root.querySelector('#exploration-all-wormholes-body');
-        if (!status || !body) return;
-        status.textContent = 'Loading recorded wormholes…';
-        body.replaceChildren();
-        fetch(@json(url('/exploration/all-wormholes')), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            cache: 'no-store'
-        }).then(function (response) {
-            if (!response.ok) throw new Error('Could not load the wormhole list.');
-            return response.json();
-        }).then(function (data) {
-            var items = data.wormholes || [];
-            if (!items.length) {
-                var empty = document.createElement('tr');
-                var cell = document.createElement('td');
-                cell.colSpan = 6;
-                cell.className = 'text-muted';
-                cell.textContent = 'No wormhole signatures have been recorded yet.';
-                empty.appendChild(cell);
-                body.appendChild(empty);
-            }
-            items.forEach(function (item) {
-                var row = document.createElement('tr');
-                function addCell(value) {
-                    var cell = document.createElement('td');
-                    cell.textContent = value == null ? '' : String(value);
-                    row.appendChild(cell);
-                }
-                addCell(item.signature_id);
-                addCell(item.wormhole_type || item.type_name || item.signature_name || 'Not identified');
-                var entered = item.created_at ? new Date(String(item.created_at).replace(' ', 'T')) : null;
-                addCell(entered && !isNaN(entered.getTime()) ? entered.toLocaleString() : (item.created_at || ''));
-                addCell([item.system_name, item.region_name].filter(Boolean).join(' · '));
-                addCell(item.connection_system || '');
-                addCell(item.wormhole_exits || '');
-                body.appendChild(row);
-            });
-            status.textContent = items.length + ' wormhole signature' + (items.length === 1 ? '' : 's') + ' recorded across all regions.';
-        }).catch(function (error) {
-            status.textContent = error.message;
-            var row = document.createElement('tr');
-            var cell = document.createElement('td');
-            cell.colSpan = 6;
-            cell.className = 'text-muted';
-            cell.textContent = error.message;
-            row.appendChild(cell);
-            body.appendChild(row);
-        });
-    }
-
-    function loadSystemScans() {
-        var status = root.querySelector('#exploration-system-scans-status');
-        var body = root.querySelector('#exploration-system-scans-body');
-        if (!status || !body) return;
-        status.textContent = 'Loading system scan history…';
-        body.replaceChildren();
-        fetch(@json(url('/exploration/system-scans')), {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            cache: 'no-store'
-        }).then(function (response) {
-            if (!response.ok) throw new Error('Could not load system scan history.');
-            return response.json();
-        }).then(function (data) {
-            var systems = data.systems || [];
-            systems.forEach(function (item) {
-                var row = document.createElement('tr');
-                function cell(value) {
-                    var td = document.createElement('td');
-                    td.textContent = value == null ? '' : String(value);
-                    row.appendChild(td);
-                }
-                cell(item.region_name);
-                cell(item.system_name);
-                var scanned = item.scanned_at ? new Date(String(item.scanned_at).replace(' ', 'T')) : null;
-                cell(scanned && !isNaN(scanned.getTime()) ? scanned.toLocaleString() : 'Never');
-                var scanResult = 'Not scanned';
-                if (item.scanned_at) {
-                    if (item.scan_status === 'timestamp_only') scanResult = 'Scan time recorded only — signature entries unchanged';
-                    else if (Number(item.signature_count) === 0) scanResult = 'Scanned — no signatures found';
-                    else scanResult = Number(item.signature_count) + ' signatures saved';
-                }
-                cell(scanResult);
-                body.appendChild(row);
-            });
-            status.textContent = systems.length + ' systems tracked. The list includes systems that have never been scanned.';
-        }).catch(function (error) {
-            status.textContent = error.message;
-            var row = document.createElement('tr');
-            var td = document.createElement('td');
-            td.colSpan = 4;
-            td.textContent = error.message;
-            row.appendChild(td);
-            body.appendChild(row);
-        });
-    }
-    var systemScansTab = root.querySelector('#exploration-system-scans-tab');
-    if (systemScansTab) systemScansTab.addEventListener('click', function (event) {
-        event.preventDefault();
-        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
-            link.classList.remove('active');
-            link.setAttribute('aria-selected', 'false');
-        });
-        systemScansTab.classList.add('active');
-        systemScansTab.setAttribute('aria-selected', 'true');
-        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) {
-            pane.classList.remove('show', 'active');
-        });
-        var pane = root.querySelector('#exploration-system-scans');
-        if (pane) pane.classList.add('show', 'active');
-        loadSystemScans();
-    });
-    var systemScansRefresh = root.querySelector('#exploration-system-scans-refresh');
-    if (systemScansRefresh) systemScansRefresh.addEventListener('click', loadSystemScans);
-
-    var allWormholesTab = root.querySelector('#exploration-all-wormholes-tab');
-    if (allWormholesTab) allWormholesTab.addEventListener('click', function (event) {
-        event.preventDefault();
-        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
-            link.classList.remove('active');
-            link.setAttribute('aria-selected', 'false');
-        });
-        allWormholesTab.classList.add('active');
-        allWormholesTab.setAttribute('aria-selected', 'true');
-        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) {
-            pane.classList.remove('show', 'active');
-        });
-        var pane = root.querySelector('#exploration-all-wormholes');
-        if (pane) pane.classList.add('show', 'active');
-        loadAllWormholes();
-    });
-    var allWormholesRefresh = root.querySelector('#exploration-all-wormholes-refresh');
-    if (allWormholesRefresh) allWormholesRefresh.addEventListener('click', loadAllWormholes);
-
     var infoTab = root.querySelector('#exploration-system-information-tab');
     if (infoTab) infoTab.addEventListener('click', function (event) {
         event.preventDefault();
@@ -935,7 +700,6 @@
         });
     });
 })();
-
 </script>
 @endif
 @endsection
