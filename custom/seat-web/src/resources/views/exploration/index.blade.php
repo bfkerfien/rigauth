@@ -772,7 +772,36 @@
                   card.appendChild(body);
                   content.appendChild(card);
               });
-              status.textContent = 'System information refreshed from live location and saved scan data.';
+              var asteroidTitle = document.createElement('h5');
+              asteroidTitle.className = 'mt-4';
+              asteroidTitle.textContent = 'Asteroid Sites';
+              content.appendChild(asteroidTitle);
+              var asteroidSites = data.asteroid_sites || [];
+              if (!asteroidSites.length) {
+                  var asteroidEmpty = document.createElement('p');
+                  asteroidEmpty.className = 'text-muted';
+                  asteroidEmpty.textContent = 'No asteroid sites have been recorded for this system yet.';
+                  content.appendChild(asteroidEmpty);
+              }
+              asteroidSites.forEach(function (site) {
+                  var siteCard = document.createElement('div');
+                  siteCard.className = 'card mb-2';
+                  siteCard.style.cssText = 'background:#0b1421;border:1px solid #263b55;color:#dbe5f1';
+                  var siteBody = document.createElement('div');
+                  siteBody.className = 'card-body';
+                  var siteName = document.createElement('strong');
+                  siteName.textContent = site.site_name;
+                  siteBody.appendChild(siteName);
+                  if (site.site_category || site.notes) {
+                      var siteDetails = document.createElement('p');
+                      siteDetails.className = 'mb-0 mt-2 text-muted';
+                      siteDetails.textContent = [site.site_category, site.notes].filter(Boolean).join(' · ');
+                      siteBody.appendChild(siteDetails);
+                  }
+                  siteCard.appendChild(siteBody);
+                  content.appendChild(siteCard);
+              });
+              status.textContent = 'System information refreshed from live location, saved scan data, and asteroid site records.';
           }).catch(function (error) { status.textContent = error.message; });
     }
 
