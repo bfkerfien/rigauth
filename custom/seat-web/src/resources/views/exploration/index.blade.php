@@ -39,6 +39,8 @@
           <span class="exploration-legend"><span class="exploration-legend-dot green"></span> Explored</span>
           <span class="exploration-legend"><span class="exploration-legend-dot red"></span> Permanently excluded</span>
           <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Your live location</span>
+          <span class="exploration-legend"><span class="exploration-cyno-legend beacon"></span> Confirmed Pharolux</span>
+          <span class="exploration-legend"><span class="exploration-cyno-legend jammer"></span> Confirmed Tenebrex</span>
           <span id="exploration-live-status" class="ml-2">Live location: connecting…</span>
         </div>
         <div class="small text-muted">Left-click a system to toggle explored (green). Right-click a system to open its signatures.</div>
@@ -200,6 +202,10 @@
 .exploration-system.is-branch-teal.is-green .s { fill:#31c66b !important; stroke:#15964a !important; }
 .exploration-system.is-branch-teal.is-green .ss { fill:#092516 !important; }
 .exploration-branch-teal-oval { fill:none; stroke:#20b8b0; stroke-width:2.8; pointer-events:none; }
+.exploration-cyno-beacon-ring { fill:none; stroke:#ff9d2e; stroke-width:3.2; pointer-events:none; }
+.exploration-cyno-jammer-ring { fill:none; stroke:#9b83ff; stroke-width:3.2; stroke-dasharray:5 2; pointer-events:none; }
+.exploration-cyno-legend { display:inline-block; width:13px; height:13px; border:3px solid #ff9d2e; border-radius:50%; vertical-align:-2px; margin-right:4px; }
+.exploration-cyno-legend.jammer { border-color:#9b83ff; border-style:dashed; }
 .exploration-system.is-red { cursor: not-allowed; }
 .exploration-system.is-red .s { fill: #e05252 !important; stroke: #a92f38 !important; }
 .exploration-system.is-red .ss { fill: #fff !important; }
@@ -992,6 +998,46 @@
         }
         loadSystemInformation();
     });
+
+    // Experimental ESI overlay: decorate only positively identified structure systems.
+    // Failures and empty/partial ESI results leave all existing map state untouched.
+    function loadCynoInfrastructure() {
+        fetch(@json(url('/exploration/cyno-infrastructure')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Cyno infrastructure lookup unavailable');
+            return response.json();
+        }).then(function (data) {
+            if (!data.available) return;
+            function addRing(systemId, className) {
+                root.querySelectorAll('.exploration-system[data-system-id="' + String(systemId) + '"]').forEach(function (node) {
+                    if (node.querySelector('.' + className)) return;
+                    var shape = node.querySelector('.s');
+                    if (!shape) return;
+                    var x = Number(shape.getAttribute('x')), y = Number(shape.getAttribute('y'));
+                    var w = Number(shape.getAttribute('width')), h = Number(shape.getAttribute('height'));
+                    if (![x, y, w, h].every(Number.isFinite)) return;
+                    var ring = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                    ring.setAttribute('class', className);
+                    ring.setAttribute('cx', x + w / 2);
+                    ring.setAttribute('cy', y + h / 2);
+                    ring.setAttribute('rx', w / 2 + 12);
+                    ring.setAttribute('ry', h / 2 + 11);
+                    node.insertBefore(ring, node.firstChild);
+                });
+            }
+            (data.beacon_system_ids || []).forEach(function (id) { addRing(id, 'exploration-cyno-beacon-ring'); });
+            (data.jammer_system_ids || []).forEach(function (id) { addRing(id, 'exploration-cyno-jammer-ring'); });
+            var status = root.querySelector('#exploration-live-status');
+            if (status && (data.beacon_system_ids.length || data.jammer_system_ids.length)) {
+                status.textContent += ' · ESI cyno structures: ' + data.beacon_system_ids.length + ' beacon systems, ' + data.jammer_system_ids.length + ' jammer systems (sovereignty endpoint only)';
+            }
+        }).catch(function () {
+            // This experimental source is optional; do not interfere with map controls or location polling.
+        });
+    }
+    loadCynoInfrastructure();
 
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
