@@ -12,6 +12,13 @@ Route::group(['prefix' => 'exploration'], function () {
     Route::get('/all-wormholes', 'ExplorationController@allWormholes')
         ->name('seatcore::exploration.wormholes.all');
 
+    Route::get('/system-scans', 'ExplorationController@systemScans')
+        ->name('seatcore::exploration.system-scans');
+
+    Route::post('/{region}/systems/{systemId}/scanned-empty', 'ExplorationController@markNoSignatures')
+        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->name('seatcore::exploration.system-scans.empty');
+
     Route::get('/{region}/systems/{systemId}/signatures', 'ExplorationController@signatures')
         ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.signatures.index');
