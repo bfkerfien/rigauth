@@ -544,15 +544,67 @@ class ExplorationController extends Controller
                 'solar_system_id',
                 'system_name',
                 'signature_id',
+                'group_name',
                 'type_name',
                 'signature_name',
+                'signal_strength',
+                'scanned_at',
                 'created_at',
+                'updated_at',
                 'wormhole_type',
                 'connection_system',
                 'wormhole_exits',
+                'raw_data',
             ]);
 
         return response()->json(['wormholes' => $rows]);
+    }
+
+    /**
+     * Delete one saved wormhole signature without disturbing other signatures
+     * or the system's last-scanned timestamp.
+     */
+    public function deleteWormhole(string $region, int $systemId, string $signatureId): JsonResponse
+    {
+        $systemName = $this->explorationSystem($region, $systemId);
+        abort_unless($systemName, 404);
+
+        $signature = DB::table('tc_exploration_signatures')
+            ->where('region_name', $region)
+            ->where('solar_system_id', $systemId)
+            ->where('signature_id', strtoupper($signatureId))
+            ->where(function ($query) {
+                $query->where('group_name', 'like', '%wormhole%')
+                    ->orWhere('type_name', 'like', '%wormhole%')
+                    ->orWhere('signature_name', 'like', '%wormhole%')
+                    ->orWhereNotNull('wormhole_type')
+                    ->orWhereNotNull('connection_system')
+                    ->orWhereNotNull('wormhole_exits');
+            });
+
+        abort_unless($signature->exists(), 404, 'Wormhole signature not found.');
+
+        DB::transaction(function () use ($signature, $systemId) {
+            $signature->delete();
+            $remaining = DB::table('tc_exploration_signatures')
+                ->where('solar_system_id', $systemId)
+                ->count();
+
+            DB::table('tc_exploration_system_scans')
+                ->where('solar_system_id', $systemId)
+                ->update([
+                    'signature_count' => $remaining,
+                    'scan_status' => $remaining > 0 ? 'with_signatures' : 'timestamp_only',
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return response()->json([
+            'status' => 'deleted',
+            'region' => $region,
+            'system' => $systemName,
+            'signature_id' => strtoupper($signatureId),
+        ]);
     }
 
     public function saveWormholeNotes(Request $request, string $region, int $systemId, string $signatureId): JsonResponse
