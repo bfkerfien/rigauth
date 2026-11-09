@@ -1021,6 +1021,7 @@
     var manualCynoRows = [];
     function renderManualCynoSystems() {
         var container = root.querySelector('#exploration-cyno-systems');
+        var status = root.querySelector('#exploration-cyno-status');
         if (!container) return;
         container.replaceChildren();
         ['Branch', 'Tenal', 'Venal'].forEach(function (region) {
@@ -1086,6 +1087,7 @@
             return response.json();
         }).then(function (data) {
             if (!data.available) return;
+            root.querySelectorAll('.exploration-cyno-symbol').forEach(function (symbol) { symbol.remove(); });
             function getSystemShape(systemId) {
                 var nodes = root.querySelectorAll('.exploration-system[data-system-id="' + String(systemId) + '"]');
                 return Array.prototype.map.call(nodes, function (node) {
