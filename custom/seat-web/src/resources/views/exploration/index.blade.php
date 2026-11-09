@@ -16,6 +16,9 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-system-information-tab" data-toggle="tab" href="#exploration-system-information" role="tab" aria-controls="exploration-system-information" aria-selected="false">System Information</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-last-scanned-tab" data-toggle="tab" href="#exploration-last-scanned" role="tab" aria-controls="exploration-last-scanned" aria-selected="false">Last Scanned</a>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -65,6 +68,27 @@
             <h4>Current system</h4>
             <p id="exploration-system-info-status" class="text-muted">Loading your main character's current system…</p>
             <div id="exploration-system-info-content"></div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="exploration-last-scanned" role="tabpanel" aria-labelledby="exploration-last-scanned-tab">
+          <div class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+              <div><h4 class="mb-1">Last Scanned Systems</h4><p class="small text-muted mb-0">Most recent scan time for every system in Branch, Tenal, and Venal. Select a column heading to sort.</p></div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-last-scanned-refresh">Refresh list</button>
+            </div>
+            <p id="exploration-last-scanned-status" class="small text-muted">Open this tab to load scan history.</p>
+            <div class="table-responsive">
+              <table class="table table-sm exploration-signature-table mb-0" id="exploration-last-scanned-table">
+                <thead><tr>
+                  <th><button type="button" class="exploration-sort" data-sort="region">Region <span aria-hidden="true"></span></button></th>
+                  <th><button type="button" class="exploration-sort" data-sort="system">System <span aria-hidden="true"></span></button></th>
+                  <th><button type="button" class="exploration-sort" data-sort="scanned_at">Last Scanned <span aria-hidden="true">▼</span></button></th>
+                  <th><button type="button" class="exploration-sort" data-sort="signature_count">Signatures <span aria-hidden="true"></span></button></th>
+                  <th><button type="button" class="exploration-sort" data-sort="scan_status">Scan Status <span aria-hidden="true"></span></button></th>
+                </tr></thead>
+                <tbody id="exploration-last-scanned-body"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -184,6 +208,10 @@
 .exploration-signature-list { max-height:58vh; overflow:auto; }
 .exploration-signature-table { width:100%; font-size:.88rem; border-collapse:collapse; }
 .exploration-signature-table th,.exploration-signature-table td { padding:.45rem; border-bottom:1px solid #26364b; text-align:left; vertical-align:top; }
+.exploration-signature-table th { color:#9eafc5; position:sticky; }
+.exploration-sort { border:0; padding:0; background:transparent; color:inherit; font:inherit; font-weight:600; cursor:pointer; }
+.exploration-sort:hover, .exploration-sort:focus { color:#fff; text-decoration:underline; outline:none; }
+.exploration-sort span { display:inline-block; min-width:.8em; margin-left:.2rem; color:#55b9ff; }
 .exploration-signature-table th { color:#9eafc5; position:sticky; top:0; background:#111a29; }
 #exploration-scan-input { min-height:280px; background:#08111e; color:#e5edf7; border-color:#52657e; font-family:monospace; }
 @media(max-width:760px) { .exploration-modal-body { grid-template-columns:1fr; } .exploration-signature-list { max-height:35vh; } }
@@ -698,6 +726,72 @@
               status.textContent = 'System information refreshed from live location and saved scan data.';
           }).catch(function (error) { status.textContent = error.message; });
     }
+
+    var scanRows = [];
+    var scanSort = { key: 'scanned_at', direction: 'desc' };
+    function scanTimestamp(value) {
+        if (!value) return null;
+        var date = new Date(String(value).replace(' ', 'T'));
+        return isNaN(date.getTime()) ? null : date;
+    }
+    function renderLastScanned() {
+        var body = root.querySelector('#exploration-last-scanned-body');
+        if (!body) return;
+        body.replaceChildren();
+        var rows = scanRows.slice().sort(function (a, b) {
+            var av, bv;
+            if (scanSort.key === 'scanned_at') {
+                av = scanTimestamp(a.scanned_at); bv = scanTimestamp(b.scanned_at);
+                av = av ? av.getTime() : (scanSort.direction === 'asc' ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+                bv = bv ? bv.getTime() : (scanSort.direction === 'asc' ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+            } else if (scanSort.key === 'signature_count') {
+                av = Number(a.signature_count || 0); bv = Number(b.signature_count || 0);
+            } else {
+                var field = scanSort.key === 'region' ? 'region_name' : (scanSort.key === 'system' ? 'system_name' : 'scan_status');
+                av = String(a[field] || '').toLowerCase(); bv = String(b[field] || '').toLowerCase();
+            }
+            var result = av < bv ? -1 : (av > bv ? 1 : 0);
+            return result * (scanSort.direction === 'asc' ? 1 : -1);
+        });
+        rows.forEach(function (item) {
+            var row = document.createElement('tr');
+            function cell(value) { var td = document.createElement('td'); td.textContent = value == null || value === '' ? '—' : String(value); row.appendChild(td); }
+            var date = scanTimestamp(item.scanned_at);
+            cell(item.region_name); cell(item.system_name);
+            cell(date ? date.toLocaleString() : 'Never');
+            cell(item.signature_count == null ? 0 : item.signature_count);
+            cell(item.scan_status === 'timestamp_only' ? 'Timestamp only' : (item.scan_status === 'with_signatures' ? 'Signatures recorded' : 'Never scanned'));
+            body.appendChild(row);
+        });
+        if (!rows.length) { var empty=document.createElement('tr'); var td=document.createElement('td'); td.colSpan=5; td.className='text-muted'; td.textContent='No systems were returned.'; empty.appendChild(td); body.appendChild(empty); }
+        root.querySelectorAll('.exploration-sort').forEach(function (button) {
+            var marker=button.querySelector('span');
+            if(marker) marker.textContent=button.dataset.sort===scanSort.key?(scanSort.direction==='asc'?'▲':'▼'):'';
+            button.setAttribute('aria-sort',button.dataset.sort===scanSort.key?(scanSort.direction==='asc'?'ascending':'descending'):'none');
+        });
+    }
+    function loadLastScanned() {
+        var status=root.querySelector('#exploration-last-scanned-status'), body=root.querySelector('#exploration-last-scanned-body');
+        if(!status||!body) return;
+        status.textContent='Loading scan history…';
+        fetch(@json(url('/exploration/system-scans')), { headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, cache:'no-store' })
+          .then(function(response){ if(!response.ok) throw new Error('Could not load system scan history.'); return response.json(); })
+          .then(function(data){ scanRows=data.systems||[]; renderLastScanned(); var scanned=scanRows.filter(function(item){return !!item.scanned_at;}).length; status.textContent=scanned+' of '+scanRows.length+' systems have a recorded scan.'; })
+          .catch(function(error){ status.textContent=error.message; body.replaceChildren(); var row=document.createElement('tr'), td=document.createElement('td'); td.colSpan=5; td.className='text-muted'; td.textContent=error.message; row.appendChild(td); body.appendChild(row); });
+    }
+    root.querySelectorAll('.exploration-sort').forEach(function(button){ button.addEventListener('click',function(){ var key=button.dataset.sort; if(scanSort.key===key) scanSort.direction=scanSort.direction==='asc'?'desc':'asc'; else {scanSort.key=key;scanSort.direction='asc';} renderLastScanned(); }); });
+    var lastScannedTab=root.querySelector('#exploration-last-scanned-tab');
+    if(lastScannedTab) lastScannedTab.addEventListener('click',function(event){
+        event.preventDefault();
+        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function(link){link.classList.remove('active');link.setAttribute('aria-selected','false');});
+        lastScannedTab.classList.add('active');lastScannedTab.setAttribute('aria-selected','true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function(pane){pane.classList.remove('show','active');});
+        var pane=root.querySelector('#exploration-last-scanned');if(pane)pane.classList.add('show','active');
+        loadLastScanned();
+    });
+    var lastScannedRefresh=root.querySelector('#exploration-last-scanned-refresh');
+    if(lastScannedRefresh) lastScannedRefresh.addEventListener('click',loadLastScanned);
+
     var infoTab = root.querySelector('#exploration-system-information-tab');
     if (infoTab) infoTab.addEventListener('click', function (event) {
         event.preventDefault();
