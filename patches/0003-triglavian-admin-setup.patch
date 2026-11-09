@@ -1,18 +1,9 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -139,10 +139,6 @@ Route::group([
-             Route::group(['prefix' => 'settings'], function () {
-
-                 include __DIR__ . '/Routes/Configuration/Seat.php';
-
-             });
-
--            // Triglavian Consortium administration.
--            include __DIR__ . '/Routes/Configuration/Triglavian.php';
--
+@@ -171,4 +171,12 @@ Route::group([
          });
-+
+
 +        // Triglavian administration: superusers and the explicitly authorized
 +        // SeAT account are allowed. Controller methods enforce the same rule.
 +        Route::group([
@@ -21,6 +12,9 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +        ], function () {
 +            include __DIR__ . '/Routes/Configuration/Triglavian.php';
 +        });
++
+         // Impersonation Helper Group. This one is Separate purely
+         // because we don't want to restrict this to superusers only.
 
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
