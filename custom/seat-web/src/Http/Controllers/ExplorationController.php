@@ -461,6 +461,13 @@ class ExplorationController extends Controller
             ->selectRaw('COUNT(*) as existing_signature_count')
             ->groupBy('solar_system_id');
 
+        // Exclude permanently red/locked systems from the scan report in every tracked region.
+        $redSystemIds = collect(self::REGIONS)
+            ->flatMap(fn ($region) => $this->redSystemIds($region))
+            ->unique()
+            ->values()
+            ->all();
+
         $systems = DB::table('mapDenormalize as systems')
             ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
             ->leftJoin('tc_exploration_system_scans as scans', 'scans.solar_system_id', '=', 'systems.itemID')
@@ -469,6 +476,7 @@ class ExplorationController extends Controller
             })
             ->where('systems.groupID', 5)
             ->whereIn('regions.itemName', self::REGIONS)
+            ->whereNotIn('systems.itemID', $redSystemIds)
             ->orderBy('regions.itemName')
             ->orderBy('systems.itemName')
             ->get([
