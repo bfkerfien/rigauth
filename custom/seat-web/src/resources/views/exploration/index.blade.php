@@ -193,6 +193,14 @@
 .exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
 .exploration-system.is-green .s { fill: #31c66b !important; stroke: #15964a !important; }
 .exploration-system.is-green .ss { fill: #092516 !important; }
+/* Selected Branch systems: neutral light-grey nodes with a teal oval; click/scan behavior is unchanged. */
+.exploration-system.is-branch-teal .s,
+.exploration-system.is-branch-teal.is-green .s,
+.exploration-system.is-branch-teal.is-player-location .s { fill:#cbd2d8 !important; stroke:#aab6c0 !important; }
+.exploration-system.is-branch-teal .ss,
+.exploration-system.is-branch-teal.is-green .ss,
+.exploration-system.is-branch-teal.is-player-location .ss { fill:#263746 !important; }
+.exploration-branch-teal-oval { fill:none; stroke:#20b8b0; stroke-width:2.8; pointer-events:none; }
 .exploration-system.is-red { cursor: not-allowed; }
 .exploration-system.is-red .s { fill: #e05252 !important; stroke: #a92f38 !important; }
 .exploration-system.is-red .ss { fill: #fff !important; }
