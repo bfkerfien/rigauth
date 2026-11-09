@@ -23,6 +23,8 @@ class ExplorationController extends Controller
     // Tenal constellations and Branch systems that must always render red.
     private const TENAL_RED_CONSTELLATIONS = ['1D-65L', 'O-E019', 'E-72A3', '9P57-V', '2-ZRM0'];
     private const BRANCH_RED_SYSTEMS = ['3KNA-N', 'ME-4IU', 'BU-IU4', '1-7JR4', 'QYZM-W', 'CH9L-K', '9-B1DS'];
+    // Branch systems highlighted in light grey with a teal oval; they remain fully interactive.
+    private const BRANCH_TEAL_SYSTEMS = ['KJ-QWL', 'SBB-RE', 'KMQ4-V', '5-P1Y2', 'J52-BH', 'C-LBQS', 'BWI1-9', 'KL3O-J', 'X4UV-Z', 'JRZ-B9', 'V8W-QS', 'OJ-A8M', 'R4O-I6', 'Q-NJZ4', 'NLPB-0', '3-TD6L', 'CX-1XF'];
 
     public function index(): View
     {
@@ -160,8 +162,16 @@ class ExplorationController extends Controller
             }
 
             $status = (string) $system['status'];
+            $isBranchTeal = $region === 'Branch' && in_array($name, self::BRANCH_TEAL_SYSTEMS, true);
+            $nodeClass = 'exploration-system is-' . $status . ($isBranchTeal ? ' is-branch-teal' : '');
             $label = $name . ': ' . ($status === 'red' ? 'permanently excluded' : ($status === 'green' ? 'explored' : 'unexplored'));
-            $svg .= '<g class="exploration-system is-' . $status . '" data-system-id="' . $id . '" data-system-name="' . $safeName . '" data-status="' . $status . '" transform="translate(' . $x . ' ' . $y . ')" tabindex="' . ($status === 'red' ? '-1' : '0') . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="' . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="' . ($status === 'green' ? 'true' : 'false') . '">';
+            if ($isBranchTeal) {
+                $label .= ', teal highlighted system';
+            }
+            $svg .= '<g class="' . $nodeClass . '" data-system-id="' . $id . '" data-system-name="' . $safeName . '" data-status="' . $status . '" transform="translate(' . $x . ' ' . $y . ')" tabindex="' . ($status === 'red' ? '-1' : '0') . '" role="' . ($status === 'red' ? 'img' : 'button') . '" aria-label="' . htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8') . '" aria-pressed="' . ($status === 'green' ? 'true' : 'false') . '">';
+            if ($isBranchTeal) {
+                $svg .= '<ellipse class="exploration-branch-teal-oval" cx="' . ($rx + $rw / 2) . '" cy="' . ($ry + $rh / 2) . '" rx="' . ($rw / 2 + 7) . '" ry="' . ($rh / 2 + 6) . '"/>';
+            }
             $svg .= '<rect class="exploration-hit" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11"/>';
             $svg .= '<rect class="s" x="' . $rx . '" y="' . $ry . '" width="' . $rw . '" height="' . $rh . '" rx="11" style="fill:' . htmlspecialchars((string) $fill, ENT_QUOTES | ENT_XML1, 'UTF-8') . '"/>';
             $svg .= '<text class="ss" style="text-anchor:middle;dominant-baseline:auto;font:9px Arial,sans-serif" x="' . ($rx + $rw / 2) . '" y="' . ($ry + 10.5) . '" text-anchor="middle">' . $safeName . '</text>';
