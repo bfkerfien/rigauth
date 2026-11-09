@@ -579,7 +579,11 @@ class ExplorationController extends Controller
     {
         $systemName = $this->explorationSystem($region, $systemId);
         abort_unless($systemName, 404);
-        $validated = $request->validate([\n            'scan_data' => ['required', 'string', 'max:100000'],\n            'mode' => ['nullable', 'in:replace,add'],\n        ]);\n        $mode = $validated['mode'] ?? 'replace';
+        $validated = $request->validate([
+            'scan_data' => ['required', 'string', 'max:100000'],
+            'mode' => ['nullable', 'in:replace,add'],
+        ]);
+        $mode = $validated['mode'] ?? 'replace';
         $lines = preg_split('/\\r\\n|\\r|\\n/', trim($validated['scan_data']));
         $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\t"), $lines),
             fn ($row) => count($row) > 1 || trim((string) ($row[0] ?? '')) !== ''));
