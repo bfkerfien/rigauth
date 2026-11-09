@@ -508,7 +508,7 @@ class ExplorationController extends Controller
         );
 
         return response()->json([
-            'status' => 'scanned_empty',
+            'status' => 'timestamp_only',
             'system' => $systemName,
             'scanned_at' => now()->toDateTimeString(),
             'signature_count' => 0,
