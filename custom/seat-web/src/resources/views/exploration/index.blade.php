@@ -16,6 +16,9 @@
       <li class="nav-item">
         <a class="nav-link" id="exploration-system-information-tab" data-toggle="tab" href="#exploration-system-information" role="tab" aria-controls="exploration-system-information" aria-selected="false">System Information</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" id="exploration-all-wormholes-tab" data-toggle="tab" href="#exploration-all-wormholes" role="tab" aria-controls="exploration-all-wormholes" aria-selected="false">All Wormholes</a>
+      </li>
     </ul>
   </div>
   <div class="card-body">
@@ -65,6 +68,24 @@
             <h4>Current system</h4>
             <p id="exploration-system-info-status" class="text-muted">Loading your main character's current system…</p>
             <div id="exploration-system-info-content"></div>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="exploration-all-wormholes" role="tabpanel" aria-labelledby="exploration-all-wormholes-tab">
+          <div class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+              <div>
+                <h4 class="mb-1">All Wormholes</h4>
+                <p class="small text-muted mb-0">Recorded wormhole signatures across Branch, Tenal, and Venal.</p>
+              </div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-all-wormholes-refresh">Refresh list</button>
+            </div>
+            <p id="exploration-all-wormholes-status" class="small text-muted">Loading recorded wormholes…</p>
+            <div class="table-responsive">
+              <table class="table table-sm exploration-signature-table mb-0" id="exploration-all-wormholes-table">
+                <thead><tr><th>Signature</th><th>Wormhole type</th><th>Entered</th><th>From</th><th>To</th><th>Other locations</th></tr></thead>
+                <tbody id="exploration-all-wormholes-body"><tr><td colspan="6" class="text-muted">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -643,6 +664,76 @@
               status.textContent = 'System information refreshed from live location and saved scan data.';
           }).catch(function (error) { status.textContent = error.message; });
     }
+    function loadAllWormholes() {
+        var status = root.querySelector('#exploration-all-wormholes-status');
+        var body = root.querySelector('#exploration-all-wormholes-body');
+        if (!status || !body) return;
+        status.textContent = 'Loading recorded wormholes…';
+        body.replaceChildren();
+        fetch(@json(url('/exploration/all-wormholes')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Could not load the wormhole list.');
+            return response.json();
+        }).then(function (data) {
+            var items = data.wormholes || [];
+            if (!items.length) {
+                var empty = document.createElement('tr');
+                var cell = document.createElement('td');
+                cell.colSpan = 6;
+                cell.className = 'text-muted';
+                cell.textContent = 'No wormhole signatures have been recorded yet.';
+                empty.appendChild(cell);
+                body.appendChild(empty);
+            }
+            items.forEach(function (item) {
+                var row = document.createElement('tr');
+                function addCell(value) {
+                    var cell = document.createElement('td');
+                    cell.textContent = value == null ? '' : String(value);
+                    row.appendChild(cell);
+                }
+                addCell(item.signature_id);
+                addCell(item.wormhole_type || item.type_name || item.signature_name || 'Not identified');
+                var entered = item.created_at ? new Date(String(item.created_at).replace(' ', 'T')) : null;
+                addCell(entered && !isNaN(entered.getTime()) ? entered.toLocaleString() : (item.created_at || ''));
+                addCell([item.system_name, item.region_name].filter(Boolean).join(' · '));
+                addCell(item.connection_system || '');
+                addCell(item.wormhole_exits || '');
+                body.appendChild(row);
+            });
+            status.textContent = items.length + ' wormhole signature' + (items.length === 1 ? '' : 's') + ' recorded across all regions.';
+        }).catch(function (error) {
+            status.textContent = error.message;
+            var row = document.createElement('tr');
+            var cell = document.createElement('td');
+            cell.colSpan = 6;
+            cell.className = 'text-muted';
+            cell.textContent = error.message;
+            row.appendChild(cell);
+            body.appendChild(row);
+        });
+    }
+    var allWormholesTab = root.querySelector('#exploration-all-wormholes-tab');
+    if (allWormholesTab) allWormholesTab.addEventListener('click', function (event) {
+        event.preventDefault();
+        root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (link) {
+            link.classList.remove('active');
+            link.setAttribute('aria-selected', 'false');
+        });
+        allWormholesTab.classList.add('active');
+        allWormholesTab.setAttribute('aria-selected', 'true');
+        root.querySelectorAll('.tab-content > .tab-pane').forEach(function (pane) {
+            pane.classList.remove('show', 'active');
+        });
+        var pane = root.querySelector('#exploration-all-wormholes');
+        if (pane) pane.classList.add('show', 'active');
+        loadAllWormholes();
+    });
+    var allWormholesRefresh = root.querySelector('#exploration-all-wormholes-refresh');
+    if (allWormholesRefresh) allWormholesRefresh.addEventListener('click', loadAllWormholes);
+
     var infoTab = root.querySelector('#exploration-system-information-tab');
     if (infoTab) infoTab.addEventListener('click', function (event) {
         event.preventDefault();
