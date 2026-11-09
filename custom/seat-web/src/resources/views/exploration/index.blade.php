@@ -648,30 +648,27 @@
             button.disabled = false;
         });
     });
-    // Left-click toggles explored state; right-click opens signatures.
-    root.addEventListener('click', function (event) {
-        var anchor = event.target.closest('a');
-        if (anchor) event.preventDefault();
-        var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (node.dataset.status === 'red') return;
-        toggleSystem(node).catch(function () {});
-    }, true);
-    root.addEventListener('contextmenu', function (event) {
-        var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (node.dataset.status === 'red') return;
-        loadSignatures(node);
-    }, true);
+    // Bind directly to each SVG node so SeAT tab/card event delegation cannot swallow map input.
     root.querySelectorAll('.exploration-system').forEach(function (node) {
-        node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
-        node.setAttribute('title', node.dataset.status === 'red'
+        var locked = node.dataset.status === 'red';
+        node.style.cursor = locked ? 'not-allowed' : 'pointer';
+        node.style.pointerEvents = 'all';
+        node.setAttribute('title', locked
             ? node.dataset.systemName + ' — permanently excluded'
             : node.dataset.systemName + ' — left-click to toggle explored; right-click for signatures');
+        node.addEventListener('pointerdown', function (event) { event.stopPropagation(); });
+        node.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (node.dataset.status === 'red') return;
+            toggleSystem(node).catch(function () {});
+        });
+        node.addEventListener('contextmenu', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (node.dataset.status === 'red') return;
+            loadSignatures(node);
+        });
         node.addEventListener('keydown', function (event) {
             if (node.dataset.status === 'red') return;
             if (event.key === 'Enter' || event.key === ' ') {
