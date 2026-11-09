@@ -90,7 +90,7 @@
               </table>
             </div>
           </div>
-
+        </div>
         <div class="tab-pane fade" id="exploration-system-scans" role="tabpanel" aria-labelledby="exploration-system-scans-tab">
           <div class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
