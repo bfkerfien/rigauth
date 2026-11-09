@@ -24,7 +24,7 @@ class ExplorationController extends Controller
     private const TENAL_RED_CONSTELLATIONS = ['1D-65L', 'O-E019', 'E-72A3', '9P57-V', '2-ZRM0'];
     private const BRANCH_RED_SYSTEMS = ['3KNA-N', 'ME-4IU', 'BU-IU4', '1-7JR4', 'QYZM-W', 'CH9L-K', '9-B1DS'];
     // Branch systems highlighted in light grey with a teal oval; they remain fully interactive.
-    private const BRANCH_TEAL_SYSTEMS = ['KJ-QWL', 'SBB-RE', 'KMQ4-V', '5-P1Y2', 'J52-BH', 'C-LBQS', 'BWI1-9', 'KL3O-J', 'X4UV-Z', 'JRZ-B9', 'V8W-QS', 'OJ-A8M', 'R4O-I6', 'Q-NJZ4', 'NLPB-0', '3-TD6L', 'CX-1XF'];
+    private const BRANCH_TEAL_SYSTEMS = ['KJ-QWL', 'SBB-RE', 'KMQ4-V', '5-P1Y2', 'J52-BH', 'C-LBQS', 'BWI1-9', 'KL3O-J', 'X4UV-Z', 'JRZ-B9', 'V8W-QS', 'OJ-A8M', 'R4O-I6', 'Q-NJZ4', 'NLPB-0', '3-TD6L', 'CX-1XF', 'SVB-RE'];
 
     public function index(): View
     {
@@ -223,6 +223,14 @@ class ExplorationController extends Controller
             }
 
             $ids = array_merge($ids, $found->pluck('itemID')->map(fn ($id) => (int) $id)->all());
+
+            // Teal-highlighted Branch systems remain interactive even if sovereignty data marks them red.
+            $tealIds = $branchSystems
+                ->filter(fn ($row) => in_array($row->itemName, self::BRANCH_TEAL_SYSTEMS, true))
+                ->pluck('itemID')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $ids = array_values(array_diff(array_unique($ids), $tealIds));
             return array_values(array_unique($ids));
         }
 
