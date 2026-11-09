@@ -493,25 +493,20 @@ class ExplorationController extends Controller
         $systemName = $this->explorationSystem($region, $systemId);
         abort_unless($systemName, 404);
 
-        DB::transaction(function () use ($request, $region, $systemId, $systemName) {
-            DB::table('tc_exploration_signatures')
-                ->where('region_name', $region)
-                ->where('solar_system_id', $systemId)
-                ->delete();
-
-            DB::table('tc_exploration_system_scans')->updateOrInsert(
-                ['solar_system_id' => $systemId],
-                [
-                    'region_name' => $region,
-                    'system_name' => $systemName,
-                    'signature_count' => 0,
-                    'scanned_by' => $request->user()->id,
-                    'scanned_at' => now(),
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ]
-            );
-        });
+        // Timestamp-only scan: retain the currently stored signatures unchanged.
+        DB::table('tc_exploration_system_scans')->updateOrInsert(
+            ['solar_system_id' => $systemId],
+            [
+                'region_name' => $region,
+                'system_name' => $systemName,
+                'signature_count' => null,
+                'scan_status' => 'timestamp_only',
+                'scanned_by' => $request->user()->id,
+                'scanned_at' => now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
 
         return response()->json([
             'status' => 'scanned_empty',
@@ -585,7 +580,7 @@ class ExplorationController extends Controller
     {
         $systemName = $this->explorationSystem($region, $systemId);
         abort_unless($systemName, 404);
-        $validated = $request->validate(['scan_data' => ['required', 'string', 'max:100000']]);
+        $validated = $request->validate([\n            'scan_data' => ['required', 'string', 'max:100000'],\n            'mode' => ['nullable', 'in:replace,add'],\n        ]);\n        $mode = $validated['mode'] ?? 'replace';
         $lines = preg_split('/\\r\\n|\\r|\\n/', trim($validated['scan_data']));
         $rows = array_values(array_filter(array_map(fn ($line) => str_getcsv($line, "\t"), $lines),
             fn ($row) => count($row) > 1 || trim((string) ($row[0] ?? '')) !== ''));
@@ -634,16 +629,30 @@ class ExplorationController extends Controller
             return response()->json(['message' => 'No valid cosmic signatures found. The previous scan was left unchanged. Check that rows include signature IDs and signal strengths.'], 422);
         }
 
-        DB::transaction(function () use ($systemId, $region, $systemName, $request, $parsed) {
-            // New scan submissions replace the complete previous list for this system.
-            DB::table('tc_exploration_signatures')->where('solar_system_id', $systemId)->delete();
-            DB::table('tc_exploration_signatures')->insert(array_values($parsed));
+        DB::transaction(function () use ($systemId, $region, $systemName, $request, $parsed, $mode) {
+            if ($mode === 'replace') {
+                DB::table('tc_exploration_signatures')->where('solar_system_id', $systemId)->delete();
+                DB::table('tc_exploration_signatures')->insert(array_values($parsed));
+            } else {
+                // Add new IDs and refresh matching IDs without erasing saved wormhole notes.
+                DB::table('tc_exploration_signatures')->upsert(
+                    array_values($parsed),
+                    ['solar_system_id', 'signature_id'],
+                    ['group_name', 'type_name', 'signature_name', 'signal_strength', 'raw_data', 'scanned_by', 'scanned_at', 'updated_at']
+                );
+            }
+
+            $signatureCount = DB::table('tc_exploration_signatures')
+                ->where('solar_system_id', $systemId)
+                ->count();
+
             DB::table('tc_exploration_system_scans')->updateOrInsert(
                 ['solar_system_id' => $systemId],
                 [
                     'region_name' => $region,
                     'system_name' => $systemName,
-                    'signature_count' => count($parsed),
+                    'signature_count' => $signatureCount,
+                    'scan_status' => 'with_signatures',
                     'scanned_by' => $request->user()->id,
                     'scanned_at' => now(),
                     'updated_at' => now(),
@@ -651,7 +660,13 @@ class ExplorationController extends Controller
                 ]
             );
         });
-        return response()->json(['status' => 'saved', 'system' => $systemName, 'count' => count($parsed)]);
+        return response()->json([
+            'status' => 'saved',
+            'mode' => $mode,
+            'system' => $systemName,
+            'count' => count($parsed),
+            'total_count' => DB::table('tc_exploration_signatures')->where('solar_system_id', $systemId)->count(),
+        ]);
     }
 
     public function toggle(Request $request, string $region, int $systemId): JsonResponse
