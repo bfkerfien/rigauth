@@ -1,0 +1,2 @@
+# Runtime-generated exploration map cache; do not track on the server.
+/.exploration-map-cache/
