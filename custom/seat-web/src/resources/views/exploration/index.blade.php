@@ -260,16 +260,20 @@
         wrap.addEventListener('pointercancel', endDrag);
         return {
             center: function (node) {
-                // getBBox() is local to the marker; its parent system group is
-                // translated on the map. Convert the marker center through its
-                // screen CTM back into SVG coordinates before setting the viewBox.
+                // Convert the marker's local center into the root SVG's user
+                // coordinate space. getScreenCTM() includes the current viewBox
+                // scale/translation, so invert the root matrix before applying
+                // the marker matrix; using marker.getCTM() alone can feed screen
+                // pixels back into the viewBox and fling the map to a corner.
                 var marker = node.querySelector('.s') || node;
                 var bounds = marker.getBBox();
                 var localCenter = svg.createSVGPoint();
                 localCenter.x = bounds.x + bounds.width / 2;
                 localCenter.y = bounds.y + bounds.height / 2;
-                var matrix = marker.getCTM();
-                if (!matrix) return;
+                var rootMatrix = svg.getScreenCTM();
+                var markerMatrix = marker.getScreenCTM();
+                if (!rootMatrix || !markerMatrix) return;
+                var matrix = rootMatrix.inverse().multiply(markerMatrix);
                 var center = localCenter.matrixTransform(matrix);
                 view.w = initial[2] * 0.42;
                 view.h = initial[3] * 0.42;
