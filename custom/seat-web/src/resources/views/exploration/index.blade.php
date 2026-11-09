@@ -84,11 +84,15 @@
         </section>
         <section>
           <h5>Paste new scan</h5>
-          <p class="small text-muted">Copy the Probe Scanner results from EVE and paste them here. Submitting replaces the previous scan for this system.</p>
+          <p class="small text-muted">Paste Probe Scanner results from EVE. Replace Scan replaces all saved signatures; Add to Scan keeps existing signatures and adds or updates the pasted ones. Update Scan changes only the last-scanned timestamp.</p>
           <textarea id="exploration-scan-input" class="form-control" rows="12" placeholder="Paste Probe Scanner results here…"></textarea>
-          <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mt-2">
             <span id="exploration-scan-message" class="small text-muted"></span>
-            <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace scan</button>
+            <div class="d-flex flex-wrap" style="gap:.5rem">
+              <button type="button" class="btn btn-outline-secondary" id="exploration-scan-timestamp">Update Scan</button>
+              <button type="button" class="btn btn-outline-primary" id="exploration-scan-add">Add to Scan</button>
+              <button type="button" class="btn btn-primary" id="exploration-scan-submit">Replace Scan</button>
+            </div>
           </div>
         </section>
       </div>
@@ -512,30 +516,81 @@
     });
     signatureModal.addEventListener('click', function (event) { if (event.target === signatureModal) closeSignatureModal(); });
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && signatureModal.classList.contains('is-open')) closeSignatureModal(); });
-    signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
+    function refreshCurrentScan(messageText, clearInput) {
+        var input = signatureModal.querySelector('#exploration-scan-input');
+        return fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Saved, but could not refresh the displayed scan.');
+            return response.json();
+        }).then(function (data) {
+            renderSignatures(data.signatures);
+            signatureModal.querySelector('#exploration-modal-meta').textContent =
+                signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
+            if (clearInput) input.value = '';
+            signatureModal.querySelector('#exploration-scan-message').textContent = messageText;
+        });
+    }
+
+    function submitSignatureScan(mode, button) {
         if (!selectedSystem) return;
         var input = signatureModal.querySelector('#exploration-scan-input');
         var message = signatureModal.querySelector('#exploration-scan-message');
-        var submit = signatureModal.querySelector('#exploration-scan-submit');
-        if (!input.value.trim()) { message.textContent = 'Paste the new scan before submitting.'; return; }
-        submit.disabled = true; message.textContent = 'Replacing previous scan…';
+        if (!input.value.trim()) {
+            message.textContent = 'Paste the new scan before submitting.';
+            return;
+        }
+        button.disabled = true;
+        message.textContent = mode === 'add' ? 'Adding signatures to the existing scan…' : 'Replacing all saved signatures…';
         fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ scan_data: input.value })
-        }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.message || 'Could not save scan.'); return data; }); })
-          .then(function (data) {
-              message.textContent = 'Saved ' + data.count + ' signatures. Previous scan replaced.';
-              return fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/signatures', {
-                  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-              });
-          }).then(function (response) { if (!response.ok) throw new Error('Saved, but could not refresh the displayed scan.'); return response.json(); })
-          .then(function (data) {
-              renderSignatures(data.signatures);
-              signatureModal.querySelector('#exploration-modal-meta').textContent = signatureModal.dataset.region + ' · ' + data.signatures.length + ' signatures · Last scanned ' + (data.scanned_at || 'just now');
-              input.value = '';
-          }).catch(function (error) { message.textContent = error.message; })
-          .finally(function () { submit.disabled = false; });
+            body: JSON.stringify({ scan_data: input.value, mode: mode })
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok) throw new Error(data.message || 'Could not save scan.');
+                return data;
+            });
+        }).then(function (data) {
+            var summary = mode === 'add'
+                ? 'Added/updated ' + data.count + ' signatures. Existing signatures were retained.'
+                : 'Saved ' + data.count + ' signatures. Previous scan replaced.';
+            return refreshCurrentScan(summary, true);
+        }).catch(function (error) {
+            message.textContent = error.message;
+        }).finally(function () {
+            button.disabled = false;
+        });
+    }
+
+    signatureModal.querySelector('#exploration-scan-submit').addEventListener('click', function () {
+        submitSignatureScan('replace', this);
+    });
+    signatureModal.querySelector('#exploration-scan-add').addEventListener('click', function () {
+        submitSignatureScan('add', this);
+    });
+    signatureModal.querySelector('#exploration-scan-timestamp').addEventListener('click', function () {
+        if (!selectedSystem) return;
+        var button = this;
+        var message = signatureModal.querySelector('#exploration-scan-message');
+        button.disabled = true;
+        message.textContent = 'Updating last-scanned date and time only…';
+        fetch(@json(url('/exploration')) + '/' + signatureModal.dataset.region + '/systems/' + signatureModal.dataset.systemId + '/scanned-empty', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok) throw new Error(data.message || 'Could not update scan time.');
+                return data;
+            });
+        }).then(function (data) {
+            return refreshCurrentScan('Last-scanned date and time updated. Existing signatures were not changed.', false);
+        }).catch(function (error) {
+            message.textContent = error.message;
+        }).finally(function () {
+            button.disabled = false;
+        });
     });
     // Left-click toggles explored state; right-click opens signatures.
     root.addEventListener('click', function (event) {
