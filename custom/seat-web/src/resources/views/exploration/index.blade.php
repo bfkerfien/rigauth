@@ -820,7 +820,13 @@
                 cell(item.system_name);
                 var scanned = item.scanned_at ? new Date(String(item.scanned_at).replace(' ', 'T')) : null;
                 cell(scanned && !isNaN(scanned.getTime()) ? scanned.toLocaleString() : 'Never');
-                cell(item.scanned_at ? (Number(item.signature_count) === 0 ? 'Scanned — no signatures' : Number(item.signature_count) + ' signatures found') : 'Not scanned');
+                var scanResult = 'Not scanned';
+                if (item.scanned_at) {
+                    if (item.scan_status === 'timestamp_only') scanResult = 'Scan time recorded only — signature entries unchanged';
+                    else if (Number(item.signature_count) === 0) scanResult = 'Scanned — no signatures found';
+                    else scanResult = Number(item.signature_count) + ' signatures saved';
+                }
+                cell(scanResult);
                 body.appendChild(row);
             });
             status.textContent = systems.length + ' systems tracked. The list includes systems that have never been scanned.';
