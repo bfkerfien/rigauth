@@ -476,16 +476,15 @@ class ExplorationController extends Controller
                 'systems.itemID as solar_system_id',
                 'systems.itemName as system_name',
                 DB::raw('COALESCE(scans.scanned_at, signature_scans.signature_scanned_at) as scanned_at'),
-                DB::raw('COALESCE(scans.signature_count, signature_scans.existing_signature_count) as signature_count'),
+                DB::raw('CASE WHEN scans.id IS NOT NULL THEN scans.signature_count ELSE signature_scans.existing_signature_count END as signature_count'),
+                DB::raw("CASE WHEN scans.id IS NOT NULL THEN scans.scan_status ELSE 'with_signatures' END as scan_status"),
             ]);
 
         return response()->json(['systems' => $systems]);
     }
 
     /**
-     * Record that a system was checked and no signatures were found.
-     * This is a completed scan, so any previous signatures for that system
-     * are removed to keep the saved scan state accurate.
+     * Record a scan timestamp without submitting or changing any signature entries.
      */
     public function markNoSignatures(Request $request, string $region, int $systemId): JsonResponse
     {
