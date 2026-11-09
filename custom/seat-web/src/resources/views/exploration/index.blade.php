@@ -640,26 +640,21 @@
             button.disabled = false;
         });
     });
-    // Left-click toggles explored state; right-click opens signatures.
-    root.addEventListener('click', function (event) {
-        var anchor = event.target.closest('a');
-        if (anchor) event.preventDefault();
-        var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (node.dataset.status === 'red') return;
-        toggleSystem(node).catch(function () {});
-    }, true);
-    root.addEventListener('contextmenu', function (event) {
-        var node = event.target.closest('.exploration-system');
-        if (!node || !root.contains(node)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (node.dataset.status === 'red') return;
-        loadSignatures(node);
-    }, true);
+    // Bind directly to each SVG system node. Direct handlers avoid tab-level
+    // delegated listeners intercepting pointer events intended for the map.
     root.querySelectorAll('.exploration-system').forEach(function (node) {
+        node.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (node.dataset.status === 'red') return;
+            toggleSystem(node).catch(function () {});
+        });
+        node.addEventListener('contextmenu', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (node.dataset.status === 'red') return;
+            loadSignatures(node);
+        });
         node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
         node.setAttribute('title', node.dataset.status === 'red'
             ? node.dataset.systemName + ' — permanently excluded'
