@@ -640,27 +640,22 @@
             button.disabled = false;
         });
     });
-    // Left-click toggles explored state; right-click opens signatures.
-    // Use capture-phase delegation on the card so SVG child shapes and labels
-    // are handled consistently, regardless of which SVG element receives the hit.
+    // Preserve the original working delegated map click handler.
+    // Bubble-phase delegation matches the original Exploration map implementation.
     root.addEventListener('click', function (event) {
-        var target = event.target;
-        var node = target && target.closest ? target.closest('.exploration-system') : null;
+        var node = event.target.closest('.exploration-system');
         if (!node || !root.contains(node)) return;
-        event.preventDefault();
-        event.stopPropagation();
         if (node.dataset.status === 'red') return;
         toggleSystem(node).catch(function () {});
-    }, true);
+    });
+    // Right-click opens the signatures modal without interfering with left-click.
     root.addEventListener('contextmenu', function (event) {
-        var target = event.target;
-        var node = target && target.closest ? target.closest('.exploration-system') : null;
+        var node = event.target.closest('.exploration-system');
         if (!node || !root.contains(node)) return;
         event.preventDefault();
-        event.stopPropagation();
         if (node.dataset.status === 'red') return;
         loadSignatures(node);
-    }, true);
+    });
     root.querySelectorAll('.exploration-system').forEach(function (node) {
         node.style.cursor = node.dataset.status === 'red' ? 'not-allowed' : 'pointer';
         node.setAttribute('title', node.dataset.status === 'red'
