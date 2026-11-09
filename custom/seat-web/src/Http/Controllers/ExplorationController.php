@@ -28,6 +28,7 @@ class ExplorationController extends Controller
 
     public function index(): View
     {
+        $canManageCynoInfrastructure = $this->canManageCynoInfrastructure(request()->user());
         $maps = [];
         $mapError = null;
         $requiredTables = ['mapDenormalize', 'invNames'];
@@ -43,7 +44,7 @@ class ExplorationController extends Controller
             $maps[$region] = $mapError ? ['systems' => [], 'links' => [], 'green_count' => 0] : $this->buildMap($region);
         }
 
-        return view('web::exploration.index', compact('maps', 'mapError'));
+        return view('web::exploration.index', compact('maps', 'mapError', 'canManageCynoInfrastructure'));
     }
 
     /**
@@ -351,6 +352,61 @@ class ExplorationController extends Controller
      * structures, so only explicit Pharolux/Tenebrex matches are returned.
      * An empty result must never be interpreted as proof that a system is clear.
      */
+    private function canManageCynoInfrastructure($user): bool
+    {
+        if (!$user) return false;
+        return mb_strtolower(trim((string) ($user->username ?? ''))) === 'turaneau'
+            || mb_strtolower(trim((string) ($user->name ?? ''))) === 'turaneau';
+    }
+
+    public function manualCynoInfrastructure(): JsonResponse
+    {
+        abort_unless($this->canManageCynoInfrastructure(request()->user()), 403);
+        $systems = DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->leftJoin('tc_exploration_cyno_infrastructure as cyno', 'cyno.solar_system_id', '=', 'systems.itemID')
+            ->where('systems.groupID', 5)->whereIn('regions.itemName', self::REGIONS)
+            ->orderBy('regions.itemName')->orderBy('systems.itemName')
+            ->get([
+                'regions.itemName as region_name', 'systems.itemID as solar_system_id',
+                'systems.itemName as system_name',
+                DB::raw('COALESCE(cyno.cyno_generator, 0) as cyno_generator'),
+                DB::raw('COALESCE(cyno.cyno_jammer, 0) as cyno_jammer'),
+            ]);
+        return response()->json(['systems' => $systems])->header('Cache-Control', 'no-store');
+    }
+
+    public function saveManualCynoInfrastructure(Request $request, int $systemId): JsonResponse
+    {
+        abort_unless($this->canManageCynoInfrastructure($request->user()), 403);
+        $validated = $request->validate([
+            'cyno_generator' => ['required', 'boolean'],
+            'cyno_jammer' => ['required', 'boolean'],
+        ]);
+        $system = DB::table('mapDenormalize as systems')
+            ->join('invNames as regions', 'regions.itemID', '=', 'systems.regionID')
+            ->where('systems.groupID', 5)->whereIn('regions.itemName', self::REGIONS)
+            ->where('systems.itemID', $systemId)
+            ->first(['regions.itemName as region_name', 'systems.itemName as system_name']);
+        abort_unless($system, 404);
+        $generator = (bool) $validated['cyno_generator'];
+        $jammer = (bool) $validated['cyno_jammer'];
+        if (!$generator && !$jammer) {
+            DB::table('tc_exploration_cyno_infrastructure')->where('solar_system_id', $systemId)->delete();
+        } else {
+            DB::table('tc_exploration_cyno_infrastructure')->updateOrInsert(
+                ['solar_system_id' => $systemId],
+                [
+                    'region_name' => $system->region_name, 'system_name' => $system->system_name,
+                    'cyno_generator' => $generator, 'cyno_jammer' => $jammer,
+                    'marked_by' => $request->user()->id, 'updated_at' => now(), 'created_at' => now(),
+                ]
+            );
+        }
+        return response()->json(['status' => 'saved', 'solar_system_id' => $systemId,
+            'cyno_generator' => $generator, 'cyno_jammer' => $jammer])->header('Cache-Control', 'no-store');
+    }
+
     public function cynoInfrastructure(): JsonResponse
     {
         $data = Cache::remember('tc_exploration_cyno_infrastructure_v1', now()->addMinutes(10), function () {
@@ -388,9 +444,14 @@ class ExplorationController extends Controller
             ];
         });
 
-        return response()->json($data + [
-            'coverage' => 'sovereignty_endpoint_only',
-            'note' => 'Only structures explicitly reported by ESI are marked. An empty result does not confirm that no cyno structure exists.',
+        abort_unless($this->canManageCynoInfrastructure(request()->user()), 403);
+        $manual = DB::table('tc_exploration_cyno_infrastructure')->get(['solar_system_id', 'cyno_generator', 'cyno_jammer']);
+        $beacons = collect($data['beacon_system_ids'] ?? [])->merge($manual->where('cyno_generator', 1)->pluck('solar_system_id'))->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $jammers = collect($data['jammer_system_ids'] ?? [])->merge($manual->where('cyno_jammer', 1)->pluck('solar_system_id'))->map(fn ($id) => (int) $id)->unique()->values()->all();
+        return response()->json([
+            'available' => true, 'beacon_system_ids' => $beacons, 'jammer_system_ids' => $jammers,
+            'reported_structure_count' => (int) ($data['reported_structure_count'] ?? 0),
+            'coverage' => 'esi_plus_manual', 'note' => 'Manual entries are maintained by the authorized SeAT account.',
         ])->header('Cache-Control', 'no-store');
     }
 
