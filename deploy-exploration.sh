@@ -22,6 +22,7 @@ FILES=(
   "src/database/migrations/2026_11_08_000004_ensure_wormhole_note_columns.php"
   "src/database/migrations/2026_11_09_000001_create_tc_exploration_system_scans_table.php"
   "src/database/migrations/2026_11_09_000002_add_scan_status_to_tc_exploration_system_scans.php"
+  "src/database/migrations/2026_11_09_000003_create_tc_exploration_cyno_infrastructure_table.php"
   "src/resources/views/exploration/index.blade.php"
   "src/resources/exploration/layouts.php"
 )
@@ -129,6 +130,10 @@ if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000002_add_scan_s
   echo "ERROR: Exploration scan status migration is not recorded as applied."
   exit 1
 fi
+if ! printf '%s\\n' "$MIGRATION_STATUS" | grep -Fq '2026_11_09_000003_create_tc_exploration_cyno_infrastructure_table'; then
+  echo "ERROR: Manual cyno infrastructure migration is not recorded as applied."
+  exit 1
+fi
 
 CURRENT_STEP="clearing route cache"
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
@@ -167,6 +172,10 @@ printf '%s\\n' "$ROUTES" | grep -qi 'player-location' || {
 }
 printf '%s\\n' "$ROUTES" | grep -qi 'system-scans' || {
   echo "ERROR: System scan tracking routes are missing."
+  exit 1
+}
+printf '%s\\n' "$ROUTES" | grep -qi 'cyno-infrastructure/manual' || {
+  echo "ERROR: Manual cyno infrastructure routes are missing."
   exit 1
 }
 
