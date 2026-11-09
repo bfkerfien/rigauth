@@ -452,9 +452,9 @@ class ExplorationController extends Controller
     {
         $rows = DB::table('tc_exploration_signatures')
             ->where(function ($query) {
-                $query->whereRaw('LOWER(COALESCE(group_name, "")) LIKE ?', ['%wormhole%'])
-                    ->orWhereRaw('LOWER(COALESCE(type_name, "")) LIKE ?', ['%wormhole%'])
-                    ->orWhereRaw('LOWER(COALESCE(signature_name, "")) LIKE ?', ['%wormhole%'])
+                $query->where('group_name', 'like', '%wormhole%')
+                    ->orWhere('type_name', 'like', '%wormhole%')
+                    ->orWhere('signature_name', 'like', '%wormhole%')
                     ->orWhereNotNull('wormhole_type')
                     ->orWhereNotNull('connection_system')
                     ->orWhereNotNull('wormhole_exits');
