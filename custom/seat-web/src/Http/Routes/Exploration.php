@@ -6,7 +6,13 @@ Route::group(['prefix' => 'exploration'], function () {
     Route::get('/player-location', 'ExplorationController@playerLocation')
         ->name('seatcore::exploration.player-location');
 
-    // Experimental, read-only ESI check. Only positive structure matches are shown.
+    Route::get('/cyno-infrastructure/manual', 'ExplorationController@manualCynoInfrastructure')
+        ->name('seatcore::exploration.cyno-infrastructure.manual');
+    Route::post('/cyno-infrastructure/manual/{systemId}', 'ExplorationController@saveManualCynoInfrastructure')
+        ->where('systemId', '[0-9]+')
+        ->name('seatcore::exploration.cyno-infrastructure.manual.save');
+
+    // ESI plus authorized manual cyno markers.
     Route::get('/cyno-infrastructure', 'ExplorationController@cynoInfrastructure')
         ->name('seatcore::exploration.cyno-infrastructure');
 
