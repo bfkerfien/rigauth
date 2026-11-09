@@ -938,6 +938,52 @@
         });
     });
 })();
+
+</script>
+<script>
+(function () {
+  var root = document.querySelector('.exploration-card');
+  if (!root || root.dataset.explorationDataTabsBound === '1') return;
+  root.dataset.explorationDataTabsBound = '1';
+  function activate(tab, pane) {
+    root.querySelectorAll('#exploration-region-tabs .nav-link').forEach(function (n) { n.classList.remove('active'); n.setAttribute('aria-selected','false'); });
+    root.querySelectorAll('.tab-content > .tab-pane').forEach(function (n) { n.classList.remove('show','active'); });
+    tab.classList.add('active'); tab.setAttribute('aria-selected','true'); pane.classList.add('show','active');
+  }
+  function fail(status, body, msg, span) {
+    status.textContent = msg; body.replaceChildren();
+    var tr=document.createElement('tr'), td=document.createElement('td');
+    td.colSpan=span; td.className='text-warning'; td.textContent=msg; tr.appendChild(td); body.appendChild(tr);
+  }
+  function load(kind) {
+    var wh=kind==='wormholes', status=root.querySelector(wh?'#exploration-all-wormholes-status':'#exploration-system-scans-status');
+    var body=root.querySelector(wh?'#exploration-all-wormholes-body':'#exploration-system-scans-body');
+    status.textContent=wh?'Loading recorded wormholes…':'Loading system scan history…'; body.replaceChildren();
+    fetch(@json(url('/exploration'))+(wh?'/all-wormholes':'/system-scans'), {
+      headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, cache:'no-store'
+    }).then(function(r){ if(!r.ok) throw new Error('Request failed (HTTP '+r.status+').'); return r.json(); })
+    .then(function(data){
+      var items=wh?(data.wormholes||[]):(data.systems||[]);
+      if(!items.length){ fail(status,body,wh?'No wormhole signatures have been recorded yet.':'No systems were returned. Check the EVE SDE region/system records.',wh?6:4); return; }
+      items.forEach(function(item){
+        var tr=document.createElement('tr');
+        var values=wh?[item.signature_id,item.wormhole_type||item.type_name||item.signature_name||'Not identified',item.created_at,[item.system_name,item.region_name].filter(Boolean).join(' · '),item.connection_system,item.wormhole_exits]:
+          [item.region_name,item.system_name,item.scanned_at?new Date(String(item.scanned_at).replace(' ','T')).toLocaleString():'Never',
+           !item.scanned_at?'Not scanned':item.scan_status==='timestamp_only'?'Scan time recorded only — signatures unchanged':Number(item.signature_count)===0?'Scanned — no signatures found':Number(item.signature_count)+' signatures saved'];
+        values.forEach(function(value){var td=document.createElement('td');td.textContent=value==null?'':String(value);tr.appendChild(td);});
+        body.appendChild(tr);
+      });
+      status.textContent=items.length+(wh?' wormhole signature(s) recorded.':' systems listed across Branch, Tenal, and Venal.');
+    }).catch(function(e){fail(status,body,e.message||'Unable to load data.',wh?6:4);});
+  }
+  [['all-wormholes','wormholes'],['system-scans','scans']].forEach(function(pair){
+    var tab=root.querySelector('#exploration-'+pair[0]+'-tab'), pane=root.querySelector('#exploration-'+pair[0]);
+    if(!tab||!pane)return;
+    tab.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();activate(tab,pane);load(pair[1]);},true);
+    var refresh=root.querySelector('#exploration-'+pair[0]+'-refresh');
+    if(refresh)refresh.addEventListener('click',function(){load(pair[1]);});
+  });
+})();
 </script>
 @endif
 @endsection
