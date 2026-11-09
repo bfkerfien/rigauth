@@ -630,7 +630,10 @@
                 return data;
             });
         }).then(function (data) {
-            return refreshScanDisplay('Scan time recorded: ' + data.scanned_at + '. Existing signature entries were left unchanged.');
+            return refreshScanDisplay('Scan time recorded: ' + data.scanned_at + '. Existing signature entries were left unchanged.').then(function () {
+                signatureModal.querySelector('#exploration-modal-meta').textContent =
+                    signatureModal.dataset.region + ' · Last scanned ' + data.scanned_at + ' · Signature entries unchanged';
+            });
         }).catch(function (error) {
             message.textContent = error.message;
         }).finally(function () {
