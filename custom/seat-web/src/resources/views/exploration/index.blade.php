@@ -39,6 +39,8 @@
           <span class="exploration-legend"><span class="exploration-legend-dot green"></span> Explored</span>
           <span class="exploration-legend"><span class="exploration-legend-dot red"></span> Permanently excluded</span>
           <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Your live location</span>
+          <span class="exploration-legend"><span class="exploration-cyno-legend beacon">★</span> Confirmed Pharolux</span>
+          <span class="exploration-legend"><span class="exploration-cyno-legend jammer">⊘</span> Confirmed Tenebrex</span>
           <span id="exploration-live-status" class="ml-2">Live location: connecting…</span>
         </div>
         <div class="small text-muted">Left-click a system to toggle explored (green). Right-click a system to open its signatures.</div>
@@ -200,6 +202,12 @@
 .exploration-system.is-branch-teal.is-green .s { fill:#31c66b !important; stroke:#15964a !important; }
 .exploration-system.is-branch-teal.is-green .ss { fill:#092516 !important; }
 .exploration-branch-teal-oval { fill:none; stroke:#20b8b0; stroke-width:2.8; pointer-events:none; }
+.exploration-cyno-symbol { pointer-events:none; text-anchor:middle; dominant-baseline:middle; font-family:Arial,sans-serif; font-weight:bold; }
+.exploration-cyno-beacon-symbol { fill:#ffb52e; stroke:#171717; stroke-width:1.8px; paint-order:stroke; font-size:17px; }
+.exploration-cyno-jammer-symbol circle,
+.exploration-cyno-jammer-symbol line { fill:none; stroke:#b39aff; stroke-width:2.4px; stroke-linecap:round; }
+.exploration-cyno-legend { display:inline-block; color:#ffb52e; font-size:15px; font-weight:bold; line-height:13px; vertical-align:-1px; margin-right:4px; }
+.exploration-cyno-legend.jammer { color:#b39aff; }
 .exploration-system.is-red { cursor: not-allowed; }
 .exploration-system.is-red .s { fill: #e05252 !important; stroke: #a92f38 !important; }
 .exploration-system.is-red .ss { fill: #fff !important; }
@@ -992,6 +1000,62 @@
         }
         loadSystemInformation();
     });
+
+    // Optional ESI markers: symbols only, with no cyno-specific rings or highlights.
+    function loadCynoInfrastructure() {
+        fetch(@json(url('/exploration/cyno-infrastructure')), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            cache: 'no-store'
+        }).then(function (response) {
+            if (!response.ok) throw new Error('Cyno infrastructure lookup unavailable');
+            return response.json();
+        }).then(function (data) {
+            if (!data.available) return;
+            function getSystemShape(systemId) {
+                var nodes = root.querySelectorAll('.exploration-system[data-system-id="' + String(systemId) + '"]');
+                return Array.prototype.map.call(nodes, function (node) {
+                    return { node: node, shape: node.querySelector('.s') };
+                }).filter(function (entry) { return !!entry.shape; });
+            }
+            (data.beacon_system_ids || []).forEach(function (systemId) {
+                getSystemShape(systemId).forEach(function (entry) {
+                    if (entry.node.querySelector('.exploration-cyno-beacon-symbol')) return;
+                    var shape = entry.shape;
+                    var x = Number(shape.getAttribute('x')), y = Number(shape.getAttribute('y'));
+                    var w = Number(shape.getAttribute('width'));
+                    if (![x, y, w].every(Number.isFinite)) return;
+                    var star = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    star.setAttribute('class', 'exploration-cyno-symbol exploration-cyno-beacon-symbol');
+                    star.setAttribute('x', x + w / 2);
+                    star.setAttribute('y', y - 8);
+                    star.textContent = '★';
+                    entry.node.appendChild(star);
+                });
+            });
+            (data.jammer_system_ids || []).forEach(function (systemId) {
+                getSystemShape(systemId).forEach(function (entry) {
+                    if (entry.node.querySelector('.exploration-cyno-jammer-symbol')) return;
+                    var shape = entry.shape;
+                    var x = Number(shape.getAttribute('x')), y = Number(shape.getAttribute('y'));
+                    var w = Number(shape.getAttribute('width'));
+                    if (![x, y, w].every(Number.isFinite)) return;
+                    var cx = x + w / 2, cy = y - 8;
+                    var symbol = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    symbol.setAttribute('class', 'exploration-cyno-symbol exploration-cyno-jammer-symbol');
+                    var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', 6);
+                    var slash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    slash.setAttribute('x1', cx - 4.5); slash.setAttribute('y1', cy + 4.5);
+                    slash.setAttribute('x2', cx + 4.5); slash.setAttribute('y2', cy - 4.5);
+                    symbol.appendChild(circle); symbol.appendChild(slash);
+                    entry.node.appendChild(symbol);
+                });
+            });
+        }).catch(function () {
+            // Optional source: failures must not affect map behavior.
+        });
+    }
+    loadCynoInfrastructure();
 
     updatePlayerLocation();
     var locationTimer = window.setInterval(function () {
