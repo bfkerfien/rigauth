@@ -2,9 +2,10 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
 @@ -1,4 +1,7 @@
-          })->name('seatcore::fittings.index');
- 
+         })->name('seatcore::fittings.index');
+         
 +        // Signed SSO bridge for the Triglavian Market app.
 +        include __DIR__ . '/Routes/TriglavianSso.php';
 +
-          // Support Routes
+         // Support Routes
+ 
