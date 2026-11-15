@@ -26,10 +26,32 @@ sidebar_link = """        <li class="nav-item">
 
 """
 sidebar_anchor = "        @foreach($menu as $entry)"
+admin_link = """        @if(auth()->check() && (auth()->user()->can('global.superuser') || strtolower(auth()->user()->name ?? '') === 'turaneau'))
+        <li class="nav-item">
+          <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
+            <i class="nav-icon fas fa-cogs"></i>
+            <p>Admin Setup</p>
+          </a>
+        </li>
+        @endif
+
+"""
+reaction_link = """        <li class="nav-item">
+          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
+            <i class="nav-icon fas fa-flask"></i>
+            <p>Reactions</p>
+          </a>
+        </li>
+
+"""
+if sidebar.count(sidebar_anchor) != 1:
+    raise SystemExit("Could not find the unique SeAT sidebar menu anchor; no sidebar changes made.")
 if "seatcore::exploration.index" not in sidebar:
-    if sidebar.count(sidebar_anchor) != 1:
-        raise SystemExit("Could not find the unique SeAT sidebar menu anchor; no sidebar changes made.")
     sidebar = sidebar.replace(sidebar_anchor, sidebar_link + sidebar_anchor, 1)
+if "seatcore::configuration.triglavian.index" not in sidebar:
+    sidebar = sidebar.replace(sidebar_anchor, admin_link + sidebar_anchor, 1)
+if "seatcore::reactions.index" not in sidebar:
+    sidebar = sidebar.replace(sidebar_anchor, reaction_link + sidebar_anchor, 1)
 
 routes_path.write_text(routes)
 sidebar_path.write_text(sidebar)
