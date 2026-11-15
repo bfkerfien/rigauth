@@ -2,6 +2,14 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
 @@ -170,2 +170,10 @@
++        // Triglavian administration routes.
++        Route::group([
++            'namespace' => 'Configuration',
++            'prefix' => 'configuration',
++        ], function () {
++            include __DIR__ . '/Routes/Configuration/Triglavian.php';
++        });
++
          // Impersonation Helper Group. This one is Separate purely
          // because we don't want to restrict this to superusers only.
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
