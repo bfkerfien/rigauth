@@ -1,0 +1,552 @@
+@extends('web::layouts.grids.12')
+
+@section('full')
+<style>
+  body:has(.trig-finance), body:has(.trig-finance) .content-wrapper,
+  body:has(.trig-finance) .content, body:has(.trig-finance) .content-header {
+    background-color: #17191c !important;
+    color: #e8e3dc;
+  }
+  body:has(.trig-finance) .content-wrapper { background:linear-gradient(145deg,#25282c 0%,#17191c 48%,#0c0e10 100%) !important; }
+  body:has(.trig-finance) .content { background:transparent !important; }
+  body:has(.trig-finance) .content-header { background:transparent !important; }
+  .trig-finance {
+    --tf-bg: #101316;
+    --tf-panel: #191e22;
+    --tf-panel-hi: #20272c;
+    --tf-line: rgba(201, 164, 112, .25);
+    --tf-red: #d84b43;
+    --tf-red-hi: #f06a5c;
+    --tf-gold: #c9a470;
+    --tf-text: #e8e3dc;
+    --tf-muted: #a7a29a;
+    color: var(--tf-text);
+    margin: -4px 0 22px;
+  }
+  .trig-finance .tf-cycle {
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+    margin:-22px 0 22px; padding:17px 24px;
+    background:linear-gradient(105deg,#24272b 0%,#171a1e 58%,#101214 100%);
+    border:1px solid rgba(201,164,112,.35); border-left:5px solid var(--tf-gold);
+    border-radius:4px; box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  .trig-finance .tf-cycle-title { color:#f1ece4; font-size:16px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin:4px 0; }
+  .trig-finance .tf-cycle-count { display:flex; align-items:baseline; gap:10px; margin-left:auto; margin-right:12px; white-space:nowrap; }
+  .trig-finance .tf-cycle-number { color:#f2d4a4; font-size:clamp(42px,6vw,66px); line-height:.95; font-weight:800; letter-spacing:-.05em; text-shadow:0 0 20px rgba(201,164,112,.18); font-variant-numeric:tabular-nums; }
+  .trig-finance .tf-cycle-unit { color:var(--tf-gold); font-size:10px; font-weight:700; letter-spacing:.14em; }
+  .trig-finance .tf-hero {
+    position:relative; overflow:hidden; height:clamp(118px,13vw,176px); padding:0;
+    margin-bottom:22px; border:1px solid rgba(216,75,67,.7); border-radius:5px;
+    background:#08090d; box-shadow:0 12px 32px rgba(0,0,0,.3),0 0 24px rgba(216,75,67,.12);
+  }
+  .trig-finance .tf-hero > svg { display:block; width:100%; height:100%; }
+  .trig-finance .tf-hero:after {
+    content: ""; position:absolute; inset:0; pointer-events:none; opacity:.2;
+    background-image: linear-gradient(30deg, transparent 49.6%, rgba(201,164,112,.35) 50%, transparent 50.4%),
+      linear-gradient(150deg, transparent 49.6%, rgba(201,164,112,.22) 50%, transparent 50.4%);
+    background-size: 72px 72px; mask-image: linear-gradient(90deg, transparent, #000);
+  }
+  .trig-finance .tf-kicker { color:var(--tf-gold); text-transform:uppercase; letter-spacing:.24em; font-size:10px; font-weight:700; }
+  .trig-finance .tf-hero h2 { color:#f1ece4; font-size:27px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin:8px 0; }
+  .trig-finance .tf-hero p { color:#b9b4ad; max-width:620px; margin:0; }
+  .trig-finance .tf-sigil { width:170px; min-width:120px; height:145px; margin-left:20px; position:relative; z-index:1; filter:drop-shadow(0 0 14px rgba(216,75,67,.22)); }
+  .trig-finance .tf-sigil svg { width:100%; height:100%; }
+  .trig-finance .tf-metric { position:relative; min-height:118px; padding:17px 18px 15px; margin-bottom:16px;
+    background:linear-gradient(145deg,var(--tf-panel-hi),var(--tf-panel)); border:1px solid var(--tf-line);
+    border-top:2px solid var(--tf-red); border-radius:4px; box-shadow:0 5px 16px rgba(0,0,0,.16); }
+  .trig-finance .tf-metric:nth-child(3n+2) { border-top-color:var(--tf-gold); }
+  .trig-finance .tf-metric:nth-child(3n) { border-top-color:#8f7771; }
+  .trig-finance .tf-metric-label { color:var(--tf-muted); text-transform:uppercase; letter-spacing:.08em; font-size:10px; font-weight:700; line-height:1.4; }
+  .trig-finance .tf-metric-value { color:#f1ece4; font-size:clamp(17px,2vw,23px); font-weight:700; margin-top:10px; overflow-wrap:anywhere; }
+  .trig-finance .tf-metric-value small { color:var(--tf-gold); font-size:11px; font-weight:600; }
+  .trig-finance .tf-panel { background:var(--tf-panel); border:1px solid var(--tf-line); border-radius:5px; margin-bottom:18px; box-shadow:0 7px 20px rgba(0,0,0,.14); }
+  .trig-finance .tf-panel-head { display:flex; align-items:center; gap:10px; padding:13px 17px; background:linear-gradient(90deg,rgba(216,75,67,.13),transparent 75%); border-bottom:1px solid var(--tf-line); }
+  .trig-finance .tf-panel-head:before { content:""; width:3px; height:17px; background:var(--tf-red); }
+  .trig-finance .tf-panel-head h3 { color:#eee7dc; text-transform:uppercase; letter-spacing:.1em; font-size:12px; font-weight:700; margin:0; }
+  .trig-finance .tf-collapsible { overflow:hidden; }
+  .trig-finance .tf-collapsible > summary { list-style:none; cursor:pointer; justify-content:space-between; user-select:none; }
+  .trig-finance .tf-collapsible > summary::-webkit-details-marker { display:none; }
+  .trig-finance .tf-collapsible > summary h3 { flex:1; }
+  .trig-finance .tf-chevron { color:var(--tf-gold); transition:transform .18s ease; }
+  .trig-finance .tf-collapsible[open] > summary .tf-chevron { transform:rotate(180deg); }
+
+  .trig-finance .tf-panel-body { padding:16px 17px; }
+  .trig-finance .tf-panel .table { color:#ddd7ce; margin:0; }
+  .trig-finance .tf-panel .table thead th { color:var(--tf-gold); background:#20262a; border-top:0; border-bottom:1px solid var(--tf-line); text-transform:uppercase; letter-spacing:.07em; font-size:10px; }
+  .trig-finance .tf-panel .table td { border-top:1px solid rgba(201,164,112,.12); vertical-align:middle; }
+  .trig-finance .tf-panel .table-striped tbody tr:nth-of-type(odd) { background:rgba(255,255,255,.025); }
+  .trig-finance .tf-panel .table tbody tr:hover { background:rgba(216,75,67,.08); }
+  .trig-finance .tf-period { color:#ddd7ce; background:linear-gradient(110deg,#211f20,#191e22); border:1px solid var(--tf-line); border-left:4px solid var(--tf-gold); }
+  .trig-finance .tf-note { color:#c5beb4; background:rgba(201,164,112,.07); border:1px solid rgba(201,164,112,.2); border-left:3px solid var(--tf-gold); border-radius:3px; padding:12px 15px; margin-bottom:17px; }
+  .trig-finance .tf-sync { color:#d5d0c7; background:#1c2425; border:1px solid rgba(112,151,126,.35); border-left:3px solid #7caa8a; border-radius:3px; padding:11px 15px; margin-bottom:17px; }
+  .trig-finance .btn-tf { color:#fff; background:linear-gradient(135deg,#b83d38,#842d2b); border:1px solid #d65b50; text-transform:uppercase; letter-spacing:.06em; font-size:11px; font-weight:700; }
+  .trig-finance .btn-tf:hover { color:#fff; background:linear-gradient(135deg,#d84b43,#a83732); }
+  .trig-finance .btn-tf-gold { color:#18191a; background:linear-gradient(135deg,#d3b17d,#a98552); border:1px solid #e0c08e; text-transform:uppercase; letter-spacing:.06em; font-size:11px; font-weight:700; }
+  .trig-finance .btn-tf-gold:hover { color:#111; background:#e0c08e; }
+  .trig-finance .tf-muted { color:var(--tf-muted); }
+  .trig-finance .tf-pill { display:inline-block; padding:3px 8px; border:1px solid var(--tf-line); border-radius:2px; color:var(--tf-gold); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+  @media(max-width:767px) {\n    .trig-finance .tf-cycle { align-items:flex-start; flex-wrap:wrap; margin-top:-14px; padding:16px; }\n    .trig-finance .tf-cycle-count { margin:0; }\n  }\n  @media(max-width:575px) {
+    .trig-finance .tf-hero { padding:22px 18px; min-height:150px; }
+    .trig-finance .tf-hero h2 { font-size:21px; }
+    .trig-finance .tf-sigil { width:92px; height:95px; }
+  }
+  /* Override the SeAT/AdminLTE page surfaces as well as the finance cards. */
+  html:has(.trig-finance), body:has(.trig-finance),
+  body:has(.trig-finance) .wrapper,
+  body:has(.trig-finance) .content-wrapper,
+  body:has(.trig-finance) .content,
+  body:has(.trig-finance) .content-header,
+  body:has(.trig-finance) .main-footer {
+    background:#080a0e !important; background-image:none !important; color:#f4f1ed !important;
+  }
+  body:has(.trig-finance) .content-wrapper { background:radial-gradient(ellipse at 50% 0%,#171014 0%,#0b0d11 48%,#07090c 100%) !important; }
+  body:has(.trig-finance) .content-header { border-bottom:1px solid rgba(255,55,43,.25); }
+  body:has(.trig-finance) .content-header h1,
+  body:has(.trig-finance) .content-header .breadcrumb,
+  body:has(.trig-finance) .content-header .breadcrumb a { color:#f4f1ed !important; }
+
+  /* Cinematic Triglavian dashboard skin — tuned to the approved mockup. */
+  .trig-finance {
+    --tf-bg:#090b0f; --tf-panel:#11151a; --tf-panel-hi:#1a1e24;
+    --tf-line:rgba(255,55,43,.58); --tf-red:#f02f25; --tf-red-hi:#ff5b42;
+    --tf-gold:#e6d8c6; --tf-text:#f4f1ed; --tf-muted:#c4bdba;
+    color:var(--tf-text);
+  }
+  .trig-finance .tf-hero {
+    height:clamp(145px,15vw,205px); padding:0; margin:0 0 12px;
+    border:1px solid #f02f25; border-radius:7px; background:#050609;
+    box-shadow:0 0 18px rgba(255,35,25,.24), inset 0 0 24px rgba(255,35,25,.08);
+  }
+  .trig-finance .tf-hero > img {
+    display:block; width:100%; height:100%; object-fit:cover; object-position:center 48%;
+  }
+  .trig-finance .tf-hero:after { display:none; }
+  .trig-finance .tf-cycle {
+    margin:0 0 16px; padding:14px 24px; min-height:82px;
+    background:linear-gradient(100deg,#08090c 0%,#171014 52%,#090a0d 100%);
+    border:1px solid #f02f25; border-left:1px solid #f02f25; border-radius:7px;
+    box-shadow:0 0 14px rgba(255,35,25,.18), inset 0 0 24px rgba(255,35,25,.07);
+  }
+  .trig-finance .tf-cycle-title { color:#fff; font-size:17px; letter-spacing:.15em; }
+  .trig-finance .tf-cycle-number { color:#fff; text-shadow:0 0 9px #ff3429,0 0 22px rgba(255,35,25,.8); }
+  .trig-finance .tf-cycle-unit { color:#ff6b5d; font-size:12px; }
+  .trig-finance .tf-metric {
+    background:linear-gradient(145deg,#17191e,#0b0d11);
+    border:1px solid rgba(255,65,52,.58); border-top:1px solid #ff4437;
+    border-radius:7px; box-shadow:0 0 12px rgba(255,35,25,.12),inset 0 -3px 0 rgba(255,35,25,.15);
+  }
+  .trig-finance .tf-metric:nth-child(3n+2),
+  .trig-finance .tf-metric:nth-child(3n) { border-top-color:#ff4437; }
+  .trig-finance .tf-metric-label { color:#f0e9e5; font-size:11px; }
+  .trig-finance .tf-metric-value { color:#fff; font-size:25px; text-shadow:0 0 9px rgba(255,255,255,.12); }
+  .trig-finance .tf-panel {
+    background:linear-gradient(120deg,#111317,#0b0d10); border:1px solid rgba(255,65,52,.62);
+    border-radius:7px; box-shadow:0 0 13px rgba(255,35,25,.11);
+  }
+  .trig-finance .tf-panel-head {
+    background:linear-gradient(90deg,rgba(255,42,32,.17),transparent 80%);
+    border-bottom:1px solid rgba(255,65,52,.36);
+  }
+  .trig-finance .tf-panel-head:before { background:#ff392e; box-shadow:0 0 9px #ff392e; }
+  .trig-finance .tf-panel-head h3 { color:#fff; }
+  .trig-finance .tf-period { background:linear-gradient(110deg,#180e10,#111317); border-color:rgba(255,65,52,.6); border-left:3px solid #ff392e; }
+  .trig-finance .tf-note { background:rgba(255,48,36,.06); border-color:rgba(255,65,52,.32); border-left-color:#ff392e; }
+  .trig-finance .btn-tf {
+    color:#fff; background:linear-gradient(135deg,#f52c21,#8f100e);
+    border:1px solid #ff6658; box-shadow:0 0 12px rgba(255,35,25,.3);
+  }
+  .trig-finance .btn-tf-gold {
+    color:#fff; background:linear-gradient(135deg,#302226,#171316);
+    border:1px solid #ff5145; box-shadow:0 0 10px rgba(255,35,25,.2);
+  }
+  .trig-finance .tf-chevron { color:#ff6658; }
+  @media(max-width:575px) {
+    .trig-finance .tf-hero { height:118px; min-height:0; padding:0; }
+  }
+
+
+  /* Potchven page: dark charcoal SeAT top navigation with a restrained red edge. */
+  body:has(.trig-finance) .main-header,
+  body:has(.trig-finance) .main-header.navbar,
+  body:has(.trig-finance) .main-header .navbar {
+    background:linear-gradient(180deg,#292b2f 0%,#202226 100%) !important;
+    background-color:#242629 !important;
+    border-bottom:2px solid #a8322d !important;
+    box-shadow:0 2px 12px rgba(0,0,0,.35),0 1px 8px rgba(190,45,38,.16) !important;
+  }
+  body:has(.trig-finance) .main-header .navbar-nav > li > a,
+  body:has(.trig-finance) .main-header .navbar-custom-menu > .navbar-nav > li > a {
+    color:#e5e1dc !important;
+  }
+  body:has(.trig-finance) .main-header .navbar-nav > li > a:hover,
+  body:has(.trig-finance) .main-header .navbar-custom-menu > .navbar-nav > li > a:hover {
+    color:#fff !important;
+    background:rgba(255,255,255,.07) !important;
+  }
+
+
+  .trig-finance .tf-quick-links { display:flex; flex-wrap:wrap; gap:9px; margin:0 0 16px; }
+  .trig-finance .tf-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; border-bottom:1px solid rgba(255,65,52,.45); padding-bottom:9px; }
+  .trig-finance .tf-tab-button { cursor:pointer; color:#eee; background:#15181d; border:1px solid rgba(255,65,52,.55); border-radius:4px; padding:10px 18px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .trig-finance .tf-tab-button.active { color:#fff; background:linear-gradient(135deg,#f52c21,#8f100e); border-color:#ff6658; box-shadow:0 0 12px rgba(255,35,25,.25); }
+  .trig-finance .tf-tab-content { display:none; }
+  .trig-finance .tf-tab-content.active { display:block; }
+  .tf-modal-backdrop { position:fixed; inset:0; z-index:10500; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.78); }
+  .tf-modal-backdrop[hidden] { display:none; }
+  .tf-modal { width:min(680px,100%); max-height:85vh; overflow:auto; background:#11151a; color:#f4f1ed; border:1px solid #ff4437; border-radius:7px; box-shadow:0 0 28px rgba(255,35,25,.25); }
+  .tf-modal-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid rgba(255,65,52,.4); }
+  .tf-modal-head h3 { margin:0; color:#fff; text-transform:uppercase; letter-spacing:.1em; font-size:14px; }
+  .tf-modal-close { color:#fff; border:0; background:transparent; font-size:25px; line-height:1; cursor:pointer; }
+  .tf-modal-body { padding:18px; color:#d8d1c9; line-height:1.65; }
+  .tf-modal-body strong { color:#fff; }
+  @media(max-width:575px) { .trig-finance .tf-tab-button { flex:1 1 100%; } .trig-finance .tf-quick-links .btn { flex:1 1 100%; } }
+
+
+  /* Keep the Potchven navigation emblem visible when AdminLTE collapses the sidebar on laptop widths. */
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fa,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fas,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .far,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .fab,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .glyphicon,
+  body:has(.trig-finance) .main-sidebar .sidebar-menu > li > a > .ion {
+    display:inline-block !important; visibility:visible !important; opacity:1 !important;
+  }
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fa,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fas,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .far,
+  body:has(.trig-finance).sidebar-mini.sidebar-collapse .main-sidebar .sidebar-menu > li > a > .fab {
+    width:50px !important; margin:0 !important; text-align:center !important;
+  }
+
+
+  .trig-finance .tf-isk-active { padding:14px 16px; border:1px solid rgba(255,65,52,.45); border-left:3px solid #f02f25; background:rgba(255,45,35,.06); border-radius:4px; }
+  .trig-finance .tf-isk-active .tf-pill { color:#ff766b; border-color:rgba(255,65,52,.5); }
+  .trig-finance .tf-isk-active .tf-pill i { font-size:8px; color:#ff453a; }
+  .trig-finance .tf-isk-started { color:#fff; font-weight:700; margin-top:8px; }
+  .trig-finance .tf-isk-label { display:block; color:#f0e9e5; text-transform:uppercase; letter-spacing:.08em; font-size:11px; font-weight:700; margin-bottom:7px; }
+  .trig-finance .tf-isk-input { max-width:280px; background:#090c10; color:#fff; border:1px solid rgba(255,65,52,.65); }
+  .trig-finance .tf-isk-input:focus { background:#090c10; color:#fff; border-color:#ff6658; box-shadow:0 0 0 .15rem rgba(255,55,43,.2); }
+  .trig-finance .tf-telemetry-preview { color:#d8d1c9; font-size:12px; }
+  .trig-finance .tf-telemetry-preview strong { color:#fff; }
+  .trig-finance .tf-isk-formula { padding:12px 14px; background:rgba(255,255,255,.025); border:1px solid rgba(255,65,52,.25); border-radius:4px; color:#d8d1c9; font-size:12px; line-height:1.6; }
+  .trig-finance .tf-isk-formula strong { display:block; color:#fff; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+  .trig-finance .tf-isk-formula small { display:block; color:#a7a29a; margin-top:5px; }
+  .trig-finance .tf-weekday-row { display:grid; grid-template-columns:100px minmax(90px,1fr) minmax(125px,155px) 80px; align-items:center; gap:12px; margin:0 0 13px; }
+  .trig-finance .tf-weekday-name { color:#eee7dc; font-size:12px; font-weight:700; }
+  .trig-finance .tf-weekday-track { height:13px; background:#080a0d; border:1px solid rgba(255,65,52,.2); border-radius:2px; overflow:hidden; }
+  .trig-finance .tf-weekday-bar { height:100%; min-width:0; background:linear-gradient(90deg,#9e211e,#ff5145); box-shadow:0 0 8px rgba(255,50,40,.35); }
+  .trig-finance .tf-weekday-bar.negative { background:linear-gradient(90deg,#80613b,#d6a45f); box-shadow:0 0 8px rgba(214,164,95,.2); }
+  .trig-finance .tf-weekday-value { color:#fff; text-align:right; font-size:11px; font-weight:700; white-space:nowrap; }
+  .trig-finance .tf-weekday-count { color:#a7a29a; text-align:right; font-size:10px; white-space:nowrap; }
+  @media(max-width:767px) { .trig-finance .tf-weekday-row { grid-template-columns:75px minmax(65px,1fr) 110px; gap:8px; } .trig-finance .tf-weekday-count { display:none; } }
+  @media(max-width:480px) { .trig-finance .tf-weekday-row { grid-template-columns:65px minmax(45px,1fr); } .trig-finance .tf-weekday-value { grid-column:2; text-align:left; } }
+
+</style>
+
+<div class="trig-finance">
+  <section class="tf-hero" aria-label="Triglavian gate in deep space">
+    <img src="{{ asset('img/potchven-triglavian-gate-banner.jpg') }}"
+         alt="A monumental Triglavian gate with a glowing red triangular core in deep space">
+  </section>
+
+  <div class="tf-quick-links">
+    <button type="button" class="btn btn-tf-gold" data-tf-modal-open="tf-site-rules"><i class="fas fa-book-open mr-1"></i> Site Accounting Rules</button>
+    <a class="btn btn-tf" href="https://evemaps.dotlan.net/map/Pochven" target="_blank" rel="noopener noreferrer"><i class="fas fa-map-marked-alt mr-1"></i> DOTLAN Pochven Map</a>
+    <a class="btn btn-tf" href="https://zkillboard.com/region/10000070/" target="_blank" rel="noopener noreferrer"><i class="fas fa-crosshairs mr-1"></i> zKillboard Pochven</a>
+  </div>
+
+  <section class="tf-cycle">
+    <div class="tf-cycle-copy">
+      <div class="tf-kicker">Triglavian Consortium · Reporting cycle</div>
+      <div class="tf-cycle-title">Financial reporting period</div>
+      <p class="tf-muted mb-0">Started {{ $periodStart->timezone(config('app.timezone'))->format('Y-m-d') }} · Countdown refreshes daily</p>
+    </div>
+    <div class="tf-cycle-count">
+      <span class="tf-cycle-number">{{ number_format($monthlyCountdown) }}</span>
+      <span class="tf-cycle-unit">DAYS REMAINING</span>
+    </div>
+    <form method="POST" action="{{ route('seatcore::potchven-finances.timer.reset') }}" onsubmit="return confirm('Reset only the 180-day countdown to 180 days? The financial-period counter and wallet reporting baseline will remain unchanged.')">
+      @csrf
+      <button type="submit" class="btn btn-tf-gold"><i class="fas fa-redo-alt"></i> Reset 180-Day Timer</button>
+    </form>
+  </section>
+
+  <nav class="tf-tabs" aria-label="Finance dashboard sections">
+    <button type="button" class="tf-tab-button active" data-tf-tab="main">Main</button>
+    <button type="button" class="tf-tab-button" data-tf-tab="finances">Finances</button>
+    <button type="button" class="tf-tab-button" data-tf-tab="isk-hour">ISK per Hour</button>
+  </nav>
+  <section class="tf-tab-content active" id="tf-tab-main" aria-label="Main">
+  <div class="row">
+    @foreach([
+      ['Sites this period', number_format($sites), 'fa-crosshairs'],
+      ['Days since financial reset', number_format($daysElapsed).' days', 'fa-stopwatch'],
+      ['Average sites per day', number_format($sites / $daysElapsed, 2), 'fa-chart-line'],
+      ['Site revenue this period', number_format($siteRevenue, 0).' ISK', 'fa-coins'],
+    ] as $metric)
+      <div class="col-lg-3 col-md-4 col-sm-6">
+        <div class="tf-metric">
+          <div class="tf-metric-label"><i class="fas {{ $metric[2] }} mr-1"></i> {{ $metric[0] }}</div>
+          <div class="tf-metric-value">{{ $metric[1] }}</div>
+          @if($metric[0] === 'Days since financial reset')
+            <form method="POST" action="{{ route('seatcore::potchven-finances.period.reset') }}" class="mt-3" onsubmit="return confirm('Reset the financial-period counter and wallet reporting baseline? The 180-day countdown and live wallet balances will not change. Historical entries, site records, and outstanding SRP obligations will be preserved.')">
+              @csrf
+              <button type="submit" class="btn btn-tf"><i class="fas fa-wallet"></i> Reset Financial Period</button>
+            </form>
+          @endif
+        </div>
+      </div>
+    @endforeach
+  </div>
+
+
+
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>SRP transfers & operational controls</h3></div>
+    <div class="tf-panel-body d-flex flex-wrap align-items-center">
+      <form method="POST" action="{{ route('seatcore::potchven-finances.srp.add-site-without-loot') }}" class="mr-2 mb-2" onsubmit="return confirm('Add 27,000,000 ISK to pending SRP transfer for Site Without Loot?')">
+        @csrf
+        <button type="submit" class="btn btn-tf"><i class="fas fa-plus-circle"></i> Site Without Loot (+27,000,000 ISK)</button>
+      </form>
+      <form method="POST" action="{{ route('seatcore::potchven-finances.srp.transfer') }}" class="mb-2" onsubmit="return confirm('Have you completed the ISK transfer to the SRP fund? This will mark all currently pending SRP obligations as transferred in the dashboard. It will not move ISK in EVE.')">
+        @csrf
+        <button type="submit" class="btn btn-tf-gold"><i class="fas fa-check-circle"></i> Transfer to SRP</button>
+      </form>
+      <p class="tf-muted small mb-0 w-100">Use “Transfer to SRP” only after the ISK has actually been sent. The dashboard records the confirmation; it cannot transfer ISK in EVE.</p>
+    </div>
+  </section>
+
+  <div class="tf-sync">
+    <strong><i class="fas fa-satellite-dish mr-1"></i> Finance data last updated:</strong>
+    @if($lastFinanceSync) {{ \Carbon\Carbon::parse($lastFinanceSync)->timezone(config('app.timezone'))->format('Y-m-d H:i:s T') }} @else Never recorded @endif
+    <span class="ml-2">· Automatic sync runs every 15 minutes.</span>
+  </div>
+  @foreach($financeSyncErrors as $syncError)
+    <div class="alert alert-warning"><strong>Sync issue ({{ $syncError->resource_key }}):</strong> {{ $syncError->last_error }}</div>
+  @endforeach
+  @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+  @if(session('info'))<div class="alert alert-info">{{ session('info') }}</div>@endif
+  @if(session('warning'))<div class="alert alert-warning">{{ session('warning') }}</div>@endif
+  @if(session('reconciliation_failures'))
+    <div class="alert alert-warning"><strong>Reconciliation failures:</strong><ul class="mb-0">@foreach(session('reconciliation_failures') as $failure)<li>{{ $failure }}</li>@endforeach</ul></div>
+  @endif
+  @if(!$owners->count())
+    <div class="alert alert-warning">Finance tables have not been imported yet. Import the standalone finance database into SeAT using the fin_ prefix, then reload this page.</div>
+  @endif
+
+  </section>
+  <section class="tf-tab-content" id="tf-tab-finances" aria-label="Finances">
+  <details class="tf-panel tf-collapsible">
+    <summary class="tf-panel-head"><h3>Recent wallet entries</h3><i class="fas fa-chevron-down tf-chevron"></i></summary>
+    <div class="tf-panel-body">
+    <div class="table-responsive"><table class="table table-sm table-striped">
+      <thead><tr><th>Date</th><th>Owner</th><th>Reference</th><th>Description</th><th class="text-right">Amount (ISK)</th><th>Operating expense</th></tr></thead><tbody>
+      @forelse($entries as $entry)
+        <tr><td>{{ $entry->occurred_at }}</td><td>{{ $entry->display_name }}</td><td>{{ $entry->reference_type }}</td><td>{{ $entry->description }}</td><td class="text-right">{{ number_format((float)$entry->amount_isk, 2) }}</td><td>{{ $entry->is_operational_expense ? 'Yes' : 'No' }}</td></tr>
+      @empty<tr><td colspan="6" class="text-muted">No wallet entries imported.</td></tr>@endforelse
+      </tbody>
+    </table></div>
+    </div>
+  </details>
+
+  <details class="tf-panel tf-collapsible">
+    <summary class="tf-panel-head"><h3>Recent site events</h3><i class="fas fa-chevron-down tf-chevron"></i></summary>
+    <div class="tf-panel-body">
+    <div class="table-responsive"><table class="table table-sm table-striped">
+      <thead><tr><th>Date</th><th>Status</th><th>Payout count</th><th>Total payouts</th><th>Revenue credit</th><th>Notes</th></tr></thead><tbody>
+      @forelse($siteEvents as $event)
+        <tr><td>{{ $event->occurred_at }}</td><td>{{ $event->status }}</td><td>{{ $event->payout_count }}</td><td>{{ number_format((float)$event->total_payout_isk, 0) }}</td><td>{{ number_format((float)$event->revenue_credit_isk, 0) }}</td><td>{{ $event->review_note }}</td></tr>
+      @empty<tr><td colspan="6" class="text-muted">No site events imported.</td></tr>@endforelse
+      </tbody>
+    </table></div>
+    </div>
+  </details>
+
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>Additional Financial Indicators</h3></div>
+    <div class="tf-panel-body">
+      <div class="row">
+        @foreach([
+          ['Character expenses this period', number_format($expenses, 0).' ISK', 'fa-file-invoice-dollar'],
+          ['Personal assets + wallets − 90M', number_format($personalNetValue, 0).' ISK', 'fa-user-shield'],
+          ['Pending SRP transfer', number_format($pendingSrp, 0).' ISK', 'fa-shield-alt'],
+          ['Corporation hangars 2, 4, 5 & 6', number_format($corporationHangarValue, 0).' ISK', 'fa-cubes'],
+        ] as $metric)
+          <div class="col-lg-3 col-md-4 col-sm-6">
+            <div class="tf-metric">
+              <div class="tf-metric-label"><i class="fas {{ $metric[2] }} mr-1"></i> {{ $metric[0] }}</div>
+              <div class="tf-metric-value">{{ $metric[1] }}</div>
+              @if($metric[0] === 'Personal assets + wallets − 90M')
+                <div class="tf-muted small mt-1">Three tracked characters · all personal locations · includes wallet balances · one 90M ISK deduction</div>
+              @elseif($metric[0] === 'Corporation hangars 2, 4, 5 & 6')
+                <div class="tf-muted small mt-1">All corporation offices · Jita sell valuation · Asset Manager inventory</div>
+              @endif
+              @if(!$assetManagerAvailable && in_array($metric[0], ['Personal assets + wallets − 90M', 'Corporation hangars 2, 4, 5 & 6'], true))
+                <div class="tf-muted small mt-1">Asset Manager tables are not installed yet; value will populate after Asset Manager sync.</div>
+              @endif
+            </div>
+          </div>
+        @endforeach
+      </div>
+    </div>
+  </section>
+  <section class="tf-panel">
+    <div class="tf-panel-head"><h3>Corporation Wallet Balances</h3></div>
+    <div class="tf-panel-body"><div class="row">
+      <div class="col-lg-6 col-md-6"><div class="tf-metric">
+        <div class="tf-metric-label"><i class="fas fa-landmark mr-1"></i> Operating Wallet · Division 1</div>
+        <div class="tf-metric-value">{{ number_format($corpWallet, 0) }} ISK</div>
+      </div></div>
+      <div class="col-lg-6 col-md-6"><div class="tf-metric">
+        <div class="tf-metric-label"><i class="fas fa-wallet mr-1"></i> SRP Wallet · Division 2</div>
+        <div class="tf-metric-value">{{ number_format($srpWallet, 0) }} ISK</div>
+      </div></div>
+    </div></div>
+  </section>
+  </section>
+  <section class="tf-tab-content" id="tf-tab-isk-hour" aria-label="ISK per Hour">
+    <section class="tf-panel">
+      <div class="tf-panel-head"><h3>ISK per Hour Session</h3></div>
+      <div class="tf-panel-body">
+        @if($activeIskHourSession)
+          <div class="tf-isk-active mb-3">
+            <span class="tf-pill"><i class="fas fa-circle mr-1"></i> Session Running</span>
+            <div class="tf-isk-started">Started {{ date('M j, Y H:i:s', strtotime($activeIskHourSession->started_at)) }}</div>
+            <div class="tf-muted small mt-1">Each Division 1 corporation reward transaction is counted once at 9,000,000 ISK, along with qualifying character wallet expenses, from the start time through the stop time.</div>
+          </div>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.stop') }}">
+            @csrf
+            <div class="row align-items-end">
+              <div class="col-md-5">
+                <label class="tf-isk-label" for="tf-telemetry-units">Telemetry Deposited</label>
+                <input class="form-control tf-isk-input" type="number" id="tf-telemetry-units" name="telemetry_units" min="0" max="1000000000" step="1" value="{{ old('telemetry_units', 0) }}" required>
+                <div class="tf-muted small mt-1">Enter the number of telemetry units banked during this session. Each unit is valued at 300,000 ISK.</div>
+                <div class="tf-telemetry-preview mt-2">Telemetry credit: <strong id="tf-telemetry-value-preview">0 ISK</strong></div>
+              </div>
+              <div class="col-md-4 mt-3 mt-md-0">
+                <button type="submit" class="btn btn-tf-gold btn-lg" onclick="return confirm('Stop this ISK per Hour session and calculate its earnings?')"><i class="fas fa-stop mr-1"></i> Stop Session</button>
+              </div>
+            </div>
+          </form>
+        @else
+          <div class="tf-muted mb-3">No ISK per Hour session is currently running. Start a session before the operation begins; the tracker will count each Division 1 corporation reward transaction at 9,000,000 ISK and qualifying character wallet expenses until you stop it.</div>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.start') }}">
+            @csrf
+            <button type="submit" class="btn btn-tf-gold btn-lg"><i class="fas fa-play mr-1"></i> Start Session</button>
+          </form>
+        @endif
+        <div class="tf-isk-formula mt-3">
+          <strong>Session calculation</strong>
+          <div>Division 1 corporation reward transactions (9,000,000 ISK each) + telemetry deposited (300,000 ISK per unit) − qualifying character wallet expenses, excluding corporation tax.</div>
+          <small>The scheduled 15-minute finance sync refreshes recently stopped sessions from the Division 1 corporation journal. Use Force Reconcile All to recompute every stopped session, including older sessions.</small>
+          <form method="POST" action="{{ route('seatcore::potchven-finances.isk-hour.reconcile-all') }}" class="mt-3" onsubmit="return confirm('Recalculate every stopped ISK per Hour session from the Division 1 corporation journal? Telemetry unit counts will remain unchanged.')">
+            @csrf
+            <button type="submit" class="btn btn-tf"><i class="fas fa-sync-alt mr-1"></i> Force Reconcile All</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="tf-panel">
+      <div class="tf-panel-head"><h3>Average ISK per Hour by Day of Week</h3></div>
+      <div class="tf-panel-body">
+        <p class="tf-muted small mb-3">Each bar is total net earnings divided by total session hours for that weekday, so longer sessions carry proportionally more weight.</p>
+        <div class="tf-weekday-chart">
+          @foreach($iskHourWeekdayAverages as $day)
+            <div class="tf-weekday-row">
+              <div class="tf-weekday-name">{{ $day['label'] }}</div>
+              <div class="tf-weekday-track">
+                <div class="tf-weekday-bar {{ $day['is_negative'] ? 'negative' : '' }}" style="width: {{ $day['bar_percent'] }}%"></div>
+              </div>
+              <div class="tf-weekday-value">{{ number_format($day['average'], 0) }} ISK/hr</div>
+              <div class="tf-weekday-count">{{ $day['sessions'] }} {{ $day['sessions'] === 1 ? 'session' : 'sessions' }}</div>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    </section>
+
+    <details class="tf-panel tf-collapsible">
+      <summary class="tf-panel-head">
+        <h3>Session Ledger ({{ $iskHourLedger->count() }})</h3>
+        <i class="fas fa-chevron-down tf-chevron"></i>
+      </summary>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead><tr>
+            <th>Status</th><th>Started</th><th>Duration</th><th>Corp Payout Ticks</th><th>Payout ISK</th>
+            <th>Telemetry</th><th>Telemetry ISK</th><th>Character Expenses</th><th>Net ISK</th><th>ISK / Hour</th>
+          </tr></thead>
+          <tbody>
+          @forelse($iskHourLedger as $session)
+            <tr>
+              <td>@if($session->reconciliation_open)<span class="tf-pill" style="color:#e6c47f;border-color:#a98552">Reconciling</span>@else<span class="tf-pill" style="color:#8fd3a2;border-color:#477a55">Final</span>@endif</td>
+              <td>{{ date('M j, Y H:i', strtotime($session->started_at)) }}</td>
+              <td>{{ floor($session->duration_seconds / 3600) }}h {{ floor(($session->duration_seconds % 3600) / 60) }}m</td>
+              <td>{{ number_format($session->corp_ticks_count) }}</td>
+              <td>{{ number_format($session->corp_ticks_isk, 0) }}</td>
+              <td>{{ number_format($session->telemetry_units) }}</td>
+              <td>{{ number_format($session->telemetry_value_isk, 0) }}</td>
+              <td class="text-danger">−{{ number_format($session->character_expenses_isk, 0) }}</td>
+              <td>{{ number_format($session->net_isk, 0) }}</td>
+              <td><strong>{{ number_format($session->isk_per_hour, 0) }}</strong></td>
+            </tr>
+          @empty
+            <tr><td colspan="10" class="text-center tf-muted py-4">No completed ISK per Hour sessions yet. Start your first session to begin building the ledger and weekday averages.</td></tr>
+          @endforelse
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</div>
+<div class="tf-modal-backdrop" id="tf-site-rules" hidden role="presentation">
+  <section class="tf-modal" role="dialog" aria-modal="true" aria-labelledby="tf-site-rules-title">
+    <header class="tf-modal-head"><h3 id="tf-site-rules-title">Site Accounting Rules</h3>
+      <button type="button" class="tf-modal-close" data-tf-modal-close aria-label="Close">&times;</button>
+    </header>
+    <div class="tf-modal-body">
+      <p><strong>Telemetry source:</strong> Corporation telemetry item type 89219 in Hangar Division 3 (CorpSAG3), across all stations.</p>
+      <p><strong>Site conversion:</strong> Every 60 telemetry units count as one site.</p>
+      <p><strong>Excluded inventory:</strong> Hangar Divisions 1 and 2 and all other divisions are excluded.</p>
+      <p><strong>Site payout reconciliation:</strong> Three 9,000,000 ISK payouts—one to each tracked character—identify a successful payout group.</p>
+      <p class="mb-0">Run the finance sync to refresh asset and payout data.</p>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var root = document.querySelector('.trig-finance');
+  if (!root) return;
+  root.querySelectorAll('[data-tf-tab]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      root.querySelectorAll('[data-tf-tab]').forEach(function (item) { item.classList.toggle('active', item === button); });
+      root.querySelectorAll('.tf-tab-content').forEach(function (panel) {
+        panel.classList.toggle('active', panel.id === 'tf-tab-' + button.getAttribute('data-tf-tab'));
+      });
+    });
+  });
+  var telemetryInput = document.getElementById('tf-telemetry-units');
+  var telemetryPreview = document.getElementById('tf-telemetry-value-preview');
+  if (telemetryInput && telemetryPreview) {
+    var updateTelemetryPreview = function () {
+      var units = Math.max(0, Number(telemetryInput.value || 0));
+      telemetryPreview.textContent = (units * 300000).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' ISK';
+    };
+    telemetryInput.addEventListener('input', updateTelemetryPreview);
+    updateTelemetryPreview();
+  }
+  var modal = document.getElementById('tf-site-rules');
+  root.querySelectorAll('[data-tf-modal-open]').forEach(function (button) {
+    button.addEventListener('click', function () { modal.hidden = false; });
+  });
+  if (modal) {
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal || event.target.closest('[data-tf-modal-close]')) modal.hidden = true;
+    });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape') modal.hidden = true; });
+  }
+})();
+</script>
+
+@endsection

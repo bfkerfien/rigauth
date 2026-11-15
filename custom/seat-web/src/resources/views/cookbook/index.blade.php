@@ -1,0 +1,433 @@
+@extends('web::layouts.grids.12')
+
+@section('title', 'Triglavian Cookbook')
+@section('page_header', 'Triglavian Cookbook')
+@section('page_description', 'Manufacturing, character inventory and compressed ore planning')
+
+@section('full')
+  <div class="alert alert-info">
+    Native SeAT Cookbook using your SeAT login, linked characters, cached character assets and existing SDE database. Asset quantities are only as current as SeAT's last successful ESI asset refresh.
+  </div>
+
+  @if (!$sdeReady)
+    <div class="alert alert-warning">
+      <strong>SeAT manufacturing SDE tables are not ready.</strong>
+      The Cookbook needs <code>invTypes</code>, <code>industryActivityProducts</code>, and <code>industryActivityMaterials</code>. Import/update the manufacturing SDE before calculating.
+    </div>
+  @else
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Manufacturing planner</h3></div>
+      <div class="card-body">
+        <div class="form-group position-relative">
+          <label for="cookbook-search">Blueprint product</label>
+          <input id="cookbook-search" class="form-control" autocomplete="off" placeholder="Search ships, modules, structures…">
+          <div id="cookbook-results" class="list-group mt-1" style="max-height: 280px; overflow-y: auto;"></div>
+          <small class="form-text text-muted">Searches published products with a manufacturing blueprint in the SeAT SDE.</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-3"><label for="cookbook-runs">Runs</label><input id="cookbook-runs" class="form-control" type="number" min="1" max="100000" value="1"></div>
+          <div class="form-group col-md-3"><label for="cookbook-product-me">Product ME</label><input id="cookbook-product-me" class="form-control" type="number" min="0" max="10" value="0"></div>
+          <div class="form-group col-md-3"><label for="cookbook-component-me">Component ME</label><input id="cookbook-component-me" class="form-control" type="number" min="0" max="10" value="0"></div>
+          <div class="form-group col-md-3 d-flex align-items-end"><button id="cookbook-calculate" class="btn btn-primary btn-block" type="button" disabled>Calculate materials</button></div>
+        </div>
+        <div id="cookbook-selected" class="text-muted mb-3">No product selected.</div>
+        <div id="cookbook-error" class="alert alert-danger d-none"></div>
+        <div id="cookbook-output"></div>
+      </div>
+    </div>
+  @endif
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Facility inventory and compressed ore basket</h3></div>
+    <div class="card-body">
+      @if ($characters->isEmpty())
+        <div class="alert alert-warning mb-0">No linked SeAT characters were found for this account. Link a character in SeAT before using inventory planning.</div>
+      @else
+        <div class="form-row align-items-end">
+          <div class="form-group col-md-8">
+            <label for="cookbook-character">Inventory character</label>
+            <select id="cookbook-character" class="form-control">
+              @foreach ($characters as $character)
+                <option value="{{ $character->character_id }}">{{ $character->name }} ({{ $character->character_id }})</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="form-group col-md-4">
+            <button id="cookbook-load-inventory" class="btn btn-outline-primary btn-block" type="button">Load facility ore and minerals</button>
+          </div>
+        </div>
+        <div id="cookbook-inventory-status" class="text-muted mb-2">Select a character. Only Draken Barrel Refinery ore and Draken Manufacturing minerals are counted.</div>
+        <div id="cookbook-inventory-table" class="table-responsive"></div>
+        <hr>
+        <div class="form-row align-items-end">
+          <div class="form-group col-md-3">
+            <label for="cookbook-yield">Combined reprocessing yield (%)</label>
+            <input id="cookbook-yield" class="form-control" type="number" min="0.01" max="100" step="0.01" value="85">
+          </div>
+          <div class="form-group col-md-4">
+            <button id="cookbook-reprocess" class="btn btn-primary btn-block" type="button" disabled>Calculate mineral basket</button>
+          </div>
+        </div>
+        <div id="cookbook-ore-output"></div>
+        <hr>
+        <h4>Calculate additional compressed ore needed for this build</h4>
+        <p class="text-muted">After calculating a blueprint above, this uses minerals at Draken Manufacturing manufacturing facility first, then ore and compressed ore stored at Draken Barrel Refinery. Choose the compressed ore you want to use for any remaining shortfall.</p>
+        <style>
+          #cookbook-ore-basket { background: #0d1822; color: #d7e5f2; border: 1px solid #263847; }
+          #cookbook-ore-basket .card-header { background: #101e2a; border-bottom: 1px solid #263847; color: #f1f6fa; }
+          #cookbook-ore-basket .card-body { background: #0f1b26; }
+          #cookbook-ore-basket .cookbook-ore-section { background: #101e2a; border-color: #263847 !important; }
+          #cookbook-ore-basket .cookbook-ore-section strong { color: #eaf2f8; }
+          #cookbook-ore-basket .custom-control-label { color: #9fc1d9; }
+          #cookbook-ore-basket .custom-control-label::before { background-color: #07111a; border-color: #60798b; }
+          #cookbook-ore-basket .custom-control-input:checked ~ .custom-control-label::before { background-color: #68d9b8; border-color: #68d9b8; }
+          #cookbook-ore-basket a { color: #68e2c1; }
+          #cookbook-ore-basket .text-muted { color: #8ca8bc !important; }
+        </style>
+        <div class="card border mb-3" id="cookbook-ore-basket">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Ore basket options</strong>
+            <button id="planOre" class="button primary btn btn-success" type="button">Plan ore basket</button>
+          </div>
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 1rem;">
+              <a href="#" id="cookbook-ore-select-all">Select all</a>
+              <a href="#" id="cookbook-ore-deselect-all">Deselect all</a>
+            </div>
+            <div class="custom-control custom-checkbox mb-3">
+              <input class="custom-control-input" type="checkbox" id="cookbook-ignore-low-volume">
+              <label class="custom-control-label" for="cookbook-ignore-low-volume">Exclude Triglavian ores (Bezdnacine / Rakovene / Talassonite)</label>
+            </div>
+            <div id="cookbook-plan-ore-options" class="row mx-0" style="max-height: 420px; overflow-y: auto;">
+              <div class="col-12 text-muted">Load a character's inventory to populate the normal compressed ore list.</div>
+            </div>
+            <small class="form-text text-muted mt-2">Standard asteroid ores only. One checkbox per ore: ice, moon ores and named variants (including Glistening) are not included.</small>
+          </div>
+        </div>
+        <div id="cookbook-ore-plan-output"></div>
+        <small class="form-text text-muted">The planner uses only the checked standard asteroid ores for additional mining requirements. Existing standard compressed asteroid ore at the refinery is counted first. You can check multiple ore types across the sections and the planner combines them to cover the remaining mineral shortfall.</small>
+        <small class="form-text text-muted">The yield percentage is entered by you to represent your actual combined character and facility yield. The planner uses SeAT's invTypeMaterials reprocessing quantities, processes only complete batches, and reports leftovers. It does not guess skills, implants, rigs, structure bonuses, taxes or current prices. Inventory is restricted to Draken Manufacturing (minerals only) and Draken Barrel Refinery (ore and compressed ore only), including nested containers inside those structures.</small>
+      @endif
+    </div>
+  </div>
+
+  @if ($sdeReady)
+  <script>
+  (function () {
+    const search = document.getElementById('cookbook-search');
+    const results = document.getElementById('cookbook-results');
+    const selected = document.getElementById('cookbook-selected');
+    const calculate = document.getElementById('cookbook-calculate');
+    const output = document.getElementById('cookbook-output');
+    const error = document.getElementById('cookbook-error');
+    let product = null;
+    let latestCalculation = null;
+    let facilityInventoryLoaded = false;
+    let debounce = null;
+
+    const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+    const postUrl = @json(route('seatcore::cookbook.calculate'));
+    const searchUrl = @json(route('seatcore::cookbook.products'));
+    const inventoryUrl = @json(route('seatcore::cookbook.inventory'));
+    const reprocessUrl = @json(route('seatcore::cookbook.reprocess'));
+    const oreTypesUrl = @json(route('seatcore::cookbook.ore-types'));
+    const orePlanUrl = @json(route('seatcore::cookbook.ore-plan'));
+    const token = @json(csrf_token());
+    const characterSelect = document.getElementById('cookbook-character');
+
+    search.addEventListener('input', function () {
+      clearTimeout(debounce);
+      const term = search.value.trim();
+      product = null;
+      latestCalculation = null;
+      const orePlannerButton = document.getElementById('planOre');
+      // Keep the standalone Plan Ore button available; its handler reports missing prerequisites.
+      calculate.disabled = true;
+      selected.textContent = 'Choose a product from the results.';
+      if (term.length < 2) { results.innerHTML = ''; return; }
+      debounce = setTimeout(async () => {
+        try {
+          const response = await fetch(searchUrl + '?q=' + encodeURIComponent(term), {headers: {'Accept':'application/json'}});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Search failed.');
+          results.innerHTML = '';
+          data.items.forEach(item => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action';
+            button.textContent = item.product_name + ' — ' + item.blueprint_name;
+            button.addEventListener('click', () => {
+              product = item;
+              search.value = item.product_name;
+              selected.textContent = 'Selected: ' + item.product_name + ' (' + item.blueprint_name + ')';
+              calculate.disabled = false;
+              results.innerHTML = '';
+            });
+            results.appendChild(button);
+          });
+          if (!data.items.length) results.innerHTML = '<div class="list-group-item text-muted">No manufacturing products found.</div>';
+        } catch (e) {
+          error.textContent = e.message;
+          error.classList.remove('d-none');
+        }
+      }, 250);
+    });
+
+    calculate.addEventListener('click', async function () {
+      if (!product) return;
+      error.classList.add('d-none');
+      output.innerHTML = '<p class="text-muted">Calculating recursive blueprint materials…</p>';
+      const body = new URLSearchParams({
+        _token: token,
+        product_type_id: product.product_type_id,
+        runs: document.getElementById('cookbook-runs').value,
+        product_me: document.getElementById('cookbook-product-me').value,
+        component_me: document.getElementById('cookbook-component-me').value,
+        character_id: characterSelect ? characterSelect.value : ''
+      });
+      try {
+        const response = await fetch(postUrl, {method:'POST', headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'}, body});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || data.error || 'Calculation failed.');
+        latestCalculation = data;
+        const planButton = document.getElementById('planOre');
+        if (planButton) planButton.disabled = false;
+        const table = (rows, title) => '<h5 class="mt-3">' + title + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Material</th><th class="text-right">Required</th>' + (data.inventory_character_id ? '<th class="text-right">Draken Manufacturing</th><th class="text-right">Shortfall</th>' : '') + '</tr></thead><tbody>' +
+          (rows.length ? rows.map(row => '<tr><td>' + esc(row.name) + ' <small class="text-muted">(' + row.type_id + ')</small></td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td>' + (data.inventory_character_id ? '<td class="text-right">' + Number(row.available_quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.shortfall_quantity).toLocaleString() + '</td>' : '') + '</tr>').join('') : '<tr><td colspan="' + (data.inventory_character_id ? '4' : '2') + '" class="text-muted">None</td></tr>') +
+          '</tbody></table></div>';
+        output.innerHTML = '<h4>' + esc(data.product) + ' <small class="text-muted">· ' + data.runs + ' runs</small></h4>' +
+          table(data.minerals, 'Minerals') + table(data.other_materials, 'Other required inputs') +
+          (data.inventory_character_id ? '<div class="alert alert-info">Material availability is checked only at BKG-Q2 — Draken Manufacturing (manufacturing-stock location). Ore stock is checked separately at BKG-Q2 — Draken Barrel Refinery.</div>' : '') +
+          '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
+      } catch (e) {
+        output.innerHTML = '';
+        error.textContent = e.message;
+        error.classList.remove('d-none');
+      }
+    });
+
+    const inventoryButton = document.getElementById('cookbook-load-inventory');
+    if (inventoryButton) {
+      const character = document.getElementById('cookbook-character');
+      const status = document.getElementById('cookbook-inventory-status');
+      const inventoryTable = document.getElementById('cookbook-inventory-table');
+      const reprocess = document.getElementById('cookbook-reprocess');
+      const oreOutput = document.getElementById('cookbook-ore-output');
+      const oreTypeOptions = document.getElementById('cookbook-plan-ore-options');
+      const orePlanButton = document.getElementById('planOre');
+      const orePlanOutput = document.getElementById('cookbook-ore-plan-output');
+      let inventoryItems = [];
+      let orePickerLoaded = false;
+      let orePickerLoading = false;
+      const updateOrePlanButton = () => {
+        if (orePlanButton) orePlanButton.disabled = false;
+      };
+
+      const loadOrePicker = async () => {
+        if (orePickerLoaded || orePickerLoading) return;
+        orePickerLoading = true;
+        try {
+          const typeResponse = await fetch(oreTypesUrl, {headers:{'Accept':'application/json'}});
+          const typeData = await typeResponse.json();
+          if (!typeResponse.ok) throw new Error(typeData.message || typeData.error || 'Could not load compressed ore types.');
+          const oreSections = (typeData.items || []).reduce((sections, item) => {
+            const section = item.section || 'Asteroid ores';
+            if (!sections[section]) sections[section] = [];
+            sections[section].push(item);
+            return sections;
+          }, {});
+          const sectionOrder = ['Simple ores', 'Coherent ores', 'Variegated ores', 'Complex ores', 'Abyssal ores', 'Mercoxit'];
+          oreTypeOptions.innerHTML = sectionOrder.filter(section => oreSections[section]).map(section =>
+            '<div class="col-md-6 mb-2"><div class="border rounded p-3 h-100 cookbook-ore-section">' +
+              '<div class="d-flex justify-content-between align-items-center mb-2"><strong>' + esc(section) + '</strong><small class="text-muted cookbook-ore-count" data-section="' + esc(section) + '">0 / ' + oreSections[section].length + '</small></div>' +
+              '<div class="d-flex flex-wrap" style="gap: .55rem 1rem;">' + oreSections[section].map(item => {
+                const oreName = item.name.replace(/^Compressed /, '');
+                return '<div class="custom-control custom-checkbox">' +
+                  '<input class="custom-control-input cookbook-plan-ore-checkbox" type="checkbox" id="cookbook-plan-ore-' + item.type_id + '" value="' + item.type_id + '" data-ore-name="' + esc(oreName) + '" checked>' +
+                  '<label class="custom-control-label" for="cookbook-plan-ore-' + item.type_id + '">' + esc(oreName) + '</label>' +
+                '</div>';
+              }).join('') + '</div></div></div>'
+          ).join('') || '<div class="col-12 text-muted">No standard compressed asteroid ores were found in the SeAT SDE.</div>';
+          const updateOreCounts = () => {
+            sectionOrder.forEach(section => {
+              const sectionCard = Array.from(oreTypeOptions.querySelectorAll('.cookbook-ore-section')).find(card => card.querySelector('.cookbook-ore-count') && card.querySelector('.cookbook-ore-count').dataset.section === section);
+              if (!sectionCard) return;
+              const boxes = Array.from(sectionCard.querySelectorAll('.cookbook-plan-ore-checkbox')).filter(input => input.closest('.custom-control').style.display !== 'none');
+              const count = boxes.filter(input => input.checked).length;
+              const label = sectionCard.querySelector('.cookbook-ore-count');
+              label.textContent = count + ' / ' + boxes.length;
+            });
+          };
+          oreTypeOptions.addEventListener('change', updateOreCounts);
+          const updateOrePicker = () => {
+            const ignoreLow = document.getElementById('cookbook-ignore-low-volume').checked;
+            const lowNames = ['Bezdnacine', 'Rakovene', 'Talassonite'];
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
+              const excluded = ignoreLow && lowNames.includes(input.dataset.oreName);
+              if (excluded) input.checked = false;
+              input.closest('.custom-control').style.display = excluded ? 'none' : '';
+            });
+            updateOreCounts();
+          };
+          document.getElementById('cookbook-ignore-low-volume').addEventListener('change', updateOrePicker);
+          document.getElementById('cookbook-ore-select-all').addEventListener('click', event => {
+            event.preventDefault();
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => {
+              if (input.closest('.custom-control').style.display !== 'none') input.checked = true;
+            });
+            updateOreCounts();
+          });
+          document.getElementById('cookbook-ore-deselect-all').addEventListener('click', event => {
+            event.preventDefault();
+            oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox').forEach(input => input.checked = false);
+            updateOreCounts();
+          });
+          updateOrePicker();
+          orePickerLoaded = true;
+          updateOrePlanButton();
+        } finally {
+          orePickerLoading = false;
+        }
+      };
+      loadOrePicker().catch(e => { status.textContent = 'Could not load ore choices: ' + e.message; });
+
+      character.addEventListener('change', function () {
+        // Blueprint mineral requirements do not depend on the inventory character.
+        // Keep the successful calculation so the user can change characters before
+        // running the final ore basket plan; the planner uses the currently selected
+        // character's facility stock when Plan ore basket is clicked.
+        facilityInventoryLoaded = false;
+        inventoryItems = [];
+        inventoryTable.innerHTML = '';
+        oreOutput.innerHTML = '';
+        orePlanOutput.innerHTML = '';
+        status.textContent = 'Character changed. Reload facility inventory for this character. Your blueprint mineral requirements are still available.';
+        reprocess.disabled = true;
+        updateOrePlanButton();
+      });
+
+      inventoryButton.addEventListener('click', async function () {
+        status.textContent = 'Loading cached assets from SeAT…';
+        inventoryTable.innerHTML = '';
+        oreOutput.innerHTML = '';
+        reprocess.disabled = true;
+        orePlanButton.disabled = false;
+        orePlanOutput.innerHTML = '';
+        try {
+          const response = await fetch(inventoryUrl, {
+            method: 'POST',
+            headers: {'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({_token: token, character_id: character.value})
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || data.error || 'Could not load character assets.');
+          inventoryItems = data.items || [];
+          const oreAssets = data.ore_assets || [];
+          const mineralAssets = data.mineral_assets || [];
+          facilityInventoryLoaded = true;
+          updateOrePlanButton();
+          status.textContent = (data.note || 'Loaded character inventory.') + ' ' + Number(data.ore_asset_count || oreAssets.length).toLocaleString() + ' refinery ore stacks; ' + Number(data.mineral_asset_count || mineralAssets.length).toLocaleString() + ' building mineral stacks.';
+          const facilityTable = (rows, heading) => rows.length ? '<h5>' + heading + '</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Item</th><th class="text-right">Quantity</th><th class="text-right">Type ID</th><th class="text-right">Location / container ID</th></tr></thead><tbody>' +
+            rows.map(asset => '<tr><td>' + esc(asset.name) + ' <small class="text-muted">(' + asset.item_id + ')</small></td><td class="text-right">' + Number(asset.quantity).toLocaleString() + '</td><td class="text-right">' + asset.type_id + '</td><td class="text-right">' + asset.location_id + '</td></tr>').join('') +
+            '</tbody></table></div>' : '<p class="text-muted">No matching stock found in this facility.</p>';
+          const fullInventoryTable = facilityTable(oreAssets, 'Drakens Refinery — ore and compressed ore only') + facilityTable(mineralAssets, 'Temp Building — minerals only');
+          const oreTable = inventoryItems.length ? '<h5 class="mt-3">Compressed ore available at Drakens Refinery for reprocessing</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Cached quantity</th><th style="width:180px">Basket quantity</th><th class="text-right">Batch size</th></tr></thead><tbody>' +
+            inventoryItems.map((item, index) => '<tr><td>' + esc(item.name) + ' <small class="text-muted">(' + item.type_id + ')</small></td><td class="text-right">' + Number(item.quantity).toLocaleString() + '</td><td><input class="form-control form-control-sm cookbook-ore-qty" data-index="' + index + '" type="number" min="0" max="1000000000" value="' + item.quantity + '"></td><td class="text-right">' + Number(item.portion_size).toLocaleString() + '</td></tr>').join('') +
+            '</tbody></table></div>' : '<p class="text-muted">No standard compressed asteroid ore found in this character cache.</p>';
+          inventoryTable.innerHTML = fullInventoryTable + oreTable;
+          reprocess.disabled = inventoryItems.length === 0;
+          await loadOrePicker();
+          updateOrePlanButton();
+        } catch (e) {
+          status.textContent = e.message;
+        }
+      });
+
+      orePlanButton.addEventListener('click', async function () {
+        if (orePickerLoading) {
+          orePlanOutput.innerHTML = '<div class="alert alert-info">Compressed ore choices are still loading. Please wait a moment.</div>';
+          return;
+        }
+        const selectedOreIds = Array.from(oreTypeOptions.querySelectorAll('.cookbook-plan-ore-checkbox:checked')).filter(input => input.closest('.custom-control').style.display !== 'none').map(input => input.value);
+        if (!latestCalculation) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Calculate materials for a blueprint first. The Plan Ore Basket step uses those mineral requirements.</div>';
+          return;
+        }
+        if (!character.value) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">Select the character whose Draken facility inventory should be used.</div>';
+          return;
+        }
+        if (!selectedOreIds.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-warning">No eligible ore types are selected. Wait for the ore list to load, then select at least one standard compressed ore.</div>';
+          return;
+        }
+        const needs = (latestCalculation.minerals || []).map(row => ({
+          type_id: row.type_id,
+          quantity: Number(row.quantity)
+        }));
+        if (!needs.length) {
+          orePlanOutput.innerHTML = '<div class="alert alert-info">This blueprint has no mineral requirements to cover.</div>';
+          return;
+        }
+        orePlanOutput.innerHTML = '<p class="text-muted">Calculating remaining compressed ore requirements…</p>';
+        const body = new URLSearchParams({
+          _token: token,
+          character_id: character.value,
+          yield_percent: document.getElementById('cookbook-yield').value
+        });
+        selectedOreIds.forEach(id => body.append('ore_type_ids[]', id));
+        needs.forEach((item, index) => {
+          body.append('mineral_needs[' + index + '][type_id]', item.type_id);
+          body.append('mineral_needs[' + index + '][quantity]', item.quantity);
+        });
+        try {
+          const response = await fetch(orePlanUrl, {method:'POST', headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'}, body});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || data.error || 'Ore planning failed.');
+          const mineralRows = data.minerals.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.required).toLocaleString() + '</td><td class="text-right">' + Number(row.at_manufacturing).toLocaleString() + '</td><td class="text-right">' + Number(row.from_refinery_ore_stock).toLocaleString() + '</td><td class="text-right">' + Number(row.remaining_before_new_ore).toLocaleString() + '</td><td class="text-right">' + Number(row.from_additional_ore).toLocaleString() + '</td><td class="text-right">' + Number(row.surplus).toLocaleString() + '</td></tr>').join('');
+          const refineRows = (data.refine_plan || []).map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.owned_units).toLocaleString() + '</td><td class="text-right"><strong>' + Number(row.refine_units).toLocaleString() + '</strong></td><td class="text-right">' + Number(row.remaining_units).toLocaleString() + '</td><td class="text-right">' + Number(row.batches).toLocaleString() + '</td></tr>').join('');
+          const unusedRows = (data.unused_ore || []).map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.quantity).toLocaleString() + '</td><td class="text-right">' + Number(row.remaining_units).toLocaleString() + '</td><td class="text-right">' + Number(row.complete_batches_left).toLocaleString() + '</td></tr>').join('');
+          const planRows = data.ore_plan.map(row => '<tr><td>' + esc(row.name) + '</td><td class="text-right">' + Number(row.batches).toLocaleString() + '</td><td class="text-right">' + Number(row.portion_size).toLocaleString() + '</td><td class="text-right">' + Number(row.additional_units).toLocaleString() + '</td></tr>').join('');
+          const totalOreUnits = data.ore_plan.reduce((sum, row) => sum + Number(row.additional_units), 0);
+          const totalRefineUnits = (data.refine_plan || []).reduce((sum, row) => sum + Number(row.refine_units), 0);
+          orePlanOutput.innerHTML = '<div class="alert alert-info"><strong>Existing compressed ore to refine:</strong> ' + totalRefineUnits.toLocaleString() + ' units across ' + (data.refine_plan || []).length + ' ore type(s). Only these quantities are credited toward the build.</div>' +
+            '<h5>1. Compressed ore to refine at Draken Barrel Refinery</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Owned</th><th class="text-right">Recommended to refine</th><th class="text-right">Left untouched</th><th class="text-right">Batches</th></tr></thead><tbody>' + (refineRows || '<tr><td colspan="5">No existing compressed ore needs to be refined for this build.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">2. Additional compressed ore to mine</h5><div class="alert alert-success"><strong>Additional compressed ore to mine:</strong> ' + totalOreUnits.toLocaleString() + ' units across ' + data.ore_plan.length + ' ore type(s)</div><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Batches</th><th class="text-right">Batch size</th><th class="text-right">Additional units</th></tr></thead><tbody>' + (planRows || '<tr><td colspan="4">No additional ore required.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">3. Compressed ore to leave untouched</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Compressed ore</th><th class="text-right">Originally owned</th><th class="text-right">Remaining units</th><th class="text-right">Full batches remaining</th></tr></thead><tbody>' + (unusedRows || '<tr><td colspan="4">No compressed ore surplus remains.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">Mineral coverage</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Mineral</th><th class="text-right">Required</th><th class="text-right">At manufacturing</th><th class="text-right">From recommended refining</th><th class="text-right">Still needed</th><th class="text-right">From new ore</th><th class="text-right">Surplus</th></tr></thead><tbody>' + mineralRows + '</tbody></table></div>' +
+            '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
+        } catch (e) {
+          orePlanOutput.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
+        }
+      });
+
+      reprocess.addEventListener('click', async function () {
+        const inputs = Array.from(document.querySelectorAll('.cookbook-ore-qty'));
+        const items = inputs.map(input => ({
+          type_id: inventoryItems[Number(input.dataset.index)].type_id,
+          quantity: Number(input.value || 0)
+        }));
+        oreOutput.innerHTML = '<p class="text-muted">Calculating reprocessing output from SDE quantities…</p>';
+        try {
+          const body = new URLSearchParams({_token: token, yield_percent: document.getElementById('cookbook-yield').value});
+          items.forEach((item, index) => {
+            body.append('items[' + index + '][type_id]', item.type_id);
+            body.append('items[' + index + '][quantity]', item.quantity);
+          });
+          const response = await fetch(reprocessUrl, {method:'POST', headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'}, body});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || data.error || 'Reprocessing calculation failed.');
+          const oreRows = data.ores.map(ore => '<tr><td>' + esc(ore.name) + '</td><td class="text-right">' + Number(ore.quantity).toLocaleString() + '</td><td class="text-right">' + Number(ore.batches).toLocaleString() + '</td><td class="text-right">' + Number(ore.leftover).toLocaleString() + '</td></tr>').join('');
+          const mineralRows = data.minerals.map(mineral => '<tr><td>' + esc(mineral.name) + ' <small class="text-muted">(' + mineral.type_id + ')</small></td><td class="text-right">' + Number(mineral.quantity).toLocaleString() + '</td></tr>').join('');
+          oreOutput.innerHTML = '<h5>Compressed ore batches</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Ore</th><th class="text-right">Units</th><th class="text-right">Full batches</th><th class="text-right">Leftover</th></tr></thead><tbody>' + (oreRows || '<tr><td colspan="4">No ore quantity entered.</td></tr>') + '</tbody></table></div>' +
+            '<h5 class="mt-3">Estimated mineral output at ' + esc(data.yield_percent) + '% yield</h5><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Mineral</th><th class="text-right">Quantity</th></tr></thead><tbody>' + (mineralRows || '<tr><td colspan="2">No reprocessing output.</td></tr>') + '</tbody></table></div>' +
+            '<div class="alert alert-secondary">' + esc(data.note) + '</div>';
+        } catch (e) {
+          oreOutput.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
+        }
+      });
+    }
+  })();
+  </script>
+  @endif
+@endsection

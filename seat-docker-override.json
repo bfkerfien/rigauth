@@ -1,0 +1,9 @@
+{
+  "autoload": {
+    "Seat\\Web\\": "packages/eveseat/web/src/",
+    "Triglavian\\AssetManager\\": "packages/assetmgr/src/"
+  },
+  "providers": [
+    "Triglavian\\AssetManager\\AssetManagerServiceProvider"
+  ]
+}

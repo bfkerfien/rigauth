@@ -39,18 +39,14 @@ clone_at https://github.com/eveseat/notifications.git 4e8c02b50506ec18d5af069708
 clone_at https://github.com/eveseat/services.git b2db97fd75f03c68cf587dd05da5beba2718f360 "$DEST/seat-docker/packages/eveseat/services"
 clone_at https://github.com/eveseat/web.git cd11287006bddbf00c48cf13fd1fa704b0ea25d6 "$DEST/seat-docker/packages/eveseat/web"
 
-cat > "$DEST/seat-docker/packages/override.json" <<'OVERRIDE'
-{
-  "autoload": {
-    "Seat\\Web\\": "packages/eveseat/web/src/"
-  }
-}
-OVERRIDE
+cp "$SCRIPT_DIR/seat-docker-override.json" "$DEST/seat-docker/packages/override.json"
 
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0001-header-logout-button.patch"
 git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0002-fittings-section.patch"
 python3 "$SCRIPT_DIR/apply-exploration-navigation.py" "$DEST/seat-docker/packages/eveseat/web/src/Http/routes.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/includes/sidebar.blade.php"
 cp -a "$SCRIPT_DIR/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
+mkdir -p "$DEST/seat-docker/packages/assetmgr"
+cp -a "$SCRIPT_DIR/custom/assetmgr/." "$DEST/seat-docker/packages/assetmgr/"
 cp "$SCRIPT_DIR/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
-echo "Restored SeAT sources with Triglavian UI patches to $DEST"
+echo "Restored pinned SeAT sources, custom modules, and Asset Manager to $DEST"

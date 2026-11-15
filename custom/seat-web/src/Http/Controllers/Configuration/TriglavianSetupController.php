@@ -8,23 +8,8 @@ use Seat\Web\Http\Controllers\Controller;
 
 class TriglavianSetupController extends Controller
 {
-    /**
-     * Allow SeAT superusers and the explicitly designated Turaneau account.
-     * This is intentionally independent of role assignment for Turaneau.
-     */
-    private function authorizeAdminAccess(): void
-    {
-        $user = auth()->user();
-
-        abort_unless(
-            $user && ($user->can('global.superuser') || strcasecmp((string) $user->name, 'turaneau') === 0),
-            403
-        );
-    }
-
     public function index()
     {
-        $this->authorizeAdminAccess();
         $stations = DB::table('tc_t2_stations')->orderBy('station_name')->get();
         $fittings = DB::table('tc_fittings')->orderBy('name')->get();
 
@@ -33,7 +18,6 @@ class TriglavianSetupController extends Controller
 
     public function saveStation(Request $request)
     {
-        $this->authorizeAdminAccess();
         $data = $request->validate([
             'id' => 'nullable|integer',
             'station_name' => 'required|string|max:255',
@@ -62,7 +46,6 @@ class TriglavianSetupController extends Controller
 
     public function deleteStation($id)
     {
-        $this->authorizeAdminAccess();
         DB::table('tc_t2_stations')->where('id', $id)->delete();
 
         return redirect()->route('seatcore::configuration.triglavian.index', ['tab' => 'stations'])
@@ -71,7 +54,6 @@ class TriglavianSetupController extends Controller
 
     public function saveFitting(Request $request)
     {
-        $this->authorizeAdminAccess();
         $data = $request->validate([
             'id' => 'nullable|integer',
             'name' => 'required|string|max:255',
@@ -100,7 +82,6 @@ class TriglavianSetupController extends Controller
 
     public function deleteFitting($id)
     {
-        $this->authorizeAdminAccess();
         DB::table('tc_fittings')->where('id', $id)->delete();
 
         return redirect()->route('seatcore::configuration.triglavian.index', ['tab' => 'fittings'])
