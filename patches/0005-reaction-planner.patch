@@ -10,16 +10,3 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            ->name('seatcore::reactions.index');
 +
          // Support Routes
-diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
---- a/src/resources/views/includes/sidebar.blade.php
-+++ b/src/resources/views/includes/sidebar.blade.php
-@@ -1,1 +1,9 @@
-+        <li class="nav-item">
-+          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
-+            <i class="nav-icon fas fa-flask"></i>
-+            <p>Reactions</p>
-+          </a>
-+        </li>
-+
-         @foreach($menu as $entry)
- 
