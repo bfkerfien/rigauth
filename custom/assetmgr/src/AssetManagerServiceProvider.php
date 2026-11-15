@@ -3,6 +3,7 @@
 namespace Triglavian\AssetManager;
 
 use Seat\Services\AbstractSeatPlugin;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Gate;
@@ -82,6 +83,14 @@ class AssetManagerServiceProvider extends AbstractSeatPlugin
 
         if ($this->app->runningInConsole()) {
             $this->commands([SyncCharacters::class, SyncPrices::class, SyncCorporations::class, CaptureValuations::class, SyncWalletJournals::class, SyncWalletTransactions::class, SyncMarketOrders::class, SyncCorporationMarketOrders::class, SyncCorporationWalletJournals::class, SyncContracts::class]);
+            if (config('assetmgr.enabled', false) && config('assetmgr.sync.enabled', false) && config('assetmgr.corporation_sync_enabled', false)) {
+                $this->app->booted(function (): void {
+                    $this->app->make(Schedule::class)
+                        ->command('assetmgr:sync-corporations')
+                        ->everyFifteenMinutes()
+                        ->withoutOverlapping();
+                });
+            }
         }
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
