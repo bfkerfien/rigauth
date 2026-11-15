@@ -40,7 +40,6 @@
     background:#08090d; box-shadow:0 12px 32px rgba(0,0,0,.3),0 0 24px rgba(216,75,67,.12);
   }
   .trig-finance .tf-hero > svg { display:block; width:100%; height:100%; }
-  .trig-finance .tf-hero > img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
   .trig-finance .tf-hero:after {
     content: ""; position:absolute; inset:0; pointer-events:none; opacity:.2;
     background-image: linear-gradient(30deg, transparent 49.6%, rgba(201,164,112,.35) 50%, transparent 50.4%),
