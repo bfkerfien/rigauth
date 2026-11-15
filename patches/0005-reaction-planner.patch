@@ -2,14 +2,14 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
 @@ -1,5 +1,8 @@
-         // Signed SSO bridge for the Triglavian Market app.
-         include __DIR__ . '/Routes/TriglavianSso.php';
+          // Signed SSO bridge for the Triglavian Market app.
+          include __DIR__ . '/Routes/TriglavianSso.php';
  
 +        // Triglavian Consortium reaction planner (read-only inventory lookup).
 +        Route::get('/reactions', 'ReactionsController@index')
 +            ->name('seatcore::reactions.index');
 +
-         // Support Routes
+          // Support Routes
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
@@ -21,4 +21,4 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 +          </a>
 +        </li>
 +
-         @foreach($menu as $entry)
+          @foreach($menu as $entry)
