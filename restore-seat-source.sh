@@ -42,18 +42,7 @@ clone_at https://github.com/eveseat/web.git cd11287006bddbf00c48cf13fd1fa704b0ea
 cat > "$DEST/seat-docker/packages/override.json" <<'OVERRIDE'
 {
   "autoload": {
-    "Seat\\Api\\": "packages/eveseat/api/src/",
-    "Seat\\Console\\": "packages/eveseat/console/src/",
-    "Seat\\Eseye\\": "packages/eveseat/eseye/src/",
-    "Seat\\Eveapi\\": "packages/eveseat/eveapi/src/",
-    "Seat\\Eveapi\\Database\\Seeders\\": "packages/eveseat/eveapi/src/database/seeders/",
-    "Seat\\Eveapi\\Database\\Seeders\\Sde\\": "packages/eveseat/eveapi/src/database/seeders/Sde",
-    "Seat\\Tests\\Eveapi\\Database\\Factories\\": "packages/eveseat/eveapi/tests/database/factories/",
-    "Seat\\Notifications\\": "packages/eveseat/notifications/src/",
-    "Seat\\Services\\": "packages/eveseat/services/src/",
-    "Seat\\Services\\Database\\Seeders\\": "packages/eveseat/services/src/database/seeders/",
-    "Seat\\Web\\": "packages/eveseat/web/src/",
-    "Seat\\Web\\Database\\Seeders\\": "packages/eveseat/web/src/database/seeders/"
+    "Seat\\\\Web\\\\": "packages/eveseat/web/src/"
   }
 }
 OVERRIDE
