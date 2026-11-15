@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Idempotently add the Exploration route include and SeAT sidebar link."""
+"""Idempotently add RigAuth route registrations and SeAT sidebar links."""
 from pathlib import Path
 import sys
 
@@ -10,23 +10,62 @@ routes_path, sidebar_path = map(Path, sys.argv[1:])
 routes = routes_path.read_text()
 sidebar = sidebar_path.read_text()
 
-route_include = "        // Triglavian Consortium regional exploration maps.\n        include __DIR__ . '/Routes/Exploration.php';\n"
-route_anchor = "        include __DIR__ . '/Routes/Home.php';\n"
-if "Routes/Exploration.php" not in routes:
-    if routes.count(route_anchor) != 1:
-        raise SystemExit("Could not find the unique SeAT Home route include; no route changes made.")
-    routes = routes.replace(route_anchor, route_anchor + "\n" + route_include, 1)
+home_anchor = "        include __DIR__ . '/Routes/Home.php';\n"
+if routes.count(home_anchor) != 1:
+    raise SystemExit("Could not find the unique SeAT Home route include; no route changes made.")
 
-sidebar_link = """        <li class="nav-item">
+home_additions = []
+if "Routes/TriglavianSso.php" not in routes:
+    home_additions.extend([
+        "        // Signed SSO bridge for the Triglavian Market app.\n",
+        "        include __DIR__ . '/Routes/TriglavianSso.php';\n",
+    ])
+if "seatcore::reactions.index" not in routes:
+    home_additions.extend([
+        "        // Triglavian Consortium reaction planner (read-only inventory lookup).\n",
+        "        Route::get('/reactions', 'ReactionsController@index')\n",
+        "            ->name('seatcore::reactions.index');\n",
+    ])
+if home_additions:
+    routes = routes.replace(home_anchor, home_anchor + "\n" + "".join(home_additions) + "\n", 1)
+
+admin_anchor = "        // Impersonation Helper Group. This one is Separate purely\n"
+admin_routes = """        // Triglavian administration routes.
+        Route::group([
+            'namespace' => 'Configuration',
+            'prefix' => 'configuration',
+        ], function () {
+            include __DIR__ . '/Routes/Configuration/Triglavian.php';
+        });
+
+"""
+if "Routes/Configuration/Triglavian.php" not in routes:
+    if routes.count(admin_anchor) != 1:
+        raise SystemExit("Could not find the unique SeAT configuration route anchor; no route changes made.")
+    routes = routes.replace(admin_anchor, admin_routes + admin_anchor, 1)
+
+menu_anchor = "        @foreach($menu as $entry)"
+if sidebar.count(menu_anchor) != 1:
+    raise SystemExit("Could not find the unique SeAT sidebar menu anchor; no sidebar changes made.")
+
+links = [
+    ("seatcore::reactions.index", """        <li class="nav-item">
+          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
+            <i class="nav-icon fas fa-flask"></i>
+            <p>Reactions</p>
+          </a>
+        </li>
+
+"""),
+    ("seatcore::exploration.index", """        <li class="nav-item">
           <a href="{{ route('seatcore::exploration.index') }}" class="nav-link {{ Request::segment(1) === 'exploration' ? 'active' : null }}">
             <i class="nav-icon fas fa-compass"></i>
             <p>Exploration</p>
           </a>
         </li>
 
-"""
-sidebar_anchor = "        @foreach($menu as $entry)"
-admin_link = """        @if(auth()->check() && (auth()->user()->can('global.superuser') || strtolower(auth()->user()->name ?? '') === 'turaneau'))
+"""),
+    ("seatcore::configuration.triglavian.index", """        @if(auth()->check() && (auth()->user()->can('global.superuser') || strtolower(auth()->user()->name ?? '') === 'turaneau'))
         <li class="nav-item">
           <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
             <i class="nav-icon fas fa-cogs"></i>
@@ -35,24 +74,12 @@ admin_link = """        @if(auth()->check() && (auth()->user()->can('global.supe
         </li>
         @endif
 
-"""
-reaction_link = """        <li class="nav-item">
-          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
-            <i class="nav-icon fas fa-flask"></i>
-            <p>Reactions</p>
-          </a>
-        </li>
-
-"""
-if sidebar.count(sidebar_anchor) != 1:
-    raise SystemExit("Could not find the unique SeAT sidebar menu anchor; no sidebar changes made.")
-if "seatcore::exploration.index" not in sidebar:
-    sidebar = sidebar.replace(sidebar_anchor, sidebar_link + sidebar_anchor, 1)
-if "seatcore::configuration.triglavian.index" not in sidebar:
-    sidebar = sidebar.replace(sidebar_anchor, admin_link + sidebar_anchor, 1)
-if "seatcore::reactions.index" not in sidebar:
-    sidebar = sidebar.replace(sidebar_anchor, reaction_link + sidebar_anchor, 1)
+"""),
+]
+for route_name, link in links:
+    if route_name not in sidebar:
+        sidebar = sidebar.replace(menu_anchor, link + menu_anchor, 1)
 
 routes_path.write_text(routes)
 sidebar_path.write_text(sidebar)
-print("Exploration route and sidebar navigation are present.")
+print("RigAuth routes and navigation links are present.")
