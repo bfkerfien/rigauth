@@ -6,6 +6,8 @@ if [ "$#" -ne 1 ]; then
   exit 2
 fi
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 DEST=$(realpath -m "$1")
 if [ -e "$DEST" ]; then
   echo "Destination already exists: $DEST" >&2
@@ -56,13 +58,13 @@ cat > "$DEST/seat-docker/packages/override.json" <<'OVERRIDE'
 }
 OVERRIDE
 
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0001-header-logout-button.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0002-fittings-section.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0003-triglavian-admin-setup.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0004-seat-sso-bridge.patch"
-git -C "$DEST/seat-docker/packages/eveseat/web" apply "$(dirname "$0")/patches/0005-reaction-planner.patch"
-python3 "$(dirname "$0")/apply-exploration-navigation.py" "$DEST/seat-docker/packages/eveseat/web/src/Http/routes.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/includes/sidebar.blade.php"
-cp -a "$(dirname "$0")/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
-cp "$(dirname "$0")/sources.lock.json" "$DEST/sources.lock.json"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0001-header-logout-button.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0002-fittings-section.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0003-triglavian-admin-setup.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0004-seat-sso-bridge.patch"
+git -C "$DEST/seat-docker/packages/eveseat/web" apply "$SCRIPT_DIR/patches/0005-reaction-planner.patch"
+python3 "$SCRIPT_DIR/apply-exploration-navigation.py" "$DEST/seat-docker/packages/eveseat/web/src/Http/routes.php" "$DEST/seat-docker/packages/eveseat/web/src/resources/views/includes/sidebar.blade.php"
+cp -a "$SCRIPT_DIR/custom/seat-web/." "$DEST/seat-docker/packages/eveseat/web/"
+cp "$SCRIPT_DIR/sources.lock.json" "$DEST/sources.lock.json"
 trap - ERR
 echo "Restored SeAT sources with Triglavian UI patches to $DEST"
