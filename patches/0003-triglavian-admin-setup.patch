@@ -12,18 +12,3 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +
          // Impersonation Helper Group. This one is Separate purely
          // because we don't want to restrict this to superusers only.
-diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
---- a/src/resources/views/includes/sidebar.blade.php
-+++ b/src/resources/views/includes/sidebar.blade.php
-@@ -1,1 +1,10 @@
-+        @if(auth()->check() && (auth()->user()->can('global.superuser') || strtolower(auth()->user()->name ?? '') === 'turaneau'))
-+        <li class="nav-item">
-+          <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
-+            <i class="nav-icon fas fa-cogs"></i>
-+            <p>Admin Setup</p>
-+          </a>
-+        </li>
-+        @endif
-+
-         @foreach($menu as $entry)
- 
