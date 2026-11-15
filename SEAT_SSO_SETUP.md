@@ -1,6 +1,6 @@
 # SeAT SSO bridge for Triglavian Market
 
-This repository adds a small signed assertion endpoint to the SeAT deployment at `https://seat.triglavianconsortium.com`. It is an identity bridge for the fitting-management UI on `https://market.triglavianconsortium.com`; it does not replace EVE SSO used by the market collector to access ESI structure-market data.
+This repository adds a small signed assertion endpoint to the SeAT deployment at `https://auth.triglavianconsortium.com`. It is an identity bridge for the fitting-management UI on `https://market.triglavianconsortium.com`; it does not replace EVE SSO used by the market collector to access ESI structure-market data.
 
 ## Deployment configuration
 
