@@ -15,6 +15,11 @@ if routes.count(home_anchor) != 1:
     raise SystemExit("Could not find the unique SeAT Home route include; no route changes made.")
 
 home_additions = []
+if "Routes/Exploration.php" not in routes:
+    home_additions.extend([
+        "        // Triglavian Consortium regional exploration maps.\\n",
+        "        include __DIR__ . '/Routes/Exploration.php';\\n",
+    ])
 if "Routes/TriglavianSso.php" not in routes:
     home_additions.extend([
         "        // Signed SSO bridge for the Triglavian Market app.\n",
