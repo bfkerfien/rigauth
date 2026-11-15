@@ -245,7 +245,7 @@
 
 <div class="trig-finance">
   <section class="tf-hero" aria-label="Triglavian gate in deep space">
-    <img src="{{ asset('web/img/potchven-triglavian-gate.svg') }}"
+    <img src="{{ asset('web/img/potchven-triglavian-gate-banner.jpg') }}"
          alt="A monumental Triglavian gate with a glowing red triangular core in deep space">
   </section>
 
