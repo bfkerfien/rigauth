@@ -24,7 +24,9 @@ class PotchvenFinancesController extends Controller
 
     /**
      * Current corporation telemetry inventory in CorpSAG3 across all stations.
-     * Read the latest successful ESI snapshot written by the finance sync worker.
+     * Prefer the latest successful SeAT corporation asset sync. Its ESI snapshot
+     * contains every accessible office; the CorpSAG3 division is identified on
+     * each asset row. The legacy Finance snapshot remains a fallback during setup.
      * Type 89219; every 60 units represents one site.
      */
     private function telemetryQuantity(): ?int
@@ -32,29 +34,44 @@ class PotchvenFinancesController extends Controller
         $db = DB::connection();
         $schema = $db->getSchemaBuilder();
 
-        if (
-            !$schema->hasTable('fin_owners')
-            || !$schema->hasTable('fin_asset_snapshots')
-            || !$schema->hasTable('fin_asset_items')
-        ) {
+        if (!$schema->hasTable('fin_owners')) {
             return null;
         }
 
-        $corporationOwnerId = $db->table('fin_owners')
+        $corporation = $db->table('fin_owners')
             ->where('owner_type', 'corporation')
             ->where('is_active', 1)
-            ->value('id');
+            ->first(['id', 'eve_id']);
 
-        if (!$corporationOwnerId) {
+        if (!$corporation) {
             return null;
         }
 
-        // The finance worker creates a complete snapshot after each successful
-        // corporation ESI asset fetch and stores only CorpSAG3 assets from every
-        // accessible office/structure. Use that snapshot, not assetmgr_assets,
-        // which is maintained by a separate synchronization pipeline.
+        if ($schema->hasTable('assetmgr_assets') && $schema->hasTable('assetmgr_sync_state')) {
+            $hasSuccessfulCorporationSnapshot = $db->table('assetmgr_sync_state')
+                ->where('owner_kind', 'corporation')
+                ->where('owner_id', (int) $corporation->eve_id)
+                ->where('dataset', 'assets')
+                ->where('status', 'success')
+                ->whereNotNull('last_success_at')
+                ->exists();
+
+            if ($hasSuccessfulCorporationSnapshot) {
+                return (int) $db->table('assetmgr_assets')
+                    ->where('owner_kind', 'corporation')
+                    ->where('owner_id', (int) $corporation->eve_id)
+                    ->where('location_flag', 'CorpSAG3')
+                    ->where('type_id', 89219)
+                    ->sum('quantity');
+            }
+        }
+
+        if (!$schema->hasTable('fin_asset_snapshots') || !$schema->hasTable('fin_asset_items')) {
+            return null;
+        }
+
         $snapshotId = $db->table('fin_asset_snapshots')
-            ->where('owner_id', $corporationOwnerId)
+            ->where('owner_id', (int) $corporation->id)
             ->orderByDesc('captured_at')
             ->orderByDesc('id')
             ->value('id');
