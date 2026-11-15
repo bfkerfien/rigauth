@@ -38,7 +38,7 @@ class TriglavianSsoController extends Controller
         }
 
         $claims = [
-            'iss' => 'https://seat.triglavianconsortium.com',
+            'iss' => 'https://auth.triglavianconsortium.com',
             'aud' => 'triglavian-market',
             'sub' => (string) $user->getAuthIdentifier(),
             'character_id' => (int) ($user->main_character_id ?? 0),
