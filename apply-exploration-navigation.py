@@ -17,8 +17,8 @@ if routes.count(home_anchor) != 1:
 home_additions = []
 if "Routes/Exploration.php" not in routes:
     home_additions.extend([
-        "        // Triglavian Consortium regional exploration maps.\\n",
-        "        include __DIR__ . '/Routes/Exploration.php';\\n",
+        "        // Triglavian Consortium regional exploration maps.\n",
+        "        include __DIR__ . '/Routes/Exploration.php';\n",
     ])
 if "Routes/TriglavianSso.php" not in routes:
     home_additions.extend([
