@@ -1,11 +1,9 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@ -171,4 +171,13 @@ Route::group([
-         });
-
-+        // Triglavian administration: superusers and the explicitly authorized
-+        // SeAT account are allowed. Controller methods enforce the same rule.
+@@
+-        // Impersonation Helper Group. This one is Separate purely
++        // Triglavian administration routes.
 +        Route::group([
 +            'namespace' => 'Configuration',
 +            'prefix' => 'configuration',
@@ -13,26 +11,19 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            include __DIR__ . '/Routes/Configuration/Triglavian.php';
 +        });
 +
-         // Impersonation Helper Group. This one is Separate purely
-         // because we don't want to restrict this to superusers only.
-
++        // Impersonation Helper Group. This one is Separate purely
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@ -35,14 +35,14 @@
-             <p>Fittings</p>
-           </a>
-         </li>
-
--        @can('global.superuser')
+@@
+-        @foreach($menu as $entry)
 +        @if(auth()->check() && (auth()->user()->can('global.superuser') || strtolower(auth()->user()->name ?? '') === 'turaneau'))
-         <li class="nav-item">
-           <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
-             <i class="nav-icon fas fa-cogs"></i>
-             <p>Admin Setup</p>
-           </a>
-         </li>
--        @endcan
++        <li class="nav-item">
++          <a href="{{ route('seatcore::configuration.triglavian.index') }}" class="nav-link {{ Request::segment(2) === 'triglavian' ? 'active' : null }}">
++            <i class="nav-icon fas fa-cogs"></i>
++            <p>Admin Setup</p>
++          </a>
++        </li>
 +        @endif
-
-         @foreach($menu as $entry)
++
++        @foreach($menu as $entry)
