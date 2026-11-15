@@ -42,7 +42,7 @@ clone_at https://github.com/eveseat/web.git cd11287006bddbf00c48cf13fd1fa704b0ea
 cat > "$DEST/seat-docker/packages/override.json" <<'OVERRIDE'
 {
   "autoload": {
-    "Seat\\\\Web\\\\": "packages/eveseat/web/src/"
+    "Seat\\Web\\": "packages/eveseat/web/src/"
   }
 }
 OVERRIDE
