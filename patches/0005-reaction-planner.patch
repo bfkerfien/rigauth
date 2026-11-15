@@ -1,7 +1,7 @@
 diff --git a/src/Http/routes.php b/src/Http/routes.php
 --- a/src/Http/routes.php
 +++ b/src/Http/routes.php
-@@
+@@ -1,5 +1,8 @@
          // Signed SSO bridge for the Triglavian Market app.
          include __DIR__ . '/Routes/TriglavianSso.php';
  
@@ -13,8 +13,7 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
-@@
--        @foreach($menu as $entry)
+@@ -1,1 +1,9 @@
 +        <li class="nav-item">
 +          <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
 +            <i class="nav-icon fas fa-flask"></i>
@@ -22,4 +21,4 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 +          </a>
 +        </li>
 +
-+        @foreach($menu as $entry)
+         @foreach($menu as $entry)
