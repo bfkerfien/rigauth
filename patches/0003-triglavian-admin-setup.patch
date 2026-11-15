@@ -10,8 +10,8 @@ diff --git a/src/Http/routes.php b/src/Http/routes.php
 +            include __DIR__ . '/Routes/Configuration/Triglavian.php';
 +        });
 +
-         // Impersonation Helper Group. This one is Separate purely
-         // because we don't want to restrict this to superusers only.
+          // Impersonation Helper Group. This one is Separate purely
+          // because we don't want to restrict this to superusers only.
 diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/views/includes/sidebar.blade.php
 --- a/src/resources/views/includes/sidebar.blade.php
 +++ b/src/resources/views/includes/sidebar.blade.php
@@ -25,4 +25,4 @@ diff --git a/src/resources/views/includes/sidebar.blade.php b/src/resources/view
 +        </li>
 +        @endif
 +
-         @foreach($menu as $entry)
+          @foreach($menu as $entry)
