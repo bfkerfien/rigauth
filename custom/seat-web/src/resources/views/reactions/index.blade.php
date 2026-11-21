@@ -77,9 +77,23 @@
         <div id="rx-golden-recipes"><div class="rx-status">Finding the two Golden Cytoserocin reaction recipes…</div></div>
       </section>
       <section class="rx-panel" id="rx-manufacturing-panel" hidden>
-        <h2>Manufacturing chain lookup</h2><p class="rx-help">Look up a capital component or other manufactured item using SeAT’s local EVE blueprint data.</p>
-        <form id="rx-manufacturing-form" class="rx-inline"><input id="rx-manufacturing-product" placeholder="e.g. Capital Armor Plates" style="flex:1;min-width:220px"><button type="submit">Load recipe</button></form>
-        <div id="rx-manufacturing-result" style="margin-top:12px"></div>
+        <h2>Ship production trees</h2>
+        <p class="rx-help">Recursive manufacturing and reaction inputs from SeAT’s local EVE blueprint data. Raw inputs, including reaction moon goo, use Jita IV-4 lowest sell orders. ME and PE apply to the selected hull blueprint; component blueprints and reactions use base SDE quantities.</p>
+        <div class="rx-tabs" role="tablist" aria-label="Ship production trees">
+          <button type="button" class="rx-tab active" id="rx-ship-tab-bustard" data-ship-tree="Bustard" aria-selected="true">Bustard A2</button>
+          <button type="button" class="rx-tab" id="rx-ship-tab-crane" data-ship-tree="Crane" aria-selected="false">Crane A2</button>
+        </div>
+        <div class="rx-settings-grid">
+          <label class="rx-field" for="rx-ship-me"><span>Material Efficiency (ME): <strong id="rx-ship-me-value">0</strong></span><input id="rx-ship-me" type="range" min="-10" max="10" step="1" value="0"></label>
+          <label class="rx-field" for="rx-ship-pe"><span>Production Efficiency (PE): <strong id="rx-ship-pe-value">0</strong></span><input id="rx-ship-pe" type="range" min="-10" max="20" step="1" value="0"></label>
+        </div>
+        <p class="rx-help">Negative values increase material use or time. ME is capped at 10; PE at 20. The tree reloads as the production estimate runs in the background.</p>
+        <div id="rx-ship-tree-result" style="margin-top:12px"><div class="rx-status">Select a ship tab to load its tree.</div></div>
+        <details style="margin-top:14px">
+          <summary class="rx-help" style="cursor:pointer">Look up another manufactured item</summary>
+          <form id="rx-manufacturing-form" class="rx-inline" style="margin-top:10px"><input id="rx-manufacturing-product" placeholder="e.g. Capital Armor Plates" style="flex:1;min-width:220px"><button type="submit">Load recipe</button></form>
+          <div id="rx-manufacturing-result" style="margin-top:12px"></div>
+        </details>
       </section>
     </section>
   </div>
@@ -93,11 +107,70 @@ const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString(undefined,{maximumFractionDigits:2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let activeTab = 'gas', priceCache = {}, expanded = new Set(), manufacturingRecipe = null, goldenLoaded = false;
+let activeShip = 'Bustard', shipEfficiency = {Bustard:{me:0,pe:0},Crane:{me:0,pe:0}}, shipTreeRequested = false;
 function gasIsMined(name){const n=String(name||'').toLowerCase();return (n.includes('amber cytoserocin')&&$('rx-amber-mined').checked)||(n.includes('golden cytoserocin')&&$('rx-golden-mined').checked);}
 function setStatus(message, error=false){$('rx-market-status').textContent=message;$('rx-market-status').className='rx-status'+(error?' rx-error':'');}
 function categoryMatches(r){return activeTab==='gas' ? r.category==='gas' : activeTab==='biochemical' ? r.category==='biochemical' : activeTab==='moon' ? r.category==='moon' : activeTab==='molecular' ? r.category==='molecular' : false;}
 function filteredRecipes(){const q=$('rx-search').value.trim().toLowerCase();return recipes.filter(r=>categoryMatches(r)&&(!q||r.product.toLowerCase().includes(q)||(r.group||'').toLowerCase().includes(q)||(r.materials||[]).some(m=>m.name.toLowerCase().includes(q))||(r.products||[]).some(p=>p.name.toLowerCase().includes(q))));}
 function ownedCount(r){return (r.materials||[]).filter(m=>m.owned>0).length;}
+function formatDuration(seconds){
+ if(!Number.isFinite(Number(seconds)))return 'Unavailable';
+ const total=Math.round(Number(seconds)),days=Math.floor(total/86400),hours=Math.floor((total%86400)/3600),minutes=Math.floor((total%3600)/60);
+ return [days?days+'d':'',hours?hours+'h':'',minutes?minutes+'m':''].filter(Boolean).join(' ')||'<1m';
+}
+function updateShipTreeControls(){
+ ['Bustard','Crane'].forEach(ship=>{
+  const button=$('rx-ship-tab-'+ship.toLowerCase());
+  button.classList.toggle('active',activeShip===ship);
+  button.setAttribute('aria-selected',activeShip===ship?'true':'false');
+ });
+ const settings=shipEfficiency[activeShip];
+ $('rx-ship-me').value=String(settings.me);
+ $('rx-ship-pe').value=String(settings.pe);
+ $('rx-ship-me-value').textContent=String(settings.me);
+ $('rx-ship-pe-value').textContent=String(settings.pe);
+}
+function flattenProductionTree(node,depth=0,rows=[]){
+ rows.push({...node,depth});
+ (node.children||[]).forEach(child=>flattenProductionTree(child,depth+1,rows));
+ return rows;
+}
+async function loadShipTree(ship){
+ activeShip=ship;
+ shipTreeRequested=true;
+ updateShipTreeControls();
+ const settings=shipEfficiency[ship],result=$('rx-ship-tree-result');
+ result.innerHTML='<div class="rx-status">Building '+esc(ship)+' production tree and checking Jita sell prices…</div>';
+ try{
+  const query=new URLSearchParams({activity:'1',tree:'1',product:ship,me:String(settings.me),pe:String(settings.pe)});
+  const response=await fetch('/reactions/recipe?'+query.toString(),{headers:{'Accept':'application/json'}});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||'Production tree unavailable');
+  const raw=data.rawMaterials||[];
+  await getPrices(raw.map(item=>item.name));
+  let knownCost=0,missing=0;
+  const rawRows=raw.map(item=>{
+   const price=Number(priceCache[item.name]?.sellPrice);
+   const valid=Number.isFinite(price)&&price>0;
+   if(valid)knownCost+=price*Number(item.quantity||0);else missing++;
+   return {...item,unitPrice:valid?price:null,total:valid?price*Number(item.quantity||0):null};
+  });
+  const rows=flattenProductionTree(data.tree);
+  const totalSeconds=rows.reduce((sum,row)=>sum+(Number(row.estimatedSeconds)||0),0);
+  const timeKnown=rows.some(row=>Number.isFinite(Number(row.estimatedSeconds)));
+  result.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Known raw input cost</span><strong>'+fmt(knownCost)+' ISK'+(missing?' · '+fmt(missing)+' prices missing':'')+'</strong></div><div class="rx-kpi"><span>Jita sell source</span><strong>Jita IV-4 CNAP</strong></div><div class="rx-kpi"><span>Estimated tree time</span><strong>'+(timeKnown?formatDuration(totalSeconds):'Unavailable')+'</strong></div></div>'+
+   '<div class="rx-scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita sell / raw cost</th></tr></thead><tbody>'+
+   rows.map(row=>{
+    const rawInput=row.activityId===null;
+    const price=rawRows.find(item=>item.typeId===row.typeId);
+    const indent='&nbsp;'.repeat(Math.min(12,row.depth)*4);
+    const label=rawInput?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita sell':'Raw input · Jita sell'):(row.activityId===11?'Reaction':'Manufacturing');
+    const priceText=rawInput?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / '+fmt(price.total)+' ISK':'Unavailable'):'—';
+    return '<tr><td>'+indent+esc(row.name)+'</td><td>'+label+'</td><td>'+fmt(row.quantityNeeded)+'</td><td>'+(row.runs===null?'—':fmt(row.runs))+'</td><td>'+priceText+'</td></tr>';
+   }).join('')+
+   '</tbody></table></div><p class="rx-help">Hull ME '+fmt(settings.me)+'% · hull PE '+fmt(settings.pe)+'%. Missing raw-input prices are shown as unavailable and excluded from the known-cost subtotal.</p>';
+ }catch(err){result.innerHTML='<div class="rx-status rx-error">'+esc(err.message)+'</div>';}
+}
 function render(){
  const list=filteredRecipes();
  $('rx-count').textContent=fmt(list.length);
@@ -105,7 +178,7 @@ function render(){
  $('rx-manufacturing-panel').hidden=activeTab!=='manufacturing';
  $('rx-golden-panel').hidden=activeTab!=='golden';
  if(activeTab==='golden'){ $('rx-recipe-list').innerHTML=''; if(!goldenLoaded)loadGoldenTab(); return; }
- if(activeTab==='manufacturing'){ $('rx-recipe-list').innerHTML=''; return; }
+ if(activeTab==='manufacturing'){ $('rx-recipe-list').innerHTML=''; if(!shipTreeRequested)loadShipTree(activeShip); return; }
  if(!list.length){$('rx-recipe-list').innerHTML='<div class="rx-empty">No recipes match this tab and search. Try another material or tab.</div>';return;}
  $('rx-recipe-list').innerHTML=list.map((r,i)=>{
   const key=String(r.type_id||r.product)+'-'+i, open=expanded.has(key);
@@ -159,6 +232,15 @@ $('rx-inventory-search').addEventListener('input',()=>{const q=$('rx-inventory-s
 root.querySelectorAll('.rx-inventory-pick').forEach(button=>button.addEventListener('click',()=>{$('rx-search').value=button.dataset.name;activeTab='gas';root.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab==='gas');b.setAttribute('aria-selected',b.dataset.tab==='gas'?'true':'false')});render();}));
 $('rx-recipe-list').addEventListener('click',e=>{const head=e.target.closest('[data-expand]');if(!head)return;const key=head.dataset.expand;if(expanded.has(key))expanded.delete(key);else expanded.add(key);render();});
 $('rx-recipe-list').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-expand]')){e.preventDefault();e.target.click();}});
+root.querySelectorAll('[data-ship-tree]').forEach(button=>button.addEventListener('click',()=>loadShipTree(button.dataset.shipTree)));
+['rx-ship-me','rx-ship-pe'].forEach(id=>{
+ const key=id==='rx-ship-me'?'me':'pe';
+ $(id).addEventListener('input',()=>{
+  shipEfficiency[activeShip][key]=Number($(id).value);
+  $('rx-ship-'+key+'-value').textContent=String(shipEfficiency[activeShip][key]);
+ });
+ $(id).addEventListener('change',()=>loadShipTree(activeShip));
+});
 $('rx-manufacturing-form').addEventListener('submit',async e=>{
  e.preventDefault();const product=$('rx-manufacturing-product').value.trim();if(!product)return;
  const result=$('rx-manufacturing-result');result.innerHTML='<div class="rx-status">Loading blueprint recipe and market prices…</div>';
