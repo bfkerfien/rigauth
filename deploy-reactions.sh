@@ -10,6 +10,7 @@ BRANCH="main"
 SUCCESS=0
 ROLLBACK_ENABLED=0
 FILES=(
+  "data/production-blueprints.json"
   "src/Http/Controllers/ReactionsController.php"
   "src/resources/views/reactions/index.blade.php"
   "src/resources/views/reactions/ship-tree.blade.php"
