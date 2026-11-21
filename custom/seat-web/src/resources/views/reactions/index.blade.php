@@ -157,7 +157,7 @@ async function loadShipTree(ship){
   });
   const rows=flattenProductionTree(data.tree);
   const totalSeconds=rows.reduce((sum,row)=>sum+(Number(row.estimatedSeconds)||0),0);
-  const timeKnown=rows.some(row=>Number.isFinite(Number(row.estimatedSeconds)));
+  const timeKnown=rows.some(row=>row.estimatedSeconds!==null&&row.estimatedSeconds!==undefined&&Number.isFinite(Number(row.estimatedSeconds)));
   result.innerHTML='<div class="rx-kpis"><div class="rx-kpi"><span>Known raw input cost</span><strong>'+fmt(knownCost)+' ISK'+(missing?' · '+fmt(missing)+' prices missing':'')+'</strong></div><div class="rx-kpi"><span>Jita sell source</span><strong>Jita IV-4 CNAP</strong></div><div class="rx-kpi"><span>Estimated tree time</span><strong>'+(timeKnown?formatDuration(totalSeconds):'Unavailable')+'</strong></div></div>'+
    '<div class="rx-scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita sell / raw cost</th></tr></thead><tbody>'+
    rows.map(row=>{
