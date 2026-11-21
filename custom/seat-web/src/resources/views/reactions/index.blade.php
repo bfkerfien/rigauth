@@ -80,8 +80,8 @@
         <h2>Ship production trees</h2>
         <p class="rx-help">Recursive manufacturing and reaction inputs from SeAT’s local EVE blueprint data. Raw inputs, including reaction moon goo, use Jita IV-4 lowest sell orders. ME and PE apply to the selected hull blueprint; component blueprints and reactions use base SDE quantities.</p>
         <div class="rx-tabs" role="tablist" aria-label="Ship production trees">
-          <button type="button" class="rx-tab active" id="rx-ship-tab-bustard" data-ship-tree="Bustard" aria-selected="true">Bustard A2</button>
-          <button type="button" class="rx-tab" id="rx-ship-tab-crane" data-ship-tree="Crane" aria-selected="false">Crane A2</button>
+          <button type="button" class="rx-tab active" id="rx-ship-tab-bustard" data-ship-tree="Bustard" aria-selected="true">Bustard</button>
+          <button type="button" class="rx-tab" id="rx-ship-tab-crane" data-ship-tree="Crane" aria-selected="false">Crane</button>
         </div>
         <div class="rx-settings-grid">
           <label class="rx-field" for="rx-ship-me"><span>Material Efficiency (ME): <strong id="rx-ship-me-value">0</strong></span><input id="rx-ship-me" type="range" min="-10" max="10" step="1" value="0"></label>
