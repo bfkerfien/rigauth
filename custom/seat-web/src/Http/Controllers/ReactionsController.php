@@ -13,13 +13,21 @@ class ReactionsController extends Controller
 {
     private function blueprintData(): array
     {
-        foreach ([dirname(__DIR__, 3) . '/data/production-blueprints.json', base_path('packages/eveseat/web/data/production-blueprints.json')] as $path) {
+        foreach ([
+            dirname(__DIR__, 3) . '/data/production-blueprints.json',
+            base_path('packages/eveseat/web/data/production-blueprints.json'),
+            base_path('data/production-blueprints.json'),
+        ] as $path) {
             if (is_file($path) && is_readable($path)) {
                 $data = json_decode((string) file_get_contents($path), true);
                 if (is_array($data) && is_array($data['products'] ?? null)) return $data;
             }
         }
-        return [];
+
+        // Keep a controller-embedded copy as a fallback if package data files are
+        // not installed alongside the controller in a SeAT deployment.
+        $embedded = json_decode('{"source":"EVE Online SDE manufacturing base materials, hardcoded so production trees do not depend on SeAT industry tables. Reactions expand from data/reactions.json.","sde_as_of":"2026-10-23","moonMaterials":["Atmospheric Gases","Evaporite Deposits","Hydrocarbons","Silicates","Cadmium","Caesium","Chromium","Cobalt","Dysprosium","Hafnium","Mercury","Neodymium","Promethium","Scandium","Technetium","Thulium","Titanium","Tungsten","Vanadium","Platinum"],"products":{"Bustard":{"typeId":12731,"blueprintTypeId":12732,"outputQuantity":1,"materials":[["Scalar Capacitor Unit",300],["Morphite",105],["Magpulse Thruster",75],["Gravimetric Sensor Cluster",135],["Construction Blocks",225],["R.A.M.- Starship Tech",15],["Titanium Diborite Armor Plate",5250],["Quantum Microprocessor",1800],["Sustained Shield Emitter",375],["Graviton Reactor Unit",45],["Tayra",1]]},"Crane":{"typeId":12729,"blueprintTypeId":12730,"outputQuantity":1,"materials":[["Scalar Capacitor Unit",225],["Morphite",60],["Magpulse Thruster",113],["Gravimetric Sensor Cluster",90],["Construction Blocks",113],["R.A.M.- Starship Tech",11],["Titanium Diborite Armor Plate",3000],["Quantum Microprocessor",1200],["Sustained Shield Emitter",150],["Graviton Reactor Unit",38],["Badger",1]]},"Scalar Capacitor Unit":{"typeId":11552,"blueprintTypeId":17327,"outputQuantity":1,"materials":[["Nanotransistors",1],["Nonlinear Metamaterials",2],["Fullerides",11],["Titanium Carbide",27]]},"Magpulse Thruster":{"typeId":11533,"blueprintTypeId":17356,"outputQuantity":1,"materials":[["Phenolic Composites",3],["Ferrogel",1],["Titanium Carbide",13]]},"Gravimetric Sensor Cluster":{"typeId":11534,"blueprintTypeId":17340,"outputQuantity":1,"materials":[["Titanium Carbide",22],["Nanotransistors",1],["Hypersynaptic Fibers",2]]},"Quantum Microprocessor":{"typeId":11540,"blueprintTypeId":17351,"outputQuantity":1,"materials":[["Phenolic Composites",6],["Nanotransistors",2],["Nonlinear Metamaterials",2],["Titanium Carbide",17]]},"Sustained Shield Emitter":{"typeId":11558,"blueprintTypeId":17352,"outputQuantity":1,"materials":[["Ferrogel",1],["Sylramic Fibers",9],["Titanium Carbide",22]]},"Graviton Reactor Unit":{"typeId":11550,"blueprintTypeId":17353,"outputQuantity":1,"materials":[["Fermionic Condensates",2],["Titanium Carbide",9]]},"R.A.M.- Starship Tech":{"typeId":11478,"blueprintTypeId":11890,"outputQuantity":1,"materials":[["Tritanium",556],["Pyerite",444],["Mexallon",222],["Isogen",82],["Nocxium",36]]},"Titanium Diborite Armor Plate":{"typeId":11544,"blueprintTypeId":17328,"outputQuantity":1,"materials":[["Sylramic Fibers",11],["Titanium Carbide",44]]}},"purchaseOnly":["Tayra","Badger","Construction Blocks","Morphite"],"itemTypes":{"Morphite":11399,"Construction Blocks":3828,"Tayra":12745,"Badger":648}}', true);
+        return is_array($embedded) ? $embedded : [];
     }
 
     private function catalog(): array
