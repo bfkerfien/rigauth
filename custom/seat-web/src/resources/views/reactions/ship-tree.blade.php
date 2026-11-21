@@ -12,7 +12,7 @@
 #ship-tree .navtabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}#ship-tree .tab{display:inline-block;text-decoration:none;background:#0a1219;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-weight:700;padding:10px 16px}#ship-tree .tab.active{background:#123342;border-color:var(--cyan);color:var(--cyan)}
 #ship-tree .panel,#ship-tree .card{background:linear-gradient(145deg,#111c26,#0b1219);border:1px solid var(--line);border-radius:9px;padding:14px;margin:10px 0}
 #ship-tree .sliders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}#ship-tree label{display:grid;gap:8px;font-size:12px;color:var(--muted)}#ship-tree input[type=range]{width:100%;accent-color:var(--cyan)}
-#ship-tree .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}#ship-tree .kpi{background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}#ship-tree .kpi span{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:block}#ship-tree .kpi strong{font-size:16px;display:block;overflow-wrap:anywhere}
+#ship-tree .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}#ship-tree .kpi{background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}#ship-tree .kpi span{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:block}#ship-tree .kpi strong{font-size:16px;display:block;overflow-wrap:anywhere}
 #ship-tree .status{border:1px solid var(--line);border-radius:7px;padding:10px;margin:12px 0;font-size:12px;overflow-wrap:anywhere}#ship-tree .error{border-color:#754b35;color:#ffb36a}
 #ship-tree .scroll{overflow:auto;border:1px solid var(--line);border-radius:7px}#ship-tree table{border-collapse:collapse;width:100%;min-width:650px}#ship-tree th,#ship-tree td{text-align:left;padding:8px;border-bottom:1px solid #20303b;font-size:11px;vertical-align:top}#ship-tree th{background:#0a1219;color:var(--muted)}#ship-tree tr:last-child td{border-bottom:0}
 @media(max-width:680px){#ship-tree{padding:12px}#ship-tree .sliders,#ship-tree .kpis{grid-template-columns:1fr}}
@@ -21,7 +21,7 @@
   <header>
     <div class="eyebrow">Triglavian Consortium · SeAT production</div>
     <h1>{{ $ship }} Production Tree</h1>
-    <div class="muted">Recursive manufacturing and reaction inputs from SeAT’s local EVE blueprint data.</div>
+    <div class="muted">Recursive manufacturing and reaction inputs from bundled EVE blueprint recipes.</div>
   </header>
 
   <nav class="navtabs" aria-label="Ship production pages">
@@ -76,29 +76,34 @@
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||'Production tree unavailable');
    const raw=data.rawMaterials||[];
-   const priceResponse=await fetch('/reactions/market?names='+encodeURIComponent(raw.map(item=>item.name).join(',')),{headers:{'Accept':'application/json'}});
+   const marketNames=[...raw.map(item=>item.name),ship];
+   const priceResponse=await fetch('/reactions/market?names='+encodeURIComponent(marketNames.join(',')),{headers:{'Accept':'application/json'}});
    const priceData=await priceResponse.json();
    if(!priceResponse.ok)throw new Error(priceData.error||'Jita market lookup failed');
    const prices=priceData.prices||{};
    let knownCost=0,missing=0;
    const rawRows=raw.map(item=>{
-    const price=Number(prices[item.name]?.sellPrice),valid=Number.isFinite(price)&&price>0;
+    const price=Number(prices[item.name]?.buyPrice),valid=Number.isFinite(price)&&price>0;
     if(valid)knownCost+=price*Number(item.quantity||0);else missing++;
     return {...item,unitPrice:valid?price:null,total:valid?price*Number(item.quantity||0):null};
    });
+   const shipSplit=Number(prices[ship]?.splitPrice);
+   const shipSplitKnown=Number.isFinite(shipSplit)&&shipSplit>0;
+   const grossProfit=missing===0&&shipSplitKnown?shipSplit-knownCost:null;
+   const margin=grossProfit!==null&&knownCost>0?(grossProfit/knownCost)*100:null;
    const rows=flatten(data.tree);
    const totalSeconds=rows.reduce((sum,row)=>sum+(Number(row.estimatedSeconds)||0),0);
    const timeKnown=rows.some(row=>row.estimatedSeconds!==null&&row.estimatedSeconds!==undefined&&Number.isFinite(Number(row.estimatedSeconds)));
-   result.innerHTML='<div class="kpis"><div class="kpi"><span>Known raw input cost</span><strong>'+fmt(knownCost)+' ISK'+(missing?' · '+fmt(missing)+' prices missing':'')+'</strong></div><div class="kpi"><span>Raw inputs priced at</span><strong>Jita IV-4 sell</strong></div><div class="kpi"><span>Estimated production time</span><strong>'+(timeKnown?formatDuration(totalSeconds):'Unavailable')+'</strong></div></div>'+
-    '<div class="scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita sell / raw cost</th></tr></thead><tbody>'+
+   result.innerHTML='<div class="kpis"><div class="kpi"><span>Raw input cost · Jita buy</span><strong>'+fmt(knownCost)+' ISK'+(missing?' · '+fmt(missing)+' prices missing':'')+'</strong></div><div class="kpi"><span>'+escapeHtml(ship)+' value · Jita split</span><strong>'+(shipSplitKnown?fmt(shipSplit)+' ISK':'Unavailable')+'</strong></div><div class="kpi"><span>Estimated gross profit</span><strong>'+(grossProfit===null?'Unavailable':fmt(grossProfit)+' ISK')+'</strong></div><div class="kpi"><span>Profit / input cost</span><strong>'+(margin===null?'Unavailable':fmt(margin)+'%')+'</strong></div><div class="kpi"><span>Estimated production time</span><strong>'+(timeKnown?formatDuration(totalSeconds):'Unavailable')+'</strong></div></div>'+
+    '<div class="scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita buy / raw cost</th></tr></thead><tbody>'+
     rows.map(row=>{
      const isRaw=row.activityId===null;
      const price=rawRows.find(item=>item.typeId===row.typeId);
      const indent='&nbsp;'.repeat(Math.min(12,row.depth)*4);
-     const step=isRaw?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita sell':'Raw input · Jita sell'):(row.activityId===11?'Reaction':'Manufacturing');
+     const step=isRaw?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita buy':'Raw input · Jita buy'):(row.activityId===11?'Reaction':'Manufacturing');
      const value=isRaw?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / '+fmt(price.total)+' ISK':'Unavailable'):'—';
      return '<tr><td>'+indent+escapeHtml(row.name)+'</td><td>'+step+'</td><td>'+fmt(row.quantityNeeded)+'</td><td>'+(row.runs===null?'—':fmt(row.runs))+'</td><td>'+value+'</td></tr>';
-    }).join('')+'</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Missing prices are shown as unavailable and excluded from the known-cost subtotal.</p>';
+    }).join('')+'</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Inputs use the Jita IV-4 buy order; ship value uses the Jita IV-4 buy/sell midpoint. Profit is unavailable if any raw input or the ship split has no price.</p>';
   }catch(error){result.innerHTML='<div class="status error">'+escapeHtml(error.message)+'</div>';}
  }
  function saveAndReload(key){
