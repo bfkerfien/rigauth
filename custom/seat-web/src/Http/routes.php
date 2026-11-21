@@ -69,6 +69,8 @@ Route::group([
         Route::get('/reactions/market', 'ReactionsController@market')->name('seatcore::reactions.market');
         Route::get('/reactions/recipe', 'ReactionsController@recipe')->name('seatcore::reactions.recipe');
         Route::get('/reactions/history', 'ReactionsController@history')->name('seatcore::reactions.history');
+        Route::get('/production/bustard', 'ReactionsController@bustardProduction')->name('seatcore::production.bustard');
+        Route::get('/production/crane', 'ReactionsController@craneProduction')->name('seatcore::production.crane');
 
         // Pilot-facing fittings page.
         Route::get('/fittings', 'FittingsController@pilotIndex')->name('seatcore::fittings.index');
