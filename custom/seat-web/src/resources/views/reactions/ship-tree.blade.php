@@ -98,7 +98,7 @@
     '<div class="scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita buy / raw cost</th></tr></thead><tbody>'+
     rows.map(row=>{
      const isRaw=row.activityId===null;
-     const price=rawRows.find(item=>item.typeId===row.typeId);
+     const price=rawRows.find(item=>item.name===row.name);
      const indent='&nbsp;'.repeat(Math.min(12,row.depth)*4);
      const step=isRaw?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita buy':'Raw input · Jita buy'):(row.activityId===11?'Reaction':'Manufacturing');
      const value=isRaw?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / '+fmt(price.total)+' ISK':'Unavailable'):'—';
