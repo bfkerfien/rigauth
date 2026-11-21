@@ -209,6 +209,7 @@ class ReactionsController extends Controller
             $pe = max(-10, min(20, (int) $request->query('pe', 0)));
             $batchMaterials = [];
             $tree = $this->buildStaticProductionNode($product, 1, 0, [], $batchMaterials, $me, $pe, true, $data);
+            $batchRawMaterials = $this->calculateBatchRawMaterials($product, $me, $data, $this->catalog());
             // Allocate reaction inputs by the share consumed for this hull. The
             // minimum whole reaction batches still appear in the tree, but their
             // unused outputs remain inventory for later production.
@@ -217,7 +218,7 @@ class ReactionsController extends Controller
             $root = $data['products'][$product];
             return response()->json([
                 'product' => $product, 'typeId' => (int) $root['typeId'], 'tree' => $tree,
-                'rawMaterials' => array_values($rawMaterials), 'batchRawMaterials' => array_values($batchMaterials), 'settings' => ['me' => $me, 'pe' => $pe],
+                'rawMaterials' => array_values($rawMaterials), 'batchRawMaterials' => $batchRawMaterials ?: array_values($batchMaterials), 'settings' => ['me' => $me, 'pe' => $pe],
                 'source' => 'Hardcoded EVE SDE ship/component blueprints plus the local reaction catalog; raw inputs priced at Jita buy; ship valuation uses Jita buy/sell split',
             ]);
         }
@@ -323,6 +324,113 @@ class ReactionsController extends Controller
             'peApplied' => $isRoot && $activityId === 1 ? $pe : 0,
             'estimatedSeconds' => null, 'children' => $children,
         ];
+    }
+
+    private function calculateBatchRawMaterials(string $product, int $me, array $data, array $catalog): array
+    {
+        $reactions = [];
+        $typeIds = [];
+        foreach ($catalog as $formula) {
+            $key = mb_strtolower((string) ($formula['product'] ?? ''));
+            if ($key !== '') $reactions[$key] = $formula;
+            foreach (array_merge($formula['materials'] ?? [], $formula['products'] ?? []) as $item) {
+                if (!empty($item['name']) && !empty($item['typeId'])) $typeIds[mb_strtolower($item['name'])] = (int) $item['typeId'];
+            }
+        }
+        foreach (($data['products'] ?? []) as $name => $recipe) {
+            if (!empty($recipe['typeId'])) $typeIds[mb_strtolower($name)] = (int) $recipe['typeId'];
+        }
+        foreach (($data['itemTypes'] ?? []) as $name => $typeId) $typeIds[mb_strtolower($name)] = (int) $typeId;
+
+        $raw = [];
+        $addRaw = function (string $name, float $quantity) use (&$raw, $typeIds, $data): void {
+            $key = mb_strtolower($name);
+            if (!isset($raw[$key])) {
+                $raw[$key] = [
+                    'typeId' => $typeIds[$key] ?? null,
+                    'name' => $name,
+                    'groupName' => in_array($name, $data['moonMaterials'] ?? [], true) ? 'Moon Materials' : '',
+                    'quantity' => 0.0,
+                ];
+            }
+            $raw[$key]['quantity'] += $quantity;
+        };
+
+        $reactionDemand = [];
+        $expandBlueprint = function (string $name, float $quantity, int $depth, array $path, bool $isRoot = false) use (&$expandBlueprint, &$reactionDemand, $data, $reactions, $addRaw, $me): void {
+            $blueprint = $data['products'][$name] ?? null;
+            $key = mb_strtolower($name);
+            if (!$blueprint || $depth >= 16 || in_array($name, $path, true)) {
+                if (isset($reactions[$key]) && $depth < 16 && !in_array($name, $path, true)) {
+                    $reactionDemand[$key] = ($reactionDemand[$key] ?? 0.0) + $quantity;
+                } else {
+                    $addRaw($name, $quantity);
+                }
+                return;
+            }
+            $runs = (int) ceil($quantity / max(1, (int) ($blueprint['outputQuantity'] ?? 1)));
+            foreach ($blueprint['materials'] ?? [] as [$materialName, $baseQuantity]) {
+                $required = $isRoot
+                    ? max(1, (int) ceil((int) $baseQuantity * (1 - ($me / 100)))) * $runs
+                    : (int) $baseQuantity * $runs;
+                $expandBlueprint($materialName, $required, $depth + 1, array_merge($path, [$name]), false);
+            }
+        };
+        $expandBlueprint($product, 1.0, 0, [], true);
+
+        // Build the reachable reaction dependency graph so shared intermediates
+        // are summed before rounding up to a reaction output batch.
+        $edges = [];
+        $visited = [];
+        $visit = function (string $key) use (&$visit, &$edges, &$visited, $reactions): void {
+            if (isset($visited[$key]) || !isset($reactions[$key])) return;
+            $visited[$key] = true;
+            $edges[$key] = [];
+            foreach ($reactions[$key]['materials'] ?? [] as $material) {
+                $child = mb_strtolower((string) ($material['name'] ?? ''));
+                if (isset($reactions[$child])) {
+                    $edges[$key][$child] = true;
+                    $visit($child);
+                }
+            }
+        };
+        foreach (array_keys($reactionDemand) as $key) $visit($key);
+
+        $indegree = array_fill_keys(array_keys($visited), 0);
+        foreach ($edges as $children) foreach (array_keys($children) as $child) $indegree[$child]++;
+        $queue = [];
+        foreach ($indegree as $key => $degree) if ($degree === 0) $queue[] = $key;
+        $processed = [];
+        while ($queue !== []) {
+            $key = array_shift($queue);
+            $processed[$key] = true;
+            $formula = $reactions[$key];
+            $output = max(1, (int) ($formula['products'][0]['quantity'] ?? 1));
+            $runs = (int) ceil(($reactionDemand[$key] ?? 0) / $output);
+            $released = [];
+            foreach ($formula['materials'] ?? [] as $material) {
+                $name = (string) $material['name'];
+                $child = mb_strtolower($name);
+                $quantity = (float) $material['quantity'] * $runs;
+                if (isset($reactions[$child])) {
+                    $reactionDemand[$child] = ($reactionDemand[$child] ?? 0.0) + $quantity;
+                    if (!isset($released[$child])) {
+                        $indegree[$child]--;
+                        if ($indegree[$child] === 0) $queue[] = $child;
+                        $released[$child] = true;
+                    }
+                } elseif (isset($data['products'][$name])) {
+                    $expandBlueprint($name, $quantity, 0, [], false);
+                } else {
+                    $addRaw($name, $quantity);
+                }
+            }
+        }
+
+        // If a future reaction catalog introduces a cycle, retain a conservative
+        // raw list from the visible per-branch batch tree instead of dropping inputs.
+        if (count($processed) !== count($visited)) return [];
+        return array_values($raw);
     }
 
     private function accumulateAllocatedRawMaterials(
