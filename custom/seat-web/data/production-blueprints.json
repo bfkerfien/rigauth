@@ -170,7 +170,7 @@
     },
     "Gravimetric Sensor Cluster": {
       "typeId": 11534,
-      "blueprintTypeId": 17327,
+      "blueprintTypeId": 17340,
       "outputQuantity": 1,
       "materials": [
         [
@@ -212,7 +212,7 @@
     },
     "Sustained Shield Emitter": {
       "typeId": 11558,
-      "blueprintTypeId": 17361,
+      "blueprintTypeId": 17352,
       "outputQuantity": 1,
       "materials": [
         [
@@ -231,7 +231,7 @@
     },
     "Graviton Reactor Unit": {
       "typeId": 11550,
-      "blueprintTypeId": 17354,
+      "blueprintTypeId": 17353,
       "outputQuantity": 1,
       "materials": [
         [
