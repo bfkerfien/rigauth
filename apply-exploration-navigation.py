@@ -31,6 +31,14 @@ if "seatcore::reactions.index" not in routes:
         "        Route::get('/reactions', 'ReactionsController@index')\n",
         "            ->name('seatcore::reactions.index');\n",
     ])
+if "seatcore::production.bustard" not in routes:
+    home_additions.extend([
+        "        // Dedicated SeAT navigation pages for Bustard and Crane production trees.\n",
+        "        Route::get('/production/bustard', 'ReactionsController@bustardProduction')\n",
+        "            ->name('seatcore::production.bustard');\n",
+        "        Route::get('/production/crane', 'ReactionsController@craneProduction')\n",
+        "            ->name('seatcore::production.crane');\n",
+    ])
 if home_additions:
     routes = routes.replace(home_anchor, home_anchor + "\n" + "".join(home_additions) + "\n", 1)
 
@@ -58,6 +66,22 @@ links = [
           <a href="{{ route('seatcore::reactions.index') }}" class="nav-link {{ Request::segment(1) === 'reactions' ? 'active' : null }}">
             <i class="nav-icon fas fa-flask"></i>
             <p>Reactions</p>
+          </a>
+        </li>
+
+"""),
+    ("seatcore::production.bustard", """        <li class="nav-item">
+          <a href="{{ route('seatcore::production.bustard') }}" class="nav-link {{ Request::is('production/bustard') ? 'active' : null }}">
+            <i class="nav-icon fas fa-industry"></i>
+            <p>Bustard Production</p>
+          </a>
+        </li>
+
+"""),
+    ("seatcore::production.crane", """        <li class="nav-item">
+          <a href="{{ route('seatcore::production.crane') }}" class="nav-link {{ Request::is('production/crane') ? 'active' : null }}">
+            <i class="nav-icon fas fa-industry"></i>
+            <p>Crane Production</p>
           </a>
         </li>
 
