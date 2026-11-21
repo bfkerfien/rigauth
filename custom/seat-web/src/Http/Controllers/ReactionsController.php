@@ -167,6 +167,33 @@ class ReactionsController extends Controller
         $type = DB::table('invTypes')->where('typeName', $product)->first(['typeID', 'typeName']);
         if (!$type) return response()->json(['error' => 'Product not found in local EVE type data.'], 404);
 
+        if ($request->boolean('tree')) {
+            $me = max(-10, min(10, (int) $request->query('me', 0)));
+            $pe = max(-10, min(20, (int) $request->query('pe', 0)));
+            $rawMaterials = [];
+            $tree = $this->buildProductionNode(
+                (int) $type->typeID,
+                1,
+                0,
+                [],
+                $rawMaterials,
+                $me,
+                $pe,
+                true
+            );
+            if (($tree['activityId'] ?? null) !== 1) {
+                return response()->json(['error' => 'A manufacturing blueprint recipe was not found for this product.'], 404);
+            }
+            return response()->json([
+                'product' => $type->typeName,
+                'typeId' => (int) $type->typeID,
+                'tree' => $tree,
+                'rawMaterials' => array_values($rawMaterials),
+                'settings' => ['me' => $me, 'pe' => $pe],
+                'source' => 'Local EVE industry blueprint data; raw inputs valued at Jita sell',
+            ]);
+        }
+
         $output = DB::table('industryActivityProducts as p')
             ->join('industryActivityMaterials as m', function ($join) {
                 $join->on('m.blueprintTypeID', '=', 'p.blueprintTypeID')->on('m.activityID', '=', 'p.activityID');
@@ -184,6 +211,117 @@ class ReactionsController extends Controller
             'materials' => $output->map(fn ($row) => ['name' => $row->material_name, 'typeId' => (int) $row->material_type_id, 'quantity' => (int) $row->input_quantity])->values(),
             'source' => 'Local EVE industry blueprint data',
         ]);
+    }
+
+    private function buildProductionNode(
+        int $typeId,
+        int $quantityNeeded,
+        int $depth,
+        array $path,
+        array &$rawMaterials,
+        int $me,
+        int $pe,
+        bool $isRoot = false
+    ): array {
+        $type = DB::table('invTypes as t')
+            ->leftJoin('invGroups as g', 'g.groupID', '=', 't.groupID')
+            ->where('t.typeID', $typeId)
+            ->first(['t.typeID', 't.typeName', 'g.groupName']);
+        $name = $type->typeName ?? ('Unknown type '.$typeId);
+        $groupName = $type->groupName ?? '';
+        $isLoop = in_array($typeId, $path, true);
+        $blueprint = null;
+
+        if ($depth < 12 && !$isLoop) {
+            $blueprint = DB::table('industryActivityProducts')
+                ->where('typeID', $typeId)
+                ->whereIn('activityID', [1, 11])
+                ->orderByRaw('CASE WHEN activityID = 1 THEN 0 ELSE 1 END')
+                ->first(['blueprintTypeID', 'activityID', 'quantity']);
+        }
+
+        if (!$blueprint) {
+            $key = (string) $typeId;
+            if (!isset($rawMaterials[$key])) {
+                $rawMaterials[$key] = [
+                    'typeId' => $typeId,
+                    'name' => $name,
+                    'groupName' => $groupName,
+                    'quantity' => 0,
+                ];
+            }
+            $rawMaterials[$key]['quantity'] += $quantityNeeded;
+            return [
+                'typeId' => $typeId,
+                'name' => $name,
+                'groupName' => $groupName,
+                'quantityNeeded' => $quantityNeeded,
+                'activityId' => null,
+                'activityName' => 'Raw input',
+                'runs' => null,
+                'children' => [],
+                'cyclePrevented' => $isLoop,
+            ];
+        }
+
+        $activityId = (int) $blueprint->activityID;
+        $outputPerRun = max(1, (int) $blueprint->quantity);
+        $runs = (int) ceil($quantityNeeded / $outputPerRun);
+        $materials = DB::table('industryActivityMaterials as m')
+            ->join('invTypes as mt', 'mt.typeID', '=', 'm.typeID')
+            ->leftJoin('invGroups as g', 'g.groupID', '=', 'mt.groupID')
+            ->where('m.blueprintTypeID', (int) $blueprint->blueprintTypeID)
+            ->where('m.activityID', $activityId)
+            ->get(['m.typeID', 'm.quantity', 'mt.typeName', 'g.groupName']);
+
+        $children = [];
+        foreach ($materials as $material) {
+            $required = (int) $material->quantity * $runs;
+            // Apply the requested ME/PE to the final hull blueprint. Intermediate
+            // component blueprints and reactions retain their SDE base quantities.
+            if ($isRoot && $activityId === 1 && $me !== 0) {
+                $required = max(1, (int) ceil($required * (1 - ($me / 100))));
+            }
+            $children[] = $this->buildProductionNode(
+                (int) $material->typeID,
+                $required,
+                $depth + 1,
+                array_merge($path, [$typeId]),
+                $rawMaterials,
+                $me,
+                $pe,
+                false
+            );
+        }
+
+        $baseSeconds = null;
+        if (Schema::hasTable('industryActivity')) {
+            $value = DB::table('industryActivity')
+                ->where('blueprintTypeID', (int) $blueprint->blueprintTypeID)
+                ->where('activityID', $activityId)
+                ->value('time');
+            $baseSeconds = $value === null ? null : (float) $value;
+        }
+        $jobSeconds = $baseSeconds === null ? null : $baseSeconds * $runs;
+        if ($jobSeconds !== null && $isRoot && $activityId === 1) {
+            $jobSeconds *= (1 - ($pe / 100));
+        }
+
+        return [
+            'typeId' => $typeId,
+            'name' => $name,
+            'groupName' => $groupName,
+            'quantityNeeded' => $quantityNeeded,
+            'activityId' => $activityId,
+            'activityName' => $activityId === 11 ? 'Reaction' : 'Manufacturing',
+            'blueprintTypeId' => (int) $blueprint->blueprintTypeID,
+            'outputPerRun' => $outputPerRun,
+            'runs' => $runs,
+            'meApplied' => $isRoot && $activityId === 1 ? $me : 0,
+            'peApplied' => $isRoot && $activityId === 1 ? $pe : 0,
+            'estimatedSeconds' => $jobSeconds,
+            'children' => $children,
+        ];
     }
 
     public function index(Request $request): View
