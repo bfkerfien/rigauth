@@ -213,7 +213,7 @@ class ReactionsController extends Controller
             return response()->json([
                 'product' => $product, 'typeId' => (int) $root['typeId'], 'tree' => $tree,
                 'rawMaterials' => array_values($rawMaterials), 'settings' => ['me' => $me, 'pe' => $pe],
-                'source' => 'Hardcoded EVE SDE ship/component blueprints plus the local reaction catalog; raw inputs priced at Jita sell',
+                'source' => 'Hardcoded EVE SDE ship/component blueprints plus the local reaction catalog; raw inputs priced at Jita buy; ship valuation uses Jita buy/sell split',
             ]);
         }
 
