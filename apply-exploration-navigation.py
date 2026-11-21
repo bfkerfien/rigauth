@@ -73,7 +73,7 @@ links = [
     ("seatcore::production.bustard", """        <li class="nav-item">
           <a href="{{ route('seatcore::production.bustard') }}" class="nav-link {{ Request::is('production/bustard') ? 'active' : null }}">
             <i class="nav-icon fas fa-industry"></i>
-            <p>Bustard Production</p>
+            <p>Bustard</p>
           </a>
         </li>
 
@@ -81,7 +81,7 @@ links = [
     ("seatcore::production.crane", """        <li class="nav-item">
           <a href="{{ route('seatcore::production.crane') }}" class="nav-link {{ Request::is('production/crane') ? 'active' : null }}">
             <i class="nav-icon fas fa-industry"></i>
-            <p>Crane Production</p>
+            <p>Crane</p>
           </a>
         </li>
 
