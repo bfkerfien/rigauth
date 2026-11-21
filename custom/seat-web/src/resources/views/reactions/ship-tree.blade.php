@@ -95,15 +95,17 @@
    const totalSeconds=rows.reduce((sum,row)=>sum+(Number(row.estimatedSeconds)||0),0);
    const timeKnown=rows.some(row=>row.estimatedSeconds!==null&&row.estimatedSeconds!==undefined&&Number.isFinite(Number(row.estimatedSeconds)));
    result.innerHTML='<div class="kpis"><div class="kpi"><span>Raw input cost · Jita buy</span><strong>'+fmt(knownCost)+' ISK'+(missing?' · '+fmt(missing)+' prices missing':'')+'</strong></div><div class="kpi"><span>'+escapeHtml(ship)+' value · Jita split</span><strong>'+(shipSplitKnown?fmt(shipSplit)+' ISK':'Unavailable')+'</strong></div><div class="kpi"><span>Estimated gross profit</span><strong>'+(grossProfit===null?'Unavailable':fmt(grossProfit)+' ISK')+'</strong></div><div class="kpi"><span>Profit / input cost</span><strong>'+(margin===null?'Unavailable':fmt(margin)+'%')+'</strong></div><div class="kpi"><span>Estimated production time</span><strong>'+(timeKnown?formatDuration(totalSeconds):'Unavailable')+'</strong></div></div>'+
-    '<div class="scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita buy / raw cost</th></tr></thead><tbody>'+
+    '<div class="scroll"><table><thead><tr><th>Production tree item</th><th>Step</th><th>Quantity</th><th>Runs</th><th>Jita buy / unit</th></tr></thead><tbody>'+
     rows.map(row=>{
      const isRaw=row.activityId===null;
      const price=rawRows.find(item=>item.name===row.name);
      const indent='&nbsp;'.repeat(Math.min(12,row.depth)*4);
      const step=isRaw?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita buy':'Raw input · Jita buy'):(row.activityId===11?'Reaction':'Manufacturing');
-     const value=isRaw?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / '+fmt(price.total)+' ISK':'Unavailable'):'—';
+     const value=isRaw?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / unit':'Unavailable'):'—';
      return '<tr><td>'+indent+escapeHtml(row.name)+'</td><td>'+step+'</td><td>'+fmt(row.quantityNeeded)+'</td><td>'+(row.runs===null?'—':fmt(row.runs))+'</td><td>'+value+'</td></tr>';
-    }).join('')+'</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Inputs use the Jita IV-4 buy order; ship value uses the Jita IV-4 buy/sell midpoint. Profit is unavailable if any raw input or the ship split has no price.</p>';
+    }).join('')+'</tbody></table></div><h2 style="margin-top:18px">Raw inputs allocated to one ship</h2><p class="help">Reaction batches produce surplus. This cost table charges only the share of each raw input consumed by this hull; surplus output remains inventory for later production.</p><div class="scroll"><table><thead><tr><th>Raw input</th><th>Consumed quantity / ship</th><th>Jita buy / unit</th><th>Allocated cost</th></tr></thead><tbody>'+
+    rawRows.map(item=>'<tr><td>'+escapeHtml(item.name)+'</td><td>'+fmt(item.quantity)+'</td><td>'+(item.unitPrice===null?'Unavailable':fmt(item.unitPrice)+' ISK')+'</td><td>'+(item.total===null?'Unavailable':fmt(item.total)+' ISK')+'</td></tr>').join('')+
+    '</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Raw input cost uses Jita IV-4 buy orders; ship value uses the Jita IV-4 buy/sell midpoint. Profit is unavailable if any raw input or ship price is missing. Tree reaction rows show per-branch whole runs, and some same-product runs can share output.</p>'
   }catch(error){result.innerHTML='<div class="status error">'+escapeHtml(error.message)+'</div>';}
  }
  function saveAndReload(key){
