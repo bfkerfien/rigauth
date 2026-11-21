@@ -11,6 +11,17 @@ use Illuminate\View\View;
 
 class ReactionsController extends Controller
 {
+    private function blueprintData(): array
+    {
+        foreach ([dirname(__DIR__, 3) . '/data/production-blueprints.json', base_path('packages/eveseat/web/data/production-blueprints.json')] as $path) {
+            if (is_file($path) && is_readable($path)) {
+                $data = json_decode((string) file_get_contents($path), true);
+                if (is_array($data) && is_array($data['products'] ?? null)) return $data;
+            }
+        }
+        return [];
+    }
+
     private function catalog(): array
     {
         // The catalog is installed inside the SeAT web package, not Laravel's application root.
@@ -54,6 +65,13 @@ class ReactionsController extends Controller
 
         $catalog = collect($this->catalog());
         $idsByName = [];
+        $blueprintData = $this->blueprintData();
+        foreach (($blueprintData['products'] ?? []) as $itemName => $recipe) {
+            if (!empty($recipe['typeId'])) $idsByName[mb_strtolower($itemName)] = (int) $recipe['typeId'];
+        }
+        foreach (($blueprintData['itemTypes'] ?? []) as $itemName => $typeId) {
+            $idsByName[mb_strtolower($itemName)] = (int) $typeId;
+        }
         foreach ($catalog as $recipe) {
             foreach (array_merge($recipe['materials'] ?? [], $recipe['products'] ?? []) as $item) {
                 if (!empty($item['name']) && !empty($item['typeId'])) {
@@ -173,39 +191,29 @@ class ReactionsController extends Controller
         if ($product === '' || !in_array($activity, [1, 11], true)) {
             return response()->json(['error' => 'Provide a product and activity 1 or 11.'], 400);
         }
+
+        // Production tree recipes are shipped with this package. They work even when
+        // this SeAT install has no industryActivity* tables or local SDE blueprint data.
+        if ($request->boolean('tree')) {
+            $data = $this->blueprintData();
+            if (!isset($data['products'][$product])) return response()->json(['error' => 'No hardcoded ship blueprint found for this product.'], 404);
+            $me = max(-10, min(10, (int) $request->query('me', 0)));
+            $pe = max(-10, min(20, (int) $request->query('pe', 0)));
+            $rawMaterials = [];
+            $tree = $this->buildStaticProductionNode($product, 1, 0, [], $rawMaterials, $me, $pe, true, $data);
+            $root = $data['products'][$product];
+            return response()->json([
+                'product' => $product, 'typeId' => (int) $root['typeId'], 'tree' => $tree,
+                'rawMaterials' => array_values($rawMaterials), 'settings' => ['me' => $me, 'pe' => $pe],
+                'source' => 'Hardcoded EVE SDE ship/component blueprints plus the local reaction catalog; raw inputs priced at Jita sell',
+            ]);
+        }
+
         if (!Schema::hasTable('industryActivityProducts') || !Schema::hasTable('industryActivityMaterials') || !Schema::hasTable('invTypes')) {
             return response()->json(['error' => 'Local EVE industry blueprint tables are not available in this SeAT database.'], 503);
         }
         $type = DB::table('invTypes')->where('typeName', $product)->first(['typeID', 'typeName']);
         if (!$type) return response()->json(['error' => 'Product not found in local EVE type data.'], 404);
-
-        if ($request->boolean('tree')) {
-            $me = max(-10, min(10, (int) $request->query('me', 0)));
-            $pe = max(-10, min(20, (int) $request->query('pe', 0)));
-            $rawMaterials = [];
-            $tree = $this->buildProductionNode(
-                (int) $type->typeID,
-                1,
-                0,
-                [],
-                $rawMaterials,
-                $me,
-                $pe,
-                true
-            );
-            if (($tree['activityId'] ?? null) !== 1) {
-                return response()->json(['error' => 'A manufacturing blueprint recipe was not found for this product.'], 404);
-            }
-            return response()->json([
-                'product' => $type->typeName,
-                'typeId' => (int) $type->typeID,
-                'tree' => $tree,
-                'rawMaterials' => array_values($rawMaterials),
-                'settings' => ['me' => $me, 'pe' => $pe],
-                'source' => 'Local EVE industry blueprint data; raw inputs valued at Jita sell',
-            ]);
-        }
-
         $output = DB::table('industryActivityProducts as p')
             ->join('industryActivityMaterials as m', function ($join) {
                 $join->on('m.blueprintTypeID', '=', 'p.blueprintTypeID')->on('m.activityID', '=', 'p.activityID');
@@ -225,114 +233,82 @@ class ReactionsController extends Controller
         ]);
     }
 
-    private function buildProductionNode(
-        int $typeId,
+    private function buildStaticProductionNode(
+        string $name,
         int $quantityNeeded,
         int $depth,
         array $path,
         array &$rawMaterials,
         int $me,
         int $pe,
-        bool $isRoot = false
+        bool $isRoot,
+        array $data
     ): array {
-        $type = DB::table('invTypes as t')
-            ->leftJoin('invGroups as g', 'g.groupID', '=', 't.groupID')
-            ->where('t.typeID', $typeId)
-            ->first(['t.typeID', 't.typeName', 'g.groupName']);
-        $name = $type->typeName ?? ('Unknown type '.$typeId);
-        $groupName = $type->groupName ?? '';
-        $isLoop = in_array($typeId, $path, true);
-        $blueprint = null;
-
-        if ($depth < 12 && !$isLoop) {
-            $blueprint = DB::table('industryActivityProducts')
-                ->where('typeID', $typeId)
-                ->whereIn('activityID', [1, 11])
-                ->orderByRaw('CASE WHEN activityID = 1 THEN 0 ELSE 1 END')
-                ->first(['blueprintTypeID', 'activityID', 'quantity']);
+        $blueprint = $data['products'][$name] ?? null;
+        $reaction = null;
+        foreach ($this->catalog() as $candidate) {
+            if (strcasecmp((string) ($candidate['product'] ?? ''), $name) === 0) {
+                $reaction = $candidate;
+                break;
+            }
         }
 
-        if (!$blueprint) {
-            $key = (string) $typeId;
+        $typeId = (int) ($blueprint['typeId'] ?? $reaction['typeId'] ?? 0);
+        $isLoop = in_array($name, $path, true);
+        if ($depth >= 16 || $isLoop || (!$blueprint && !$reaction)) {
+            $key = mb_strtolower($name);
             if (!isset($rawMaterials[$key])) {
                 $rawMaterials[$key] = [
-                    'typeId' => $typeId,
+                    'typeId' => $typeId ?: null,
                     'name' => $name,
-                    'groupName' => $groupName,
+                    'groupName' => in_array($name, $data['moonMaterials'] ?? [], true) ? 'Moon Materials' : '',
                     'quantity' => 0,
                 ];
             }
             $rawMaterials[$key]['quantity'] += $quantityNeeded;
             return [
-                'typeId' => $typeId,
-                'name' => $name,
-                'groupName' => $groupName,
-                'quantityNeeded' => $quantityNeeded,
-                'activityId' => null,
-                'activityName' => 'Raw input',
-                'runs' => null,
-                'children' => [],
-                'cyclePrevented' => $isLoop,
+                'typeId' => $typeId ?: null, 'name' => $name,
+                'groupName' => $rawMaterials[$key]['groupName'], 'quantityNeeded' => $quantityNeeded,
+                'activityId' => null, 'activityName' => 'Raw input', 'runs' => null,
+                'children' => [], 'cyclePrevented' => $isLoop,
             ];
         }
 
-        $activityId = (int) $blueprint->activityID;
-        $outputPerRun = max(1, (int) $blueprint->quantity);
+        $outputPerRun = max(1, (int) ($blueprint['outputQuantity'] ?? (($reaction['products'][0]['quantity'] ?? 1))));
         $runs = (int) ceil($quantityNeeded / $outputPerRun);
-        $materials = DB::table('industryActivityMaterials as m')
-            ->join('invTypes as mt', 'mt.typeID', '=', 'm.typeID')
-            ->leftJoin('invGroups as g', 'g.groupID', '=', 'mt.groupID')
-            ->where('m.blueprintTypeID', (int) $blueprint->blueprintTypeID)
-            ->where('m.activityID', $activityId)
-            ->get(['m.typeID', 'm.quantity', 'mt.typeName', 'g.groupName']);
+        $materials = [];
+        if ($blueprint) {
+            foreach ($blueprint['materials'] as [$materialName, $quantity]) {
+                $required = (int) $quantity * $runs;
+                if ($isRoot && $me !== 0) $required = max(1, (int) ceil($required * (1 - ($me / 100))));
+                $materials[] = [$materialName, $required];
+            }
+            $activityId = 1;
+            $blueprintTypeId = $blueprint['blueprintTypeId'] ?? null;
+        } else {
+            foreach ($reaction['materials'] ?? [] as $material) {
+                $materials[] = [$material['name'], (int) $material['quantity'] * $runs];
+            }
+            $activityId = 11;
+            $blueprintTypeId = $reaction['formulaId'] ?? null;
+        }
 
         $children = [];
-        foreach ($materials as $material) {
-            $required = (int) $material->quantity * $runs;
-            // Apply the requested ME/PE to the final hull blueprint. Intermediate
-            // component blueprints and reactions retain their SDE base quantities.
-            if ($isRoot && $activityId === 1 && $me !== 0) {
-                $required = max(1, (int) ceil($required * (1 - ($me / 100))));
-            }
-            $children[] = $this->buildProductionNode(
-                (int) $material->typeID,
-                $required,
-                $depth + 1,
-                array_merge($path, [$typeId]),
-                $rawMaterials,
-                $me,
-                $pe,
-                false
+        foreach ($materials as [$materialName, $quantity]) {
+            $children[] = $this->buildStaticProductionNode(
+                $materialName, $quantity, $depth + 1, array_merge($path, [$name]),
+                $rawMaterials, $me, $pe, false, $data
             );
         }
-
-        $baseSeconds = null;
-        if (Schema::hasTable('industryActivity')) {
-            $value = DB::table('industryActivity')
-                ->where('blueprintTypeID', (int) $blueprint->blueprintTypeID)
-                ->where('activityID', $activityId)
-                ->value('time');
-            $baseSeconds = $value === null ? null : (float) $value;
-        }
-        $jobSeconds = $baseSeconds === null ? null : $baseSeconds * $runs;
-        if ($jobSeconds !== null && $isRoot && $activityId === 1) {
-            $jobSeconds *= (1 - ($pe / 100));
-        }
-
         return [
-            'typeId' => $typeId,
-            'name' => $name,
-            'groupName' => $groupName,
-            'quantityNeeded' => $quantityNeeded,
-            'activityId' => $activityId,
+            'typeId' => $typeId ?: null, 'name' => $name,
+            'groupName' => $blueprint ? 'Manufacturing Components' : (string) ($reaction['formulaGroup'] ?? 'Reaction'),
+            'quantityNeeded' => $quantityNeeded, 'activityId' => $activityId,
             'activityName' => $activityId === 11 ? 'Reaction' : 'Manufacturing',
-            'blueprintTypeId' => (int) $blueprint->blueprintTypeID,
-            'outputPerRun' => $outputPerRun,
-            'runs' => $runs,
-            'meApplied' => $isRoot && $activityId === 1 ? $me : 0,
+            'blueprintTypeId' => $blueprintTypeId, 'outputPerRun' => $outputPerRun,
+            'runs' => $runs, 'meApplied' => $isRoot && $activityId === 1 ? $me : 0,
             'peApplied' => $isRoot && $activityId === 1 ? $pe : 0,
-            'estimatedSeconds' => $jobSeconds,
-            'children' => $children,
+            'estimatedSeconds' => null, 'children' => $children,
         ];
     }
 
