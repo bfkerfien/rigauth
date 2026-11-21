@@ -31,6 +31,18 @@ class ReactionsController extends Controller
         return [];
     }
 
+    public function bustardProduction(): View
+    {
+        abort_unless(auth()->check(), 401);
+        return view('web::reactions.ship-tree', ['ship' => 'Bustard']);
+    }
+
+    public function craneProduction(): View
+    {
+        abort_unless(auth()->check(), 401);
+        return view('web::reactions.ship-tree', ['ship' => 'Crane']);
+    }
+
     public function market(Request $request)
     {
         abort_unless(auth()->check(), 401);
