@@ -76,7 +76,8 @@
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||'Production tree unavailable');
    const raw=data.rawMaterials||[];
-   const marketNames=[...raw.map(item=>item.name),ship];
+   const batchRaw=data.batchRawMaterials||raw;
+   const marketNames=[...raw.map(item=>item.name),...batchRaw.map(item=>item.name),ship];
    const priceResponse=await fetch('/reactions/market?names='+encodeURIComponent(marketNames.join(',')),{headers:{'Accept':'application/json'}});
    const priceData=await priceResponse.json();
    if(!priceResponse.ok)throw new Error(priceData.error||'Jita market lookup failed');
@@ -85,6 +86,12 @@
    const rawRows=raw.map(item=>{
     const price=Number(prices[item.name]?.buyPrice),valid=Number.isFinite(price)&&price>0;
     if(valid)knownCost+=price*Number(item.quantity||0);else missing++;
+    return {...item,unitPrice:valid?price:null,total:valid?price*Number(item.quantity||0):null};
+   });
+   let batchBuyCost=0,batchMissing=0;
+   const batchRows=batchRaw.map(item=>{
+    const price=Number(prices[item.name]?.buyPrice),valid=Number.isFinite(price)&&price>0;
+    if(valid)batchBuyCost+=price*Number(item.quantity||0);else batchMissing++;
     return {...item,unitPrice:valid?price:null,total:valid?price*Number(item.quantity||0):null};
    });
    const shipSplit=Number(prices[ship]?.splitPrice);
@@ -103,9 +110,9 @@
      const step=isRaw?(String(row.groupName||'').toLowerCase().includes('moon')?'Moon goo · Jita buy':'Raw input · Jita buy'):(row.activityId===11?'Reaction':'Manufacturing');
      const value=isRaw?(price&&price.unitPrice!==null?fmt(price.unitPrice)+' ISK / unit':'Unavailable'):'—';
      return '<tr><td>'+indent+escapeHtml(row.name)+'</td><td>'+step+'</td><td>'+fmt(row.quantityNeeded)+'</td><td>'+(row.runs===null?'—':fmt(row.runs))+'</td><td>'+value+'</td></tr>';
-    }).join('')+'</tbody></table></div><h2 style="margin-top:18px">Raw inputs allocated to one ship</h2><p class="help">Reaction batches produce surplus. This cost table charges only the share of each raw input consumed by this hull; surplus output remains inventory for later production.</p><div class="scroll"><table><thead><tr><th>Raw input</th><th>Consumed quantity / ship</th><th>Jita buy / unit</th><th>Allocated cost</th></tr></thead><tbody>'+
-    rawRows.map(item=>'<tr><td>'+escapeHtml(item.name)+'</td><td>'+fmt(item.quantity)+'</td><td>'+(item.unitPrice===null?'Unavailable':fmt(item.unitPrice)+' ISK')+'</td><td>'+(item.total===null?'Unavailable':fmt(item.total)+' ISK')+'</td></tr>').join('')+
-    '</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Raw input cost uses Jita IV-4 buy orders; ship value uses the Jita IV-4 buy/sell midpoint. Profit is unavailable if any raw input or ship price is missing. Tree reaction rows show per-branch whole runs, and some same-product runs can share output.</p>'
+    }).join('')+'</tbody></table></div><h2 style="margin-top:18px">Materials needed · whole reaction batches</h2><p class="help">These are the raw units to buy after rounding each shared reaction output up to a full batch. Batch purchase value: '+fmt(batchBuyCost)+' ISK'+(batchMissing?' · '+fmt(batchMissing)+' prices missing':'')+'. Surplus reaction products remain inventory; the ship profit above allocates only the share consumed by one hull.</p><div class="scroll"><table><thead><tr><th>Raw material</th><th>Units needed</th><th>Jita buy / unit</th><th>Batch purchase value</th></tr></thead><tbody>'+
+    batchRows.map(item=>'<tr><td>'+escapeHtml(item.name)+'</td><td>'+fmt(item.quantity)+'</td><td>'+(item.unitPrice===null?'Unavailable':fmt(item.unitPrice)+' ISK')+'</td><td>'+(item.total===null?'Unavailable':fmt(item.total)+' ISK')+'</td></tr>').join('')+
+    '</tbody></table></div><p class="help">Hull ME '+fmt(current.me)+'% · hull PE '+fmt(current.pe)+'%. Raw input cost uses Jita IV-4 buy orders; ship value uses the Jita IV-4 buy/sell midpoint. Profit is unavailable if any consumed raw input or ship price is missing. The shopping list rounds shared reaction runs up and includes the full batch inputs.</p>'
   }catch(error){result.innerHTML='<div class="status error">'+escapeHtml(error.message)+'</div>';}
  }
  function saveAndReload(key){
