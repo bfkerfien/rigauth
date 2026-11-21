@@ -19,3 +19,14 @@ The Potchven Finance interface reads SeAT's `fin_*` tables. Existing records fro
 Asset Manager's UI and local tables are included. Review its live SeAT authorization and ESI scopes before scheduling new data refreshes; never commit tokens or server environment files.
 
 Do not commit a server `.env` file or generated credentials here. Keep deployment secrets on each server.
+
+## Deploy the reaction planner
+
+After pulling this repository on the SeAT host, run the deployment script from `/opt/rigauth`:
+
+```sh
+cd /opt/rigauth
+bash ./deploy-reactions.sh
+```
+
+The script fast-forwards `main`, backs up the live SeAT controller and view, installs the reaction planner updates, clears and rebuilds Laravel's view cache, verifies the recipe route, and restarts the SeAT front container.
