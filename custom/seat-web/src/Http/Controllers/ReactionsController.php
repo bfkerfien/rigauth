@@ -207,8 +207,13 @@ class ReactionsController extends Controller
             if (!isset($data['products'][$product])) return response()->json(['error' => 'No hardcoded ship blueprint found for this product.'], 404);
             $me = max(-10, min(10, (int) $request->query('me', 0)));
             $pe = max(-10, min(20, (int) $request->query('pe', 0)));
+            $batchMaterials = [];
+            $tree = $this->buildStaticProductionNode($product, 1, 0, [], $batchMaterials, $me, $pe, true, $data);
+            // Allocate reaction inputs by the share consumed for this hull. The
+            // minimum whole reaction batches still appear in the tree, but their
+            // unused outputs remain inventory for later production.
             $rawMaterials = [];
-            $tree = $this->buildStaticProductionNode($product, 1, 0, [], $rawMaterials, $me, $pe, true, $data);
+            $this->accumulateAllocatedRawMaterials($product, 1.0, 0, [], $rawMaterials, $me, true, $data, $this->catalog());
             $root = $data['products'][$product];
             return response()->json([
                 'product' => $product, 'typeId' => (int) $root['typeId'], 'tree' => $tree,
@@ -318,6 +323,80 @@ class ReactionsController extends Controller
             'peApplied' => $isRoot && $activityId === 1 ? $pe : 0,
             'estimatedSeconds' => null, 'children' => $children,
         ];
+    }
+
+    private function accumulateAllocatedRawMaterials(
+        string $name,
+        float $quantityNeeded,
+        int $depth,
+        array $path,
+        array &$rawMaterials,
+        int $me,
+        bool $isRoot,
+        array $data,
+        array $catalog
+    ): void {
+        $blueprint = $data['products'][$name] ?? null;
+        $reaction = null;
+        foreach ($catalog as $candidate) {
+            if (strcasecmp((string) ($candidate['product'] ?? ''), $name) === 0) {
+                $reaction = $candidate;
+                break;
+            }
+        }
+
+        $isLoop = in_array($name, $path, true);
+        if ($depth >= 16 || $isLoop || (!$blueprint && !$reaction)) {
+            $key = mb_strtolower($name);
+            if (!isset($rawMaterials[$key])) {
+                $typeId = (int) ($blueprint['typeId'] ?? $reaction['typeId'] ?? 0);
+                if (!$typeId) {
+                    foreach ($catalog as $formula) {
+                        foreach (array_merge($formula['materials'] ?? [], $formula['products'] ?? []) as $item) {
+                            if (strcasecmp((string) ($item['name'] ?? ''), $name) === 0) {
+                                $typeId = (int) ($item['typeId'] ?? 0);
+                                break 2;
+                            }
+                        }
+                    }
+                }
+                $typeId = (int) (($data['itemTypes'][$name] ?? 0) ?: $typeId);
+                $rawMaterials[$key] = [
+                    'typeId' => $typeId ?: null,
+                    'name' => $name,
+                    'groupName' => in_array($name, $data['moonMaterials'] ?? [], true) ? 'Moon Materials' : '',
+                    'quantity' => 0.0,
+                ];
+            }
+            $rawMaterials[$key]['quantity'] += $quantityNeeded;
+            return;
+        }
+
+        $outputPerRun = max(1, (int) ($blueprint['outputQuantity'] ?? ($reaction['products'][0]['quantity'] ?? 1)));
+        $runsConsumed = $quantityNeeded / $outputPerRun;
+        if ($blueprint) {
+            foreach ($blueprint['materials'] as [$materialName, $quantity]) {
+                // The ship itself is one whole blueprint run, so apply its ME
+                // rounding exactly. Intermediate component needs are allocated
+                // proportionally to the number of units consumed.
+                $required = $isRoot
+                    ? max(1, (int) ceil((int) $quantity * (1 - ($me / 100))))
+                    : (float) $quantity * $runsConsumed;
+                $this->accumulateAllocatedRawMaterials(
+                    $materialName, $required, $depth + 1, array_merge($path, [$name]),
+                    $rawMaterials, $me, false, $data, $catalog
+                );
+            }
+            return;
+        }
+
+        foreach ($reaction['materials'] ?? [] as $material) {
+            $required = (float) $material['quantity'] * $runsConsumed;
+            $this->accumulateAllocatedRawMaterials(
+                (string) $material['name'], $required, $depth + 1, array_merge($path, [$name]),
+                $rawMaterials, $me, false, $data, $catalog
+            );
+        }
     }
 
     public function index(Request $request): View
