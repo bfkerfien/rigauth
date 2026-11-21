@@ -86,6 +86,20 @@
           </a>
         </li>
 
+        <li class="nav-item">
+          <a href="{{ route('seatcore::production.bustard') }}" class="nav-link {{ Request::is('production/bustard') ? 'active' : null }}">
+            <i class="nav-icon fas fa-industry"></i>
+            <p>Bustard</p>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a href="{{ route('seatcore::production.crane') }}" class="nav-link {{ Request::is('production/crane') ? 'active' : null }}">
+            <i class="nav-icon fas fa-industry"></i>
+            <p>Crane</p>
+          </a>
+        </li>
+
         @foreach($menu as $entry)
 
           {{-- determine if we should pop a treeview --}}
