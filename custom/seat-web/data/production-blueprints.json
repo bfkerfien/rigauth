@@ -292,5 +292,11 @@
     "Badger",
     "Construction Blocks",
     "Morphite"
-  ]
+  ],
+  "itemTypes": {
+    "Morphite": 11399,
+    "Construction Blocks": 3828,
+    "Tayra": 12745,
+    "Badger": 648
+  }
 }
