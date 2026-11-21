@@ -12,6 +12,11 @@ ROLLBACK_ENABLED=0
 FILES=(
   "src/Http/Controllers/ReactionsController.php"
   "src/resources/views/reactions/index.blade.php"
+  "src/resources/views/reactions/ship-tree.blade.php"
+)
+AUX_FILES=(
+  "src/Http/routes.php"
+  "src/resources/views/includes/sidebar.blade.php"
 )
 
 rollback() {
@@ -19,7 +24,7 @@ rollback() {
   if [[ "$SUCCESS" -eq 0 && "$ROLLBACK_ENABLED" -eq 1 ]]; then
     echo
     echo "ERROR: reaction planner deployment failed; restoring the backed-up SeAT files."
-    for rel in "${FILES[@]}"; do
+    for rel in "${FILES[@]}" "${AUX_FILES[@]}"; do
       if sudo test -f "$BACKUP/$rel.__MISSING"; then
         sudo rm -f "$WEB/$rel"
       elif sudo test -f "$BACKUP/$rel"; then
@@ -47,7 +52,7 @@ git pull --ff-only origin "$BRANCH"
 for rel in "${FILES[@]}"; do
   [[ -f "$REPO/custom/seat-web/$rel" ]] || { echo "STOP: required source file missing: $REPO/custom/seat-web/$rel"; exit 1; }
 done
-[[ -d "$WEB" && -f "$WEB/src/Http/routes.php" ]] || { echo "STOP: expected SeAT source files are missing."; exit 1; }
+[[ -d "$WEB" && -f "$WEB/src/Http/routes.php" && -f "$WEB/src/resources/views/includes/sidebar.blade.php" && -f "$REPO/apply-exploration-navigation.py" ]] || { echo "STOP: expected SeAT source files or navigation helper are missing."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" ps --status running --services | grep -qx front || {
   echo "STOP: SeAT front service is not running."
   exit 1
@@ -63,7 +68,7 @@ if ! printf '%s\n' "$MOUNTS" | awk -F '|' -v web="$WEB" '{
 fi
 
 sudo mkdir -p "$BACKUP"
-for rel in "${FILES[@]}"; do
+for rel in "${FILES[@]}" "${AUX_FILES[@]}"; do
   if sudo test -f "$WEB/$rel"; then
     sudo mkdir -p "$BACKUP/$(dirname "$rel")"
     sudo cp -a "$WEB/$rel" "$BACKUP/$rel"
@@ -75,6 +80,8 @@ done
 echo "Backup: $BACKUP"
 ROLLBACK_ENABLED=1
 
+python3 "$REPO/apply-exploration-navigation.py" "$WEB/src/Http/routes.php" "$WEB/src/resources/views/includes/sidebar.blade.php"
+
 for rel in "${FILES[@]}"; do
   sudo install -D -m 0644 "$REPO/custom/seat-web/$rel" "$WEB/$rel"
 done
@@ -82,10 +89,11 @@ done
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:clear
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan view:cache
-ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=reactions/recipe)"
+ROUTES="$(sudo docker compose -f "$SEAT_DIR/docker-compose.yml" exec -T front php artisan route:list --path=production)"
 printf '%s\n' "$ROUTES"
-printf '%s\n' "$ROUTES" | grep -q 'reactions/recipe' || { echo "ERROR: reaction recipe route is not registered."; exit 1; }
+printf '%s\n' "$ROUTES" | grep -q 'production/bustard' || { echo "ERROR: Bustard production route is not registered."; exit 1; }
+printf '%s\n' "$ROUTES" | grep -q 'production/crane' || { echo "ERROR: Crane production route is not registered."; exit 1; }
 sudo docker compose -f "$SEAT_DIR/docker-compose.yml" restart front
 
 SUCCESS=1
-echo "Reaction planner deployed. Backup retained at $BACKUP"
+echo "Bustard and Crane production pages deployed in SeAT navigation. Backup retained at $BACKUP"
