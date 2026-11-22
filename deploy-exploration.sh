@@ -24,7 +24,6 @@ FILES=(
   "src/database/migrations/2026_11_09_000002_add_scan_status_to_tc_exploration_system_scans.php"
   "src/database/migrations/2026_11_09_000003_create_tc_exploration_cyno_infrastructure_table.php"
   "src/resources/views/exploration/index.blade.php"
-  "src/resources/views/includes/header.blade.php"
   "src/resources/exploration/layouts.php"
 )
 PROFILE_FILE="src/resources/views/profile/view.blade.php"
