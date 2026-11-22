@@ -15,7 +15,7 @@ use Throwable;
 
 class ExplorationController extends Controller
 {
-    private const REGIONS = ['Branch', 'Tenal', 'Venal'];
+    private const REGIONS = ['Branch', 'Tenal', 'Venal', 'Geminate'];
 
     // Synergy of Steel [SYN] alliance ID. Red systems are based on alliance sovereignty claims.
     private const SOV_ALLIANCE_ID = 99002685;
@@ -118,6 +118,13 @@ class ExplorationController extends Controller
         $layouts = require $layoutFile;
         $layout = $layouts[$region] ?? null;
         if (!is_array($layout) || empty($layout['nodes'])) {
+            if ($region !== 'Geminate') {
+                logger()->error('Exploration native layout is invalid.', ['region' => $region]);
+                return '';
+            }
+            $layout = $this->buildCoordinateMapLayout($systems);
+        }
+        if (empty($layout['nodes'])) {
             logger()->error('Exploration native layout is invalid.', ['region' => $region]);
             return '';
         }
@@ -184,6 +191,58 @@ class ExplorationController extends Controller
 
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /**
+     * Geminate does not have a hand-authored DOTLAN layout asset. Render its
+     * native SDE system coordinates and stargate connections into the same SVG format.
+     */
+    private function buildCoordinateMapLayout($systems): array
+    {
+        if ($systems->isEmpty()) return ['nodes' => [], 'edges' => []];
+
+        $minX = (float) $systems->min('x');
+        $maxX = (float) $systems->max('x');
+        $minZ = (float) $systems->min('z');
+        $maxZ = (float) $systems->max('z');
+        $width = max(1.0, $maxX - $minX);
+        $height = max(1.0, $maxZ - $minZ);
+        $scale = min(850 / $width, 610 / $height);
+        $centerX = ($minX + $maxX) / 2;
+        $centerZ = ($minZ + $maxZ) / 2;
+        $positions = [];
+        $nodes = [];
+
+        foreach ($systems as $system) {
+            $id = (int) $system['id'];
+            $x = round(512 + (((float) $system['x'] - $centerX) * $scale), 2);
+            $y = round(384 - (((float) $system['z'] - $centerZ) * $scale), 2);
+            $positions[$id] = [$x, $y];
+            $nodes[] = [$id, (string) $system['name'], $x, $y, '#e8edf4', [-23, -12, 46, 24], ''];
+        }
+
+        $edges = [];
+        if (Schema::hasTable('mapSolarSystemJumps')) {
+            $ids = array_keys($positions);
+            $jumps = DB::table('mapSolarSystemJumps')
+                ->whereIn('fromSolarSystemID', $ids)
+                ->whereIn('toSolarSystemID', $ids)
+                ->get(['fromSolarSystemID', 'toSolarSystemID']);
+            $seen = [];
+            foreach ($jumps as $jump) {
+                $from = (int) $jump->fromSolarSystemID;
+                $to = (int) $jump->toSolarSystemID;
+                if (!isset($positions[$from], $positions[$to]) || $from === $to) continue;
+                $key = min($from, $to) . ':' . max($from, $to);
+                if (isset($seen[$key])) continue;
+                $seen[$key] = true;
+                [$x1, $y1] = $positions[$from];
+                [$x2, $y2] = $positions[$to];
+                $edges[] = [$from, $to, $x1, $y1, $x2, $y2, 'j'];
+            }
+        }
+
+        return ['nodes' => $nodes, 'edges' => $edges];
     }
 
     /**
