@@ -112,6 +112,33 @@
   </ul>
 </nav>
 
+<style>
+  .tc-slyce-buying-banner {
+    overflow: hidden;
+    background: #6f42c1;
+    color: #fff;
+    font-weight: 700;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .tc-slyce-buying-banner span {
+    display: inline-block;
+    padding: 7px 0;
+    animation: tc-slyce-banner-scroll 22s linear infinite;
+  }
+  @keyframes tc-slyce-banner-scroll {
+    from { transform: translateX(100vw); }
+    to { transform: translateX(-100%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tc-slyce-buying-banner { overflow: visible; white-space: normal; }
+    .tc-slyce-buying-banner span { animation: none; }
+  }
+</style>
+<div class="tc-slyce-buying-banner" role="status" aria-label="Buying in SLYCE space">
+  <span>BUYING PI AND EXPLORATION GEAR IN SLYCE SPACE — ALL SYSTEMS</span>
+</div>
+
 <!-- Character switching modal -->
 @if(auth()->user()->name != 'admin')
 <div class="modal fade off" id="characterSwitchModal" tabindex="-1" role="dialog"
