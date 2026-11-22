@@ -2,13 +2,13 @@
 
 @section('title', 'Exploration')
 @section('page_header', 'Exploration')
-@section('page_description', 'Track explored solar systems across Branch, Tenal, and Venal.')
+@section('page_description', 'Track explored solar systems across Branch, Tenal, Venal, and Geminate.')
 
 @section('full')
 <div class="card exploration-card">
   <div class="card-header p-0">
     <ul class="nav nav-tabs" id="exploration-region-tabs" role="tablist">
-      @foreach(['Branch', 'Tenal', 'Venal'] as $region)
+      @foreach(['Branch', 'Tenal', 'Venal', 'Geminate'] as $region)
         <li class="nav-item">
           <a class="nav-link {{ $loop->first ? 'active' : '' }}" id="exploration-{{ strtolower($region) }}-tab" data-toggle="tab" href="#exploration-{{ strtolower($region) }}" role="tab" aria-controls="exploration-{{ strtolower($region) }}" aria-selected="{{ $loop->first ? 'true' : 'false' }}">{{ $region }}</a>
         </li>
@@ -51,7 +51,7 @@
         <div class="small text-muted">Left-click a system to toggle explored (green). Right-click a system to open its signatures.</div>
       </div>
       <div class="tab-content">
-        @foreach(['Branch', 'Tenal', 'Venal'] as $region)
+        @foreach(['Branch', 'Tenal', 'Venal', 'Geminate'] as $region)
           @php($map = $maps[$region])
           <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="exploration-{{ strtolower($region) }}" role="tabpanel" aria-labelledby="exploration-{{ strtolower($region) }}-tab">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -83,7 +83,7 @@
         <div class="tab-pane fade" id="exploration-last-scanned" role="tabpanel" aria-labelledby="exploration-last-scanned-tab">
           <div class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <div><h4 class="mb-1">Last Scanned Systems</h4><p class="small text-muted mb-0">Most recent scan time for every system in Branch, Tenal, and Venal. Select a column heading to sort.</p></div>
+              <div><h4 class="mb-1">Last Scanned Systems</h4><p class="small text-muted mb-0">Most recent scan time for every system in Branch, Tenal, Venal, and Geminate. Select a column heading to sort.</p></div>
               <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-last-scanned-refresh">Refresh list</button>
             </div>
             <p id="exploration-last-scanned-status" class="small text-muted">Open this tab to load scan history.</p>
@@ -96,7 +96,7 @@
         <div class="tab-pane fade" id="exploration-cyno-infrastructure" role="tabpanel" aria-labelledby="exploration-cyno-infrastructure-tab">
           <div class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <div><h4 class="mb-1">Cyno Infrastructure</h4><p class="small text-muted mb-0">Manually mark Pharolux Cyno Generators and Tenebrex Cyno Jammers across Branch, Tenal, and Venal. Changes save immediately.</p></div>
+              <div><h4 class="mb-1">Cyno Infrastructure</h4><p class="small text-muted mb-0">Manually mark Pharolux Cyno Generators and Tenebrex Cyno Jammers across Branch, Tenal, Venal, and Geminate. Changes save immediately.</p></div>
               <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-cyno-refresh">Refresh systems</button>
             </div>
             <p id="exploration-cyno-status" class="small text-muted">Open this tab to load systems.</p>
@@ -107,7 +107,7 @@
         <div class="tab-pane fade" id="exploration-wormholes" role="tabpanel" aria-labelledby="exploration-wormholes-tab">
           <div class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-              <div><h4 class="mb-1">Recorded Wormholes</h4><p class="small text-muted mb-0">Wormhole signatures saved across Branch, Tenal, and Venal. Delete an individual signature when its connection has expired.</p></div>
+              <div><h4 class="mb-1">Recorded Wormholes</h4><p class="small text-muted mb-0">Wormhole signatures saved across Branch, Tenal, Venal, and Geminate. Delete an individual signature when its connection has expired.</p></div>
               <button type="button" class="btn btn-outline-secondary btn-sm" id="exploration-wormholes-refresh">Refresh list</button>
             </div>
             <p id="exploration-wormholes-status" class="small text-muted">Open this tab to load recorded wormholes.</p>
@@ -420,7 +420,7 @@
                         lastCenteredSystemId = currentSystemId;
                     }
                 } else if (status) {
-                    status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' is outside Branch, Tenal and Venal';
+                    status.textContent = 'Live location: ' + (data.character_name || 'Main character') + ' is outside Branch, Tenal, Venal and Geminate';
                 }
             } else if (status) {
                 status.textContent = data.message || 'Live location: unavailable';
@@ -718,7 +718,7 @@
               root.querySelectorAll('.exploration-system').forEach(function (node) {
                   if (node.dataset.systemId === String(location.solar_system_id)) systemNode = node;
               });
-              if (!systemNode) throw new Error('Your character is in ' + (location.solar_system_name || 'a system') + ', outside the Branch, Tenal, and Venal maps.');
+              if (!systemNode) throw new Error('Your character is in ' + (location.solar_system_name || 'a system') + ', outside the Branch, Tenal, Venal, and Geminate maps.');
               var region = systemNode.closest('.tab-pane').id.replace('exploration-', '');
               region = region.charAt(0).toUpperCase() + region.slice(1);
               var heading = document.createElement('h5');
@@ -779,7 +779,7 @@
 
     var scanRows = [];
     var scanSort = { key: 'scanned_at', direction: 'desc' };
-    var scanRegions = ['Branch', 'Tenal', 'Venal'];
+    var scanRegions = ['Branch', 'Tenal', 'Venal', 'Geminate'];
     function scanTimestamp(value) {
         if (!value) return null;
         var date = new Date(String(value).replace(' ', 'T'));
@@ -1024,7 +1024,7 @@
         var status = root.querySelector('#exploration-cyno-status');
         if (!container) return;
         container.replaceChildren();
-        ['Branch', 'Tenal', 'Venal'].forEach(function (region) {
+        ['Branch', 'Tenal', 'Venal', 'Geminate'].forEach(function (region) {
             var items = manualCynoRows.filter(function (item) { return item.region_name === region; });
             var details = document.createElement('details'); details.className = 'exploration-scan-group'; details.open = region === 'Branch';
             var summary = document.createElement('summary'); summary.textContent = region + ' — ' + items.length + ' systems'; details.appendChild(summary);
@@ -1062,7 +1062,7 @@
     }
     function loadManualCynoSystems() {
         var status=root.querySelector('#exploration-cyno-status');if(!status)return;
-        status.textContent='Loading Branch, Tenal, and Venal systems…';
+        status.textContent='Loading Branch, Tenal, Venal, and Geminate systems…';
         fetch(@json(url('/exploration/cyno-infrastructure/manual')),{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},cache:'no-store'})
         .then(function(response){if(!response.ok)throw new Error('Could not load manual cyno infrastructure.');return response.json();})
         .then(function(data){manualCynoRows=data.systems||[];renderManualCynoSystems();status.textContent=manualCynoRows.length+' systems available. Checkbox changes save immediately.';})
