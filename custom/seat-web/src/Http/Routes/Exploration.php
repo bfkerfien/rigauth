@@ -26,30 +26,30 @@ Route::group(['prefix' => 'exploration'], function () {
         ->name('seatcore::exploration.system-scans');
 
     Route::post('/{region}/systems/{systemId}/scanned-empty', 'ExplorationController@markNoSignatures')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.system-scans.empty');
 
     Route::get('/{region}/systems/{systemId}/signatures', 'ExplorationController@signatures')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.signatures.index');
 
     Route::post('/{region}/systems/{systemId}/signatures', 'ExplorationController@saveSignatures')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.signatures.save');
 
     Route::delete('/{region}/systems/{systemId}/signatures/{signatureId}', 'ExplorationController@deleteWormhole')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+', 'signatureId' => '[A-Za-z0-9-]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+', 'signatureId' => '[A-Za-z0-9-]+'])
         ->name('seatcore::exploration.signatures.wormhole-delete');
 
     Route::post('/{region}/systems/{systemId}/signatures/{signatureId}/wormhole-notes', 'ExplorationController@saveWormholeNotes')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+', 'signatureId' => '[A-Za-z0-9-]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+', 'signatureId' => '[A-Za-z0-9-]+'])
         ->name('seatcore::exploration.signatures.wormhole-notes');
 
     Route::post('/{region}/systems/{systemId}/toggle', 'ExplorationController@toggle')
-        ->where(['region' => 'Branch|Tenal|Venal', 'systemId' => '[0-9]+'])
+        ->where(['region' => 'Branch|Tenal|Venal|Geminate', 'systemId' => '[0-9]+'])
         ->name('seatcore::exploration.toggle');
 
     Route::post('/{region}/reset', 'ExplorationController@reset')
-        ->where('region', 'Branch|Tenal|Venal')
+        ->where('region', 'Branch|Tenal|Venal|Geminate')
         ->name('seatcore::exploration.reset');
 });
