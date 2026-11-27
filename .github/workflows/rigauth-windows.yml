@@ -31,8 +31,11 @@ jobs:
           node --check src/app.js
           node --check src/preload.js
           node --check scripts/create-template.js
+          node --check scripts/verify-template.js
       - name: Create fresh SQLite template
         run: node scripts/create-template.js
+      - name: Verify SQLite template integrity
+        run: node scripts/verify-template.js
       - name: Build installer
         run: npm run dist
       - name: Verify bundled database template
