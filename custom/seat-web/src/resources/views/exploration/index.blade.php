@@ -41,14 +41,14 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <div class="small text-muted mb-2 mb-md-0">
           <span class="exploration-legend"><span class="exploration-legend-dot white"></span> Unexplored</span>
-          <span class="exploration-legend"><span class="exploration-legend-dot green"></span> Explored</span>
+          <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Explored</span>
           <span class="exploration-legend"><span class="exploration-legend-dot red"></span> Permanently excluded</span>
           <span class="exploration-legend"><span class="exploration-legend-dot gold"></span> Your live location</span>
           <span class="exploration-legend"><span class="exploration-cyno-legend beacon">★</span> Confirmed Pharolux</span>
           <span class="exploration-legend"><span class="exploration-cyno-legend jammer">⊘</span> Confirmed Tenebrex</span>
           <span id="exploration-live-status" class="ml-2">Live location: connecting…</span>
         </div>
-        <div class="small text-muted">Left-click a system to toggle explored (green). Right-click a system to open its signatures.</div>
+        <div class="small text-muted">Left-click a system to toggle explored (gold). Right-click a system to open its signatures.</div>
       </div>
       <div class="tab-content">
         @foreach(['Branch', 'Tenal', 'Venal', 'Geminate'] as $region)
@@ -210,14 +210,14 @@
 .exploration-system .s { fill: #e8edf4 !important; stroke: #26384d !important; stroke-width: 1px !important; }
 .exploration-system .ss { fill: #c4d2e4 !important; }
 .exploration-system:hover .s, .exploration-system:focus .s { stroke: #55b9ff !important; stroke-width: 3px !important; }
-.exploration-system.is-green .s { fill: #31c66b !important; stroke: #15964a !important; }
-.exploration-system.is-green .ss { fill: #092516 !important; }
+.exploration-system.is-green .s { fill: #f2b632 !important; stroke: #b78312 !important; }
+.exploration-system.is-green .ss { fill: #2c2005 !important; }
 /* Selected Branch systems: neutral light-grey nodes with a teal oval; click/scan behavior is unchanged. */
 .exploration-system.is-branch-teal .s { fill:#cbd2d8 !important; stroke:#aab6c0 !important; }
 .exploration-system.is-branch-teal .ss { fill:#263746 !important; }
-/* Explored teal-highlighted systems turn green while retaining their teal oval. */
-.exploration-system.is-branch-teal.is-green .s { fill:#31c66b !important; stroke:#15964a !important; }
-.exploration-system.is-branch-teal.is-green .ss { fill:#092516 !important; }
+/* Explored teal-highlighted systems turn gold while retaining their teal oval. */
+.exploration-system.is-branch-teal.is-green .s { fill:#f2b632 !important; stroke:#b78312 !important; }
+.exploration-system.is-branch-teal.is-green .ss { fill:#2c2005 !important; }
 .exploration-branch-teal-oval { fill:none; stroke:#20b8b0; stroke-width:2.8; pointer-events:none; }
 .exploration-cyno-symbol { pointer-events:none; text-anchor:middle; dominant-baseline:middle; font-family:Arial,sans-serif; font-weight:bold; }
 .exploration-cyno-beacon-symbol { fill:#ffb52e; stroke:#171717; stroke-width:1.8px; paint-order:stroke; font-size:17px; }
