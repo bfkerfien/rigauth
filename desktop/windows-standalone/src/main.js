@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -32,8 +32,8 @@ function initDb() {
     if (match) { try { layouts = JSON.parse(zlib.gunzipSync(Buffer.from(match[1], 'base64')).toString('utf8')); } catch (e) { console.error('Map layout decode failed', e); } }
   }
 }
-function setting(key) { return db.prepare('SELECT value FROM settings WHERE key=?').get(key)?.value ?? ''; }
-function setSetting(key,value) { db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,String(value)); }
+function setting(key) { const value=db.prepare('SELECT value FROM settings WHERE key=?').get(key)?.value ?? '';if(key==='sso_client_secret'&&value.startsWith('enc:')&&safeStorage.isEncryptionAvailable()){try{return safeStorage.decryptString(Buffer.from(value.slice(4),'base64'));}catch{return '';}}return value; }
+function setSetting(key,value) { let stored=String(value);if(key==='sso_client_secret'&&stored&&safeStorage.isEncryptionAvailable())stored='enc:'+safeStorage.encryptString(stored).toString('base64');db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,stored); }
 function jsonResponse(url, options={}) { return fetch(url, options).then(async r => { if (!r.ok) throw new Error('ESI ' + r.status + ': ' + (await r.text()).slice(0,300)); return r.status===204?null:r.json(); }); }
 async function esi(pathname, options={}) { return jsonResponse('https://esi.evetech.net/latest'+pathname+(pathname.includes('?')?'&':'?')+'datasource=tranquility',options); }
 async function accessToken() {
@@ -162,7 +162,7 @@ async function beginSso() {
   return {status:'waiting',port};
 }
 ipcMain.handle('app:info',()=>({version:app.getVersion(),dbPath:path.join(app.getPath('userData'),'rigauth.sqlite'),character:setting('character_name'),characterId:setting('character_id'),lastSync:setting('universe_synced')}));
-ipcMain.handle('settings:get',()=>Object.fromEntries(rows('SELECT key,value FROM settings').map(x=>[x.key,x.value])));
+ipcMain.handle('settings:get',()=>Object.fromEntries(rows('SELECT key,value FROM settings').map(x=>[x.key,x.key==='sso_client_secret'?setting(x.key):x.value])));
 ipcMain.handle('settings:set',(_e,values)=>{for(const [k,v] of Object.entries(values))setSetting(k,v);return true;});
 ipcMain.handle('sso:connect',()=>beginSso());
 ipcMain.handle('sso:disconnect',()=>{const id=Number(setting('character_id'));if(id)db.prepare('DELETE FROM character_tokens WHERE character_id=?').run(id);for(const k of ['refresh_token','access_token','token_expires','character_id','character_name'])setSetting(k,'');return true;});
