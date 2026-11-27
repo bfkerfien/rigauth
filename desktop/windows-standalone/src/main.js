@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -29,6 +29,7 @@ function initDb() {
     CREATE TABLE IF NOT EXISTS system_scans(system_id INTEGER PRIMARY KEY,region TEXT NOT NULL,scanned_at TEXT NOT NULL,signature_count INTEGER NOT NULL DEFAULT 0,scan_status TEXT NOT NULL DEFAULT 'timestamp_only');
     CREATE TABLE IF NOT EXISTS cyno_manual(system_id INTEGER PRIMARY KEY,beacon INTEGER NOT NULL DEFAULT 0,jammer INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS tracked_characters(character_id INTEGER PRIMARY KEY,name TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1);
+    CREATE TABLE IF NOT EXISTS character_tokens(character_id INTEGER PRIMARY KEY,refresh_token TEXT NOT NULL,access_token TEXT,token_expires INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS finance_events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_type TEXT NOT NULL,character_id INTEGER,amount REAL NOT NULL,description TEXT,occurred_at TEXT NOT NULL,source_id TEXT UNIQUE);
     CREATE TABLE IF NOT EXISTS site_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,started_at TEXT NOT NULL,stopped_at TEXT,telemetry_units INTEGER NOT NULL DEFAULT 0,sites INTEGER NOT NULL DEFAULT 0,revenue REAL NOT NULL DEFAULT 0,expenses REAL NOT NULL DEFAULT 0,notes TEXT);
     CREATE TABLE IF NOT EXISTS wallet_entries(entry_id TEXT PRIMARY KEY,character_id INTEGER,amount REAL NOT NULL,reason TEXT NOT NULL,occurred_at TEXT NOT NULL);
@@ -60,11 +61,21 @@ async function accessToken() {
   setSetting('refresh_token',response.refresh_token || refresh); setSetting('access_token',response.access_token); setSetting('token_expires',Date.now()+response.expires_in*1000);
   return response.access_token;
 }
-async function authedEsi(pathname) {
-  let token=setting('access_token');
-  if (!token || Number(setting('token_expires')) < Date.now()+60000) token=await accessToken();
+async function authedEsi(pathname, characterId=Number(setting('character_id'))) {
+  const stored=characterId?db.prepare('SELECT * FROM character_tokens WHERE character_id=?').get(characterId):null;
+  let token=stored?.access_token || setting('access_token');
+  const expires=stored?.token_expires || Number(setting('token_expires'));
+  if (!token || expires < Date.now()+60000) {
+    const refresh=stored?.refresh_token || setting('refresh_token');
+    if(!refresh) throw new Error('Connect this EVE character in Settings first.');
+    const client=setting('sso_client_id'),secret=setting('sso_client_secret');
+    const t=await jsonResponse('https://login.eveonline.com/v2/oauth/token',{method:'POST',headers:{'Authorization':'Basic '+Buffer.from(client+':'+secret).toString('base64'),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:refresh})});
+    token=t.access_token;
+    if(stored) db.prepare('UPDATE character_tokens SET refresh_token=?,access_token=?,token_expires=? WHERE character_id=?').run(t.refresh_token||refresh,token,Date.now()+t.expires_in*1000,characterId);
+    else {setSetting('refresh_token',t.refresh_token||refresh);setSetting('access_token',token);setSetting('token_expires',Date.now()+t.expires_in*1000);}
+  }
   try { return await jsonResponse('https://esi.evetech.net/latest'+pathname+(pathname.includes('?')?'&':'?')+'datasource=tranquility',{headers:{Authorization:'Bearer '+token}}); }
-  catch(e) { if(String(e).includes('ESI 401')) { token=await accessToken(); return jsonResponse('https://esi.evetech.net/latest'+pathname+'?datasource=tranquility',{headers:{Authorization:'Bearer '+token}}); } throw e; }
+  catch(e) { if(String(e).includes('ESI 401')) { if(stored) db.prepare('UPDATE character_tokens SET token_expires=0 WHERE character_id=?').run(characterId); else setSetting('token_expires',0); return authedEsi(pathname,characterId); } throw e; }
 }
 function createWindow() {
   win = new BrowserWindow({width:1500,height:950,minWidth:1100,minHeight:700,backgroundColor:'#0b1220',title:'RIGAUTH',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
@@ -113,6 +124,7 @@ async function syncUniverse() {
   const insert=db.prepare('INSERT INTO systems(id,name,region,constellation,x,y,z) VALUES(@id,@name,@region,@constellation,@x,@y,@z) ON CONFLICT(id) DO UPDATE SET name=excluded.name,region=excluded.region,constellation=excluded.constellation,x=excluded.x,y=excluded.y,z=excluded.z');
   const tx=db.transaction(items=>items.forEach(x=>insert.run(x)));tx(all);
   const sov=await esi('/sovereignty/systems/');
+  db.prepare('DELETE FROM sovereignty').run();
   const putSov=db.prepare('INSERT INTO sovereignty(system_id,alliance_id) VALUES(?,?) ON CONFLICT(system_id) DO UPDATE SET alliance_id=excluded.alliance_id');
   const sovTx=db.transaction(items=>items.forEach(x=>putSov.run(x.system_id,x.alliance_id)));sovTx(sov.filter(x=>x.alliance_id===SYN_ALLIANCE_ID));
   const jumps=await esi('/universe/system_jumps/');
@@ -147,13 +159,17 @@ async function beginSso() {
       setSetting('refresh_token',token.refresh_token);setSetting('access_token',token.access_token);setSetting('token_expires',Date.now()+token.expires_in*1000);
       const verify=await jsonResponse('https://login.eveonline.com/oauth/verify',{headers:{Authorization:'Bearer '+token.access_token}});
       setSetting('character_id',verify.CharacterID);setSetting('character_name',verify.CharacterName);setSetting('character_owner_hash',verify.CharacterOwnerHash);
+      db.prepare('INSERT INTO character_tokens(character_id,refresh_token,access_token,token_expires) VALUES(?,?,?,?) ON CONFLICT(character_id) DO UPDATE SET refresh_token=excluded.refresh_token,access_token=excluded.access_token,token_expires=excluded.token_expires').run(verify.CharacterID,token.refresh_token,token.access_token,Date.now()+token.expires_in*1000);
+      db.prepare('INSERT INTO tracked_characters(character_id,name,enabled) VALUES(?,?,1) ON CONFLICT(character_id) DO UPDATE SET name=excluded.name,enabled=1').run(verify.CharacterID,verify.CharacterName);
+      const charInfo=await jsonResponse('https://esi.evetech.net/latest/characters/'+verify.CharacterID+'/?datasource=tranquility');
+      if(charInfo.corporation_id) setSetting('tracked_corporation_id',charInfo.corporation_id);
       res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end('<h2>RIGAUTH connected</h2><p>You can close this window and return to RIGAUTH.</p>');
       win?.webContents.send('sso-complete',{name:verify.CharacterName,id:verify.CharacterID});
     }catch(e){res.writeHead(500);res.end('EVE SSO failed: '+e.message);}
     finally{oauthServer?.close();oauthServer=null;}
   });
   await new Promise((resolve,reject)=>oauthServer.listen(port,'127.0.0.1',resolve).once('error',reject));
-  const scopes=['esi-location.read_location.v1','esi-wallet.read_character_wallet.v1','esi-assets.read_assets.v1'];
+  const scopes=['esi-location.read_location.v1','esi-wallet.read_character_wallet.v1','esi-assets.read_assets.v1','esi-assets.read_corporation_assets.v1'];
   const auth='https://login.eveonline.com/v2/oauth/authorize/?response_type=code&redirect_uri='+encodeURIComponent('http://127.0.0.1:'+port+'/callback')+'&client_id='+encodeURIComponent(client)+'&scope='+encodeURIComponent(scopes.join(' '))+'&state='+state+'&code_challenge='+challenge+'&code_challenge_method=S256';
   await shell.openExternal(auth);
   return {status:'waiting',port};
@@ -163,6 +179,8 @@ ipcMain.handle('settings:get',()=>Object.fromEntries(rows('SELECT key,value FROM
 ipcMain.handle('settings:set',(_e,values)=>{for(const [k,v] of Object.entries(values))setSetting(k,v);return true;});
 ipcMain.handle('sso:connect',()=>beginSso());
 ipcMain.handle('sso:disconnect',()=>{for(const k of ['refresh_token','access_token','token_expires','character_id','character_name'])setSetting(k,'');return true;});
+ipcMain.handle('db:backup',async()=>{const out=await dialog.showSaveDialog(win,{title:'Back up RIGAUTH database',defaultPath:'rigauth-backup.sqlite',filters:[{name:'SQLite database',extensions:['sqlite','db']}]});if(out.canceled||!out.filePath)return {canceled:true};db.pragma('wal_checkpoint(FULL)');fs.copyFileSync(path.join(app.getPath('userData'),'rigauth.sqlite'),out.filePath);return {filePath:out.filePath};});
+ipcMain.handle('db:restore',async()=>{const pick=await dialog.showOpenDialog(win,{title:'Restore RIGAUTH database',properties:['openFile'],filters:[{name:'SQLite database',extensions:['sqlite','db']}]});if(pick.canceled||!pick.filePaths[0])return {canceled:true};const source=pick.filePaths[0];const test=new Database(source,{readonly:true});test.prepare('SELECT name FROM sqlite_master WHERE type=?').all('table');test.close();db.close();fs.copyFileSync(source,path.join(app.getPath('userData'),'rigauth.sqlite'));initDb();return {restored:true};});
 ipcMain.handle('universe:sync',async()=>syncUniverse());
 ipcMain.handle('map:get',(_e,region)=>getMap(region));
 ipcMain.handle('map:toggle',(_e,id)=>{const s=db.prepare('SELECT * FROM systems WHERE id=?').get(id);if(!s)throw new Error('Unknown solar system.');if(getMap(s.region).nodes.find(n=>n.id===id)?.status==='red')throw new Error('This system is permanently excluded.');const exists=db.prepare('SELECT 1 FROM explored WHERE system_id=?').get(id);if(exists)db.prepare('DELETE FROM explored WHERE system_id=?').run(id);else db.prepare('INSERT INTO explored(system_id,region) VALUES(?,?)').run(id,s.region);return getMap(s.region);});
@@ -178,11 +196,12 @@ ipcMain.handle('cyno:list',()=>rows('SELECT y.id,y.name,y.region,coalesce(c.beac
 ipcMain.handle('cyno:save',(_e,p)=>{db.prepare('INSERT INTO cyno_manual(system_id,beacon,jammer,updated_at) VALUES(?,?,?,?) ON CONFLICT(system_id) DO UPDATE SET beacon=excluded.beacon,jammer=excluded.jammer,updated_at=excluded.updated_at').run(p.systemId,+p.beacon,+p.jammer,new Date().toISOString());return true;});
 ipcMain.handle('cyno:sync',async()=>{const s=await esi('/sovereignty/structures/');const beacons=s.filter(x=>x.structure_type_id===35840),jammers=s.filter(x=>x.structure_type_id===37534);return {beacons,jammers};});
 ipcMain.handle('location:get',async()=>{const id=setting('character_id');if(!id)throw new Error('Connect your EVE character first.');const data=await authedEsi('/characters/'+id+'/location/');const system=db.prepare('SELECT * FROM systems WHERE id=?').get(data.solar_system_id);return {character:setting('character_name'),systemId:data.solar_system_id,system};});
-ipcMain.handle('finance:summary',()=>{const telemetry=Number(setting('telemetry_type_id')||89219),unit=Number(setting('telemetry_unit_value')||300000),perSite=Number(setting('telemetry_units_per_site')||60),payout=Number(setting('site_payout_per_character')||9000000);const units=rows('SELECT coalesce(sum(quantity),0) n FROM assets WHERE type_id=?',telemetry)[0].n;const sites=Math.floor(units/perSite);const sessions=rows('SELECT * FROM site_sessions ORDER BY id DESC LIMIT 30');const events=rows('SELECT * FROM finance_events ORDER BY occurred_at DESC LIMIT 50');return {telemetryUnits:units,sites,telemetryValue:units*unit,sitePayout:sites*payout*3,estimatedRevenue:sites*(payout*3),sessions,events,characters:rows('SELECT * FROM tracked_characters ORDER BY name')};});
+ipcMain.handle('finance:summary',()=>{const telemetry=Number(setting('telemetry_type_id')||89219),unit=Number(setting('telemetry_unit_value')||300000),perSite=Number(setting('telemetry_units_per_site')||60),payout=Number(setting('site_payout_per_character')||9000000);const units=rows('SELECT coalesce(sum(quantity),0) n FROM assets WHERE type_id=?',telemetry)[0].n;const sites=Math.floor(units/perSite);const sessions=rows('SELECT * FROM site_sessions ORDER BY id DESC LIMIT 30');const events=rows('SELECT * FROM finance_events ORDER BY occurred_at DESC LIMIT 50');return {telemetryUnits:units,sites,telemetryValue:units*unit,sitePayout:sites*payout*3,estimatedRevenue:sites*(payout*3),sessions,events,characters:rows('SELECT * FROM tracked_characters ORDER BY name'),walletEntries:rows('SELECT * FROM wallet_entries ORDER BY occurred_at DESC LIMIT 100')};});
 ipcMain.handle('finance:add-character',(_e,p)=>{db.prepare('INSERT INTO tracked_characters(character_id,name) VALUES(?,?) ON CONFLICT(character_id) DO UPDATE SET name=excluded.name,enabled=1').run(p.id,p.name);return true;});
 ipcMain.handle('finance:start-session',()=>{const now=new Date().toISOString();db.prepare('INSERT INTO site_sessions(started_at) VALUES(?)').run(now);return db.prepare('SELECT * FROM site_sessions ORDER BY id DESC LIMIT 1').get();});
 ipcMain.handle('finance:stop-session',(_e,p)=>{const s=db.prepare('SELECT * FROM site_sessions WHERE stopped_at IS NULL ORDER BY id DESC LIMIT 1').get();if(!s)throw new Error('No active session.');const now=new Date().toISOString(),units=Number(p.telemetryUnits||0),sites=Math.floor(units/60),revenue=sites*27000000+units*300000;db.prepare('UPDATE site_sessions SET stopped_at=?,telemetry_units=?,sites=?,revenue=?,expenses=?,notes=? WHERE id=?').run(now,units,sites,revenue,Number(p.expenses||0),p.notes||'',s.id);return db.prepare('SELECT * FROM site_sessions WHERE id=?').get(s.id);});
-ipcMain.handle('finance:refresh-wallet',async()=>{const chars=rows('SELECT * FROM tracked_characters WHERE enabled=1');let added=0;for(const c of chars){const entries=await authedEsi('/characters/'+c.character_id+'/wallet/journal/?page=1');const put=db.prepare('INSERT OR IGNORE INTO wallet_entries(entry_id,character_id,amount,reason,occurred_at) VALUES(?,?,?,?,?)');for(const e of entries){const id=String(e.id);if(put.run(id,c.character_id,e.amount,e.reason,new Date(e.date).toISOString()).changes)added++;}}return {added};});
+ipcMain.handle('finance:refresh-wallet',async()=>{const chars=rows('SELECT * FROM tracked_characters WHERE enabled=1');let added=0;const put=db.prepare('INSERT OR IGNORE INTO wallet_entries(entry_id,character_id,amount,reason,occurred_at) VALUES(?,?,?,?,?)');for(const c of chars){const entries=await authedEsi('/characters/'+c.character_id+'/wallet/journal/?page=1',c.character_id);for(const e of entries){const id=String(c.character_id)+':'+String(e.id);if(put.run(id,c.character_id,e.amount,e.reason,new Date(e.date).toISOString()).changes)added++;}}return {added};});
+ipcMain.handle('finance:refresh-assets',async()=>{const chars=rows('SELECT * FROM tracked_characters WHERE enabled=1');let count=0;const corp=setting('tracked_corporation_id');const put=db.prepare('INSERT INTO assets(type_id,type_name,quantity,location_id,owner_id,estimated_value,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(type_id,location_id,owner_id) DO UPDATE SET quantity=excluded.quantity,updated_at=excluded.updated_at');for(const c of chars){try{const items=await authedEsi('/characters/'+c.character_id+'/assets/?page=1',c.character_id);for(const a of items){if(Number(a.type_id)!==Number(setting('telemetry_type_id')||89219))continue;put.run(a.type_id,'Telemetry',a.quantity,String(a.location_id),c.character_id,0,new Date().toISOString());count+=a.quantity;}}catch(e){console.warn('Character asset sync failed',c.name,e.message);}}if(corp){for(const c of chars){try{const items=await authedEsi('/corporations/'+corp+'/assets/?page=1',c.character_id);for(const a of items){if(Number(a.type_id)!==Number(setting('telemetry_type_id')||89219)||a.location_flag!=='CorpSAG3')continue;put.run(a.type_id,'Telemetry',a.quantity,String(a.location_id),Number(corp),0,new Date().toISOString());count+=a.quantity;}}catch(e){console.warn('Corporation asset sync failed',e.message);break;}}}return {telemetryUnits:count};});
 app.whenReady().then(()=>{initDb();createWindow();app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)createWindow();});});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});
 app.on('before-quit',()=>{try{db?.close();}catch{}});
