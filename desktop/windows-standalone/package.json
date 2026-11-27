@@ -34,9 +34,14 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
-      ],
-      "artifactName": "RIGAUTH-Setup-${version}.${ext}"
+      ]
     },
     "nsis": {
       "oneClick": true,
@@ -44,8 +49,12 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "RIGAUTH"
+      "shortcutName": "RIGAUTH",
+      "artifactName": "RIGAUTH-Setup-${version}.${ext}"
     },
-    "npmRebuild": true
+    "npmRebuild": true,
+    "portable": {
+      "artifactName": "RIGAUTH-${version}-Portable.${ext}"
+    }
   }
 }
