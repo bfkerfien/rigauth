@@ -22,6 +22,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Create fresh SQLite template
+        run: node scripts/create-template.js
       - name: Build installer
         run: npm run dist
       - name: Smoke-check outputs
