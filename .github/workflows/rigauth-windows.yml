@@ -1,0 +1,40 @@
+name: RIGAUTH Windows desktop
+on:
+  workflow_dispatch:
+  push:
+    branches: [desktop/windows-standalone]
+    paths:
+      - 'desktop/windows-standalone/**'
+      - '.github/workflows/rigauth-windows.yml'
+permissions:
+  contents: read
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: desktop/windows-standalone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/windows-standalone/package-lock.json
+      - name: Install dependencies
+        run: npm install
+      - name: Build installer
+        run: npm run dist
+      - name: Smoke-check outputs
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release -Filter 'RIGAUTH-Setup-*.exe'
+          if (-not $setup) { throw 'Installer was not produced.' }
+          Get-FileHash $setup.FullName -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIGAUTH-Windows-x64
+          path: desktop/windows-standalone/release/*.exe
+          if-no-files-found: error
+          retention-days: 30
