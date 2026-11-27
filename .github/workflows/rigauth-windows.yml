@@ -6,6 +6,9 @@ on:
     paths:
       - 'desktop/windows-standalone/**'
       - '.github/workflows/rigauth-windows.yml'
+concurrency:
+  group: rigauth-windows-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -22,10 +25,21 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Validate JavaScript syntax
+        run: |
+          node --check src/main.js
+          node --check src/app.js
+          node --check src/preload.js
+          node --check scripts/create-template.js
       - name: Create fresh SQLite template
         run: node scripts/create-template.js
       - name: Build installer
         run: npm run dist
+      - name: Verify bundled database template
+        shell: pwsh
+        run: |
+          if (-not (Test-Path data/rigauth-template.sqlite)) { throw 'SQLite template was not generated.' }
+          Get-Item data/rigauth-template.sqlite | Format-List
       - name: Smoke-check outputs
         shell: pwsh
         run: |
