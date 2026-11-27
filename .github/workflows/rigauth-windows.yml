@@ -54,6 +54,13 @@ jobs:
           if (-not $portable) { throw 'Portable executable was not produced.' }
           Get-FileHash $setup.FullName -Algorithm SHA256 | Format-List
           Get-FileHash $portable.FullName -Algorithm SHA256 | Format-List
+      - name: Create simple launch filenames
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release -Filter 'RIGAUTH-Setup-*.exe' | Select-Object -First 1
+          $portable = Get-ChildItem release -Filter 'RIGAUTH-*-Portable.exe' | Select-Object -First 1
+          Copy-Item $setup.FullName release/RIGAUTH-Setup.exe -Force
+          Copy-Item $portable.FullName release/RIGAUTH.exe -Force
       - name: Create versioned release archive
         shell: pwsh
         run: Compress-Archive -Path release/*.exe, README.md -DestinationPath release/RIGAUTH-Windows-x64-1.0.0.zip -Force
