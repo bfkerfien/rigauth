@@ -38,6 +38,8 @@ jobs:
         run: node scripts/verify-template.js
       - name: Build installer
         run: npm run dist
+      - name: Launch Electron smoke test
+        run: npm run smoke
       - name: Verify bundled database template
         shell: pwsh
         run: |
