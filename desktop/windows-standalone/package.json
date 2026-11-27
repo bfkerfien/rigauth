@@ -1,0 +1,51 @@
+{
+  "name": "rigauth-desktop",
+  "version": "1.0.0",
+  "description": "RIGAUTH standalone EVE Online exploration and finance desktop app",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^39.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1"
+  },
+  "build": {
+    "appId": "com.triglavianconsortium.rigauth",
+    "productName": "RIGAUTH",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "data/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "RIGAUTH-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RIGAUTH"
+    },
+    "npmRebuild": true
+  }
+}
