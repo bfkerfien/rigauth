@@ -16,9 +16,6 @@ let win, db, layouts = {}, oauthServer = null;
 function initDb() {
   const dbPath = path.join(app.getPath('userData'), 'rigauth.sqlite');
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
   const template=path.join(__dirname,'..','data','rigauth-template.sqlite');
   const schemaFile=path.join(__dirname,'..','data','schema.sql');
   if(!fs.existsSync(dbPath) && fs.existsSync(template)) fs.copyFileSync(template,dbPath);
