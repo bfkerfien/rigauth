@@ -61,12 +61,12 @@ jobs:
           $portable = Get-ChildItem release -Filter 'RIGAUTH-*-Portable.exe' | Select-Object -First 1
           Copy-Item $setup.FullName release/RIGAUTH-Setup.exe -Force
           Copy-Item $portable.FullName release/RIGAUTH.exe -Force
-      - name: Create versioned release archive
-        shell: pwsh
-        run: Compress-Archive -Path release/*.exe, README.md -DestinationPath release/RIGAUTH-Windows-x64-1.0.0.zip -Force
       - uses: actions/upload-artifact@v4
         with:
-          name: RIGAUTH-Windows-x64
-          path: desktop/windows-standalone/release/*
+          name: RIGAUTH-Windows-x64-1.0.0
+          path: |
+            desktop/windows-standalone/release/RIGAUTH-Setup.exe
+            desktop/windows-standalone/release/RIGAUTH.exe
+            desktop/windows-standalone/README.md
           if-no-files-found: error
           retention-days: 30
