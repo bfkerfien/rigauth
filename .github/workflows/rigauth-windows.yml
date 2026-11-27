@@ -44,8 +44,11 @@ jobs:
         shell: pwsh
         run: |
           $setup = Get-ChildItem release -Filter 'RIGAUTH-Setup-*.exe'
+          $portable = Get-ChildItem release -Filter 'RIGAUTH-*-Portable.exe'
           if (-not $setup) { throw 'Installer was not produced.' }
+          if (-not $portable) { throw 'Portable executable was not produced.' }
           Get-FileHash $setup.FullName -Algorithm SHA256 | Format-List
+          Get-FileHash $portable.FullName -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@v4
         with:
           name: RIGAUTH-Windows-x64
