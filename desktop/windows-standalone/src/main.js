@@ -23,6 +23,7 @@ function initDb() {
     CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS systems(id INTEGER PRIMARY KEY,name TEXT NOT NULL,region TEXT NOT NULL,constellation TEXT,x REAL,y REAL,z REAL);
     CREATE TABLE IF NOT EXISTS gates(from_id INTEGER NOT NULL,to_id INTEGER NOT NULL,PRIMARY KEY(from_id,to_id));
+    CREATE TABLE IF NOT EXISTS sovereignty(system_id INTEGER PRIMARY KEY,alliance_id INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS explored(system_id INTEGER PRIMARY KEY,region TEXT NOT NULL,marked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS signatures(id INTEGER PRIMARY KEY AUTOINCREMENT,region TEXT NOT NULL,system_id INTEGER NOT NULL,signature_id TEXT NOT NULL,group_name TEXT,type_name TEXT,signature_name TEXT,strength REAL,raw_data TEXT,wormhole_type TEXT,connection_system TEXT,wormhole_exits TEXT,scanned_at TEXT NOT NULL,UNIQUE(system_id,signature_id));
     CREATE TABLE IF NOT EXISTS system_scans(system_id INTEGER PRIMARY KEY,region TEXT NOT NULL,scanned_at TEXT NOT NULL,signature_count INTEGER NOT NULL DEFAULT 0,scan_status TEXT NOT NULL DEFAULT 'timestamp_only');
@@ -77,7 +78,7 @@ function getMap(region) {
   const manualRed=new Set();
   if(region==='Branch') for(const name of BRANCH_RED) { const s=systems.find(x=>x.name===name); if(s) manualRed.add(s.id); }
   if(region==='Tenal') for(const name of TENAL_RED_CONSTELLATIONS) for(const s of systems.filter(x=>x.constellation===name)) manualRed.add(s.id);
-  const sov=new Set(rows('SELECT id FROM systems').map(x=>x.id));
+  const sov=new Set(rows('SELECT system_id FROM sovereignty WHERE alliance_id=?',SYN_ALLIANCE_ID).map(x=>x.system_id));
   const map=layouts[region];
   let nodes=[],edges=[];
   if(map?.nodes?.length && region!=='Geminate') {
@@ -90,10 +91,11 @@ function getMap(region) {
     const seen=new Set(); for(const g of rows('SELECT from_id,to_id FROM gates')) if(systems.some(s=>s.id===g.from_id)&&systems.some(s=>s.id===g.to_id)){const k=[g.from_id,g.to_id].sort().join(':');if(!seen.has(k)){seen.add(k);const a=nodes.find(n=>n.id===g.from_id),b=nodes.find(n=>n.id===g.to_id);edges.push({from:g.from_id,to:g.to_id,x1:a.x,y1:a.y,x2:b.x,y2:b.y,kind:'j'});}}
   }
   const systemById=new Map(systems.map(s=>[s.id,s]));
-  return {region,nodes:nodes.map(n=>{const s=systemById.get(n.id);return {...n,status:n.external?'external':manualRed.has(n.id)?'red':explored.has(n.id)?'green':'white',teal:region==='Branch'&&BRANCH_TEAL.includes(n.name),constellation:s?.constellation||''};}),edges,exploredCount:systems.filter(s=>explored.has(s.id)).length,total:systems.length};
+  return {region,nodes:nodes.map(n=>{const s=systemById.get(n.id);return {...n,status:n.external?'external':(manualRed.has(n.id)||sov.has(n.id))?'red':explored.has(n.id)?'green':'white',teal:region==='Branch'&&BRANCH_TEAL.includes(n.name),constellation:s?.constellation||''};}),edges,exploredCount:systems.filter(s=>explored.has(s.id)).length,total:systems.length};
 }
 async function syncUniverse() {
-  const names=await esi('/universe/regions/names/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(REGIONS)});
+  const regionIds=await esi('/universe/regions/');
+  const names=await esi('/universe/regions/names/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(regionIds)});
   const regionMap=new Map(names.map(x=>[x.name,x.region_id]));
   const all=[];
   for(const region of REGIONS){
@@ -110,6 +112,9 @@ async function syncUniverse() {
   }
   const insert=db.prepare('INSERT INTO systems(id,name,region,constellation,x,y,z) VALUES(@id,@name,@region,@constellation,@x,@y,@z) ON CONFLICT(id) DO UPDATE SET name=excluded.name,region=excluded.region,constellation=excluded.constellation,x=excluded.x,y=excluded.y,z=excluded.z');
   const tx=db.transaction(items=>items.forEach(x=>insert.run(x)));tx(all);
+  const sov=await esi('/sovereignty/systems/');
+  const putSov=db.prepare('INSERT INTO sovereignty(system_id,alliance_id) VALUES(?,?) ON CONFLICT(system_id) DO UPDATE SET alliance_id=excluded.alliance_id');
+  const sovTx=db.transaction(items=>items.forEach(x=>putSov.run(x.system_id,x.alliance_id)));sovTx(sov.filter(x=>x.alliance_id===SYN_ALLIANCE_ID));
   const jumps=await esi('/universe/system_jumps/');
   const put=db.prepare('INSERT OR IGNORE INTO gates(from_id,to_id) VALUES(?,?)');
   const tx2=db.transaction(items=>items.forEach(x=>{put.run(x.from,x.to);put.run(x.to,x.from);}));tx2(jumps);
