@@ -54,9 +54,12 @@ jobs:
           if (-not $portable) { throw 'Portable executable was not produced.' }
           Get-FileHash $setup.FullName -Algorithm SHA256 | Format-List
           Get-FileHash $portable.FullName -Algorithm SHA256 | Format-List
+      - name: Create versioned release archive
+        shell: pwsh
+        run: Compress-Archive -Path release/*.exe, README.md -DestinationPath release/RIGAUTH-Windows-x64-1.0.0.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: RIGAUTH-Windows-x64
-          path: desktop/windows-standalone/release/*.exe
+          path: desktop/windows-standalone/release/*
           if-no-files-found: error
           retention-days: 30
